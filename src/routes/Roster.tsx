@@ -1,42 +1,61 @@
+import React, { useEffect, useState } from "react";
+import { listRoster } from "../lib/db";
 
-import { useEffect, useState } from 'react';
-import { listRoster } from '../lib/db';
-
-type Row = { uid: string, firstName: string, unit: 'lb'|'kg' };
+type Row = { uid:string; firstName?:string; lastName?:string; unit?:'lb'|'kg' };
 
 export default function Roster() {
   const [rows, setRows] = useState<Row[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [err, setErr] = useState<string|undefined>();
 
   useEffect(() => {
-    listRoster().then(setRows).catch((e)=>{
-      console.error(e);
-      setError('Permission denied (are you marked as coach?) or rules missing profile read.');
-    });
+    (async () => {
+      try {
+        const data = await listRoster();
+        setRows(data);
+      } catch (e:any) {
+        setErr(e?.message || String(e));
+      }
+    })();
   }, []);
+
+  if (err) {
+    return (
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-2">Roster</h3>
+        <div className="text-sm text-red-700">Error: {err}</div>
+        <p className="text-sm mt-2">
+          If this says “Missing or insufficient permissions”, ensure your account has coach role:
+          create <code>{'roles/{uid}'}</code> with <code>{"{ role: \"coach\" }"}</code>, then publish rules.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="card">
-      <h3 className="text-lg font-semibold mb-3">Coach Roster (read-only)</h3>
-      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-2 mb-3">{error}</div>}
+      <h3 className="text-lg font-semibold mb-2">Roster</h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b">
-              <th className="py-2 pr-3">First Name</th>
-              <th className="py-2 pr-3">UID</th>
-              <th className="py-2">Unit</th>
+        <table className="w-full text-sm border rounded-xl overflow-hidden">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-2 text-left">UID</th>
+              <th className="p-2 text-left">First</th>
+              <th className="p-2 text-left">Last</th>
+              <th className="p-2 text-left">Unit</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(r => (
-              <tr key={r.uid} className="border-b last:border-0">
-                <td className="py-2 pr-3">{r.firstName}</td>
-                <td className="py-2 pr-3 font-mono text-[11px] break-all">{r.uid}</td>
-                <td className="py-2">{r.unit}</td>
+              <tr key={r.uid} className="border-t">
+                <td className="p-2 text-xs">{r.uid}</td>
+                <td className="p-2">{r.firstName || "—"}</td>
+                <td className="p-2">{r.lastName || "—"}</td>
+                <td className="p-2">{r.unit || "—"}</td>
               </tr>
             ))}
-            {rows.length===0 && !error && <tr><td className="py-2 text-gray-500" colSpan={3}>No athletes found yet.</td></tr>}
+            {rows.length===0 && (
+              <tr><td className="p-2 text-gray-500" colSpan={4}>No athletes yet.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

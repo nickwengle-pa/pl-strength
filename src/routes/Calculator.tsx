@@ -1,141 +1,132 @@
+import React, { useEffect, useState } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { fb } from "../lib/db";
+import { loadProfile, saveProfile } from "../lib/storage";
 
-import { useEffect, useState } from 'react';
-import { estimate1RM, trainingMax, warmupPercents, weekPercents, roundToPlate } from '../lib/tm';
-import { loadProfile, saveProfile } from '../lib/storage';
-import { saveProfileRemote, loadProfileRemote } from '../lib/db';
-
-type Week = 1|2|3|4;
+type Lift = "bench" | "squat" | "deadlift" | "press";
+type Unit = "lb" | "kg";
 
 export default function Calculator() {
-  const [lift, setLift] = useState<'bench'|'squat'|'deadlift'|'press'>('bench');
-  const [unit, setUnit] = useState<'lb'|'kg'>('lb');
-  const [base, setBase] = useState<number>(135);
-  const [useRepMax, setUseRepMax] = useState(false);
-  const [repWeight, setRepWeight] = useState(135);
-  const [reps, setReps] = useState(5);
-  const [week, setWeek] = useState<Week>(1);
-  const [step, setStep] = useState(5);
+  const [unit, setUnit] = useState<Unit>("lb");
+  const [tm, setTm] = useState<Record<Lift, number | "">>({
+    bench: "", squat: "", deadlift: "", press: ""
+  });
+  const [saving, setSaving] = useState(false);
 
-  // Load from remote (if available) then local fallback
   useEffect(() => {
     (async () => {
-      const remote = await loadProfileRemote();
-      const local = loadProfile();
-      const p = remote || local;
-      if (p) {
-        setUnit(p.unit || 'lb');
-        setStep((p.unit||'lb')==='lb' ? 5 : 2.5);
-        const oneRM = p.tm?.[lift] ? Math.round((p.tm![lift] as number)/0.9) : undefined;
-        setBase(oneRM || 135);
-      }
+      try {
+        const local = loadProfile();
+        if (local?.unit) setUnit(local.unit);
+        if (local?.tm) {
+          setTm({
+            bench: local.tm.bench ?? "",
+            squat: local.tm.squat ?? "",
+            deadlift: local.tm.deadlift ?? "",
+            press: local.tm.press ?? ""
+          });
+        }
+      } catch {}
+      try {
+        const uid = fb.auth.currentUser?.uid;
+        if (!uid) return;
+        const snap = await getDoc(doc(fb.db, "athletes", uid, "profile", "meta"));
+        if (snap.exists()) {
+          const p = snap.data() as any;
+          if (p.unit) setUnit(p.unit);
+          if (p.tm) {
+            setTm({
+              bench: p.tm.bench ?? "",
+              squat: p.tm.squat ?? "",
+              deadlift: p.tm.deadlift ?? "",
+              press: p.tm.press ?? ""
+            });
+          }
+        }
+      } catch {}
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lift]);
+  }, []);
 
-  const oneRM = useRepMax ? estimate1RM(repWeight, reps) : base;
-  const tm = trainingMax(oneRM);
+  function onChange(lift: Lift, val: string) {
+    const num = parseFloat(val);
+    setTm(prev => ({ ...prev, [lift]: isFinite(num) ? num : "" }));
+  }
 
-  const warmups = warmupPercents().map(p=> roundToPlate(tm*p, unit, step));
-  const work = weekPercents(week).map(p=> roundToPlate(tm*p, unit, step));
+  async function onSave() {
+    const uid = fb.auth.currentUser?.uid;
+    if (!uid) return alert("Not signed in.");
+    setSaving(true);
+    const payload = {
+      unit,
+      tm: {
+        bench: typeof tm.bench === "number" ? tm.bench : 0,
+        squat: typeof tm.squat === "number" ? tm.squat : 0,
+        deadlift: typeof tm.deadlift === "number" ? tm.deadlift : 0,
+        press: typeof tm.press === "number" ? tm.press : 0
+      }
+    };
+    try { saveProfile(payload as any); } catch {}
+    await setDoc(doc(fb.db, "athletes", uid, "profile", "meta"), payload, { merge: true });
+    setSaving(false);
+    alert("Training Max saved.");
+  }
 
-  async function saveTM() {
-    // persist locally
-    const local = loadProfile() || { firstName: 'Athlete', unit, tm: {} as any };
-    local.firstName = local.firstName || 'Athlete';
-    local.unit = unit;
-    local.tm = { ...(local.tm||{}), [lift]: tm };
-    saveProfile(local as any);
-
-    // try remote
-    await saveProfileRemote(local as any).catch(()=>{});
-
-    alert(`Saved TM for ${lift.toUpperCase()}: ${tm} ${unit}`);
+  function pctOf(val: number | "", pct: number) {
+    if (typeof val !== "number" || !isFinite(val)) return "";
+    return Math.round(val * pct);
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="card">
-        <h3 className="text-lg font-semibold mb-2">Training Max Calculator</h3>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-sm">Lift</label>
-            <select className="border rounded-xl px-2 py-1" value={lift} onChange={e=>setLift(e.target.value as any)}>
-              <option value="bench">Bench</option>
-              <option value="squat">Squat</option>
-              <option value="deadlift">Deadlift</option>
-              <option value="press">Press</option>
-            </select>
+    <div className="card space-y-4">
+      <h3 className="text-lg font-semibold">Calculator — Training Max</h3>
 
-            <label className="text-sm">Units</label>
-            <select className="border rounded-xl px-2 py-1" value={unit} onChange={e=>{const u=e.target.value as any; setUnit(u); setStep(u==='lb'?5:2.5);}}>
-              <option value="lb">lb</option>
-              <option value="kg">kg</option>
-            </select>
-
-            <label className="text-sm">Plate rounding step</label>
-            <input className="border rounded-xl px-2 py-1" type="number" step="0.5" value={step} onChange={e=>setStep(parseFloat(e.target.value||'0')|| (unit==='lb'?5:2.5))} />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={useRepMax} onChange={(e)=>setUseRepMax(e.target.checked)} />
-              Use rep-max estimator
-            </label>
-          </div>
-
-          {!useRepMax && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-sm">Measured 1RM</label>
-              <input className="border rounded-xl px-2 py-1" type="number" value={base} onChange={e=>setBase(parseFloat(e.target.value||'0'))} />
-            </div>
-          )}
-
-          {useRepMax && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-sm">Set weight</label>
-              <input className="border rounded-xl px-2 py-1" type="number" value={repWeight} onChange={e=>setRepWeight(parseFloat(e.target.value||'0'))} />
-              <label className="text-sm">Reps</label>
-              <input className="border rounded-xl px-2 py-1" type="number" value={reps} onChange={e=>setReps(parseInt(e.target.value||'0')||0)} />
-            </div>
-          )}
-
-          <div className="p-3 bg-gray-50 rounded-xl border">
-            <div className="text-sm">Estimated 1RM</div>
-            <div className="text-2xl font-bold">{oneRM.toFixed(1)} {unit}</div>
-            <div className="text-sm mt-2">Training Max (90%): <b>{tm} {unit}</b></div>
-          </div>
-
-          <button className="btn-primary" onClick={saveTM}>Save as TM for this lift</button>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <label className="text-sm">Units</label>
+        <select className="border rounded-xl px-2 py-1" value={unit} onChange={e => setUnit(e.target.value as Unit)}>
+          <option value="lb">lb</option>
+          <option value="kg">kg</option>
+        </select>
       </div>
 
-      <div className="card">
-        <h3 className="text-lg font-semibold mb-2">Week Table</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-sm">Week</label>
-          <select className="border rounded-xl px-2 py-1" value={week} onChange={e=>setWeek(parseInt(e.target.value) as Week)}>
-            <option value={1}>Week 1 (65/75/85)</option>
-            <option value={2}>Week 2 (70/80/90)</option>
-            <option value={3}>Week 3 (75/85/95)</option>
-            <option value={4}>Deload (40/50/60)</option>
-          </select>
-        </div>
-        <div className="mt-3">
-          <div className="text-sm font-medium mb-1">Warm-ups</div>
-          <ul className="list-disc pl-5 text-sm">
-            {warmups.map((w,i)=>(<li key={i}>{['40%','50%','60%'][i]} → <b>{w} {unit}</b> × {i<2?5:3}</li>))}
-          </ul>
-          <div className="text-sm font-medium mt-3 mb-1">Work sets</div>
-          <ul className="list-disc pl-5 text-sm">
-            {work.map((w,i)=>{
-              const pct = (week===1?[65,75,85]:week===2?[70,80,90]:week===3?[75,85,95]:[40,50,60])[i];
-              const reps = week===1?5:week===2?([3,3,3][i]):week===3?([5,3,1][i]):5;
-              const plus = (week!==4 && i===2) ? '+' : '';
-              return (<li key={i}>{pct}% → <b>{w} {unit}</b> × {reps}{plus}</li>);
-            })}
-          </ul>
-        </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border rounded-xl overflow-hidden">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-2 text-left">Lift</th>
+              <th className="p-2 text-left">TM ({unit})</th>
+              <th className="p-2 text-left">65%</th>
+              <th className="p-2 text-left">75%</th>
+              <th className="p-2 text-left">85%</th>
+              <th className="p-2 text-left">90%</th>
+              <th className="p-2 text-left">95%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(["bench", "squat", "deadlift", "press"] as Lift[]).map(l => (
+              <tr key={l} className="border-t">
+                <td className="p-2 capitalize">{l}</td>
+                <td className="p-2">
+                  <input
+                    className="border rounded px-2 py-1 w-28"
+                    value={tm[l] as any}
+                    onChange={e => onChange(l, e.target.value)}
+                    placeholder="e.g., 200"
+                  />
+                </td>
+                <td className="p-2">{pctOf(tm[l], 0.65)}</td>
+                <td className="p-2">{pctOf(tm[l], 0.75)}</td>
+                <td className="p-2">{pctOf(tm[l], 0.85)}</td>
+                <td className="p-2">{pctOf(tm[l], 0.90)}</td>
+                <td className="p-2">{pctOf(tm[l], 0.95)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
+      <button className="btn-primary" onClick={onSave} disabled={saving}>
+        {saving ? "Saving…" : "Save Training Max"}
+      </button>
     </div>
   );
 }

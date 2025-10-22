@@ -1,33 +1,20 @@
-import { useEffect, useState } from 'react';
-import { fb, initAuth } from '../lib/auth';
+import React from "react";
+import { fb } from "../lib/db";
 
 export default function Admin() {
-  const [uid, setUid] = useState<string | null>(null);
-
-  useEffect(() => {
-    initAuth().then(() => {
-      setUid(fb?.auth.currentUser?.uid ?? null);
-    });
-  }, []);
-
+  const uid = fb.auth.currentUser?.uid || "—";
   return (
     <div className="card space-y-3">
       <h3 className="text-lg font-semibold">Admin</h3>
-      <p className="text-sm">Use this page to mark your account as a coach.</p>
-
-      <div className="p-3 bg-gray-50 rounded-xl border">
-        <div className="text-sm">Current UID:</div>
-        <div className="font-mono text-sm break-all">{uid || '— not signed in —'}</div>
+      <p className="text-sm">Current UID: <code>{uid}</code></p>
+      <div className="text-sm">
+        <div className="font-medium mb-1">Make this user a coach</div>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>Copy the UID above.</li>
+          <li>Create Firestore document <code>{'roles/{uid}'}</code> with data <code>{"{ role: \"coach\" }"}</code>.</li>
+          <li>Reload this page to see coach-only routes.</li>
+        </ol>
       </div>
-
-      <ol className="list-decimal pl-5 text-sm space-y-1">
-        <li>Copy the UID above.</li>
-        <li>
-          In Firestore, create a doc at <code>roles/&lbrace;yourUID&rbrace;</code> with:
-          <code> &lbrace; role: "coach" &rbrace;</code>
-        </li>
-        <li>Reload this page; you’ll have coach access per the rules.</li>
-      </ol>
     </div>
   );
 }
