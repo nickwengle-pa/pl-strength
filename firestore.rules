@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function rolesDocExists(uid) {
+      return exists(/databases/$(database)/documents/roles/$(uid));
+    }
+
+    function rolesDoc(uid) {
+      return get(/databases/$(database)/documents/roles/$(uid));
+    }
+
+    function docHasRole(doc, role) {
+      return (doc.data.roles is list && doc.data.roles.hasAny([role]))
+        || (doc.data.role is string && lower(doc.data.role) == role);
+    }
+
+    function hasRole(uid, role) {
+      return rolesDocExists(uid) && docHasRole(rolesDoc(uid), role);
+    }
+
+    function isCoach() {
+      return isSignedIn() && hasRole(request.auth.uid, "coach");
+    }
+
+    function isAdmin() {
+      return isSignedIn() && hasRole(request.auth.uid, "admin");
+    }
+
+    function coachSelfWrite(uid) {
+      return isSelf(uid)
+        && request.resource.data.roles is list
+        && request.resource.data.roles.size() == 1
+        && request.resource.data.roles[0] == "coach"
+        && request.resource.data.keys().hasOnly(["roles", "updatedAt"]);
+    }
+
+    function adminBootstrap(uid) {
+      return isSelf(uid)
+        && request.resource.data.roles is list
+        && request.resource.data.roles.size() == 2
+        && request.resource.data.roles.hasAll(["admin", "coach"])
+        && request.resource.data.keys().hasOnly(["roles", "updatedAt"]);
+    }
+
+    match /roles/{uid} {
+      allow read: if isSignedIn() && (isSelf(uid) || isCoach() || isAdmin());
+      allow create, update: if isAdmin() || coachSelfWrite(uid) || adminBootstrap(uid);
+      allow delete: if isAdmin();
+    }
+
+    match /athletes/{uid}/profile/{doc} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /{path=**}/profile/{doc} {
+      allow read: if isCoach() || isAdmin();
+    }
+
+    match /athletes/{uid}/sessions/{sid} {
+      allow read, write: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
+    }
+  }
+}

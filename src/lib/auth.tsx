@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   createContext,
   useContext,
   useEffect,
@@ -91,6 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut: async () => {
         if (!fb.auth) return;
         await firebaseSignOut(fb.auth);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("pl-strength-display-name");
+          window.dispatchEvent(
+            new CustomEvent<string | null>("pl-display-name-change", { detail: null })
+          );
+        }
         resetRoleCache();
       },
     }),
@@ -107,3 +113,4 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
+

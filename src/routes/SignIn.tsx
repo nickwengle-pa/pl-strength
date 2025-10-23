@@ -1,19 +1,20 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   type AuthError,
 } from "firebase/auth";
-import { fb, saveProfile, ensureCoachRole } from "../lib/db";
+import {
+  fb,
+  saveProfile,
+  ensureCoachRole,
+  loadProfileRemote,
+  type Team,
+} from "../lib/db";
 
 type Mode = "athlete" | "coach";
 
 type StatusMessage = { kind: "success" | "error"; text: string } | null;
-
-const actionCodeSettings = () => ({
-  url: `${window.location.origin}/#/sign-in`,
-  handleCodeInApp: true,
-});
 
 function sanitizeName(value: string): string {
   return value.trim().replace(/\s+/g, " ");
@@ -38,23 +39,35 @@ const coachPasscodeFromEnv = (
   .trim();
 const normalizeCoachPasscode = (value: string) => value.trim().toUpperCase();
 const coachPassword = (code: string) => `${code}coach!`;
-const inferCoachName = (email: string) => {
-  const base = email.split("@")[0] ?? "";
-  const cleaned = base.replace(/[\.\-_]/g, " ").replace(/\s+/g, " ").trim();
-  if (!cleaned) return "";
-  return cleaned
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+const buildCoachEmail = (firstName: string, lastName: string): string => {
+  const canonical = `${firstName}${lastName}`.toLowerCase().replace(/[^a-z]/g, "");
+  return `coach-${canonical}@pl.strength`;
 };
+const TEAM_OPTIONS: Array<{ label: string; value: Team | "" }> = [
+  { label: "Select a team", value: "" },
+  { label: "Junior High", value: "JH" },
+  { label: "Varsity", value: "Varsity" },
+];
+
+const updateDisplayNameCache = (name: string | null) => {
+  if (typeof window === "undefined") return;
+  if (name && name.trim()) {
+    window.localStorage.setItem("pl-strength-display-name", name.trim());
+  } else {
+    window.localStorage.removeItem("pl-strength-display-name");
+  }
+  window.dispatchEvent(
+    new CustomEvent<string | null>("pl-display-name-change", { detail: name?.trim() ?? null })
+  );
+};
+
 
 export default function SignIn() {
   const [mode, setMode] = useState<Mode>("athlete");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [passcode, setPasscode] = useState("");
-  const [coachEmail, setCoachEmail] = useState("");
-  const [coachPass, setCoachPass] = useState("");
+  const [team, setTeam] = useState<Team | "">("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<StatusMessage>(null);
 
@@ -67,89 +80,151 @@ export default function SignIn() {
     return buildAthleteEmail(safeFirst, safeLast);
   }, [firstName, lastName]);
 
-  const disabled = submitting;
-
-  const handleAthleteSignIn = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!auth) {
-      setMessage({ kind: "error", text: "Firebase auth is unavailable." });
-      return;
-    }
+  const coachEmail = useMemo(() => {
     const safeFirst = sanitizeName(firstName);
     const safeLast = sanitizeName(lastName);
-    const digits = normalizeDigits(passcode);
+    if (!safeFirst || !safeLast) return "";
+    return buildCoachEmail(safeFirst, safeLast);
+  }, [firstName, lastName]);
 
-    if (!safeFirst || !safeLast) {
-      setMessage({ kind: "error", text: "Enter first and last name." });
-      return;
+
+  const disabled = submitting;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("pl-strength-team");
+    if (stored === "JH" || stored === "Varsity") {
+      setTeam(stored as Team);
     }
-    if (digits.length !== 4) {
-      setMessage({
-        kind: "error",
-        text: "Passcode must be 4 digits. Ask your coach if you forgot it.",
-      });
-      return;
-    }
+  }, []);
 
-    setSubmitting(true);
-    setMessage(null);
-    const email = buildAthleteEmail(safeFirst, safeLast);
-    const password = passcodeToPassword(digits);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      window.localStorage.setItem(
-        "pl-strength-display-name",
-        `${safeFirst} ${safeLast}`
-      );
-    } catch (err: any) {
-      const error = err as AuthError;
-      const shouldAttemptCreate =
-        error.code === "auth/user-not-found" ||
-        error.code === "auth/invalid-credential";
-
-      if (shouldAttemptCreate) {
-        try {
-          const cred = await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
-          );
-          await saveProfile({
-            uid: cred.user.uid,
-            firstName: safeFirst,
-            lastName: safeLast,
-            unit: "lb",
-          });
-          window.localStorage.setItem(
-            "pl-strength-display-name",
-            `${safeFirst} ${safeLast}`
-          );
-        } catch (createErr: any) {
-          const code = (createErr as AuthError)?.code;
-          const text =
-            code === "auth/email-already-in-use"
-              ? "That athlete already exists. Double-check spelling or the passcode."
-              : (createErr?.message ?? "We could not create the account.");
-          setMessage({ kind: "error", text });
-          setSubmitting(false);
-          return;
-        }
-      } else if (error.code === "auth/wrong-password") {
-        setMessage({
-          kind: "error",
-          text: "Passcode does not match. Ask your coach if you need help.",
-        });
-        setSubmitting(false);
-        return;
+  useEffect(() => {
+    if (mode === "athlete") {
+      const stored = window.localStorage.getItem("pl-strength-team");
+      if (stored === "JH" || stored === "Varsity") {
+        setTeam(stored as Team);
       } else {
-        setMessage({
-          kind: "error",
-          text: error.message ?? "We could not sign you in.",
-        });
+        setTeam("");
+      }
+    } else {
+      setTeam("");
+    }
+    setPasscode("");
+  }, [mode]);
+
+  const persistProfile = async (
+    uid: string | undefined,
+    first: string,
+    last: string,
+    teamSelection: Team | ""
+  ) => {
+    if (!uid) return;
+    const existing = await loadProfileRemote(uid);
+    const resolvedTeam = teamSelection ? teamSelection : existing?.team;
+    await saveProfile({
+      uid,
+      firstName: first,
+      lastName: last,
+      unit: existing?.unit ?? "lb",
+      team: resolvedTeam,
+      tm: existing?.tm ?? {},
+    });
+
+    if (teamSelection) {
+      window.localStorage.setItem("pl-strength-team", teamSelection);
+    } else if (resolvedTeam != null) {
+      window.localStorage.setItem("pl-strength-team", resolvedTeam);
+    } else {
+      window.localStorage.removeItem("pl-strength-team");
+    }
+
+    updateDisplayNameCache(`${first} ${last}`);
+  };
+
+  const handleAthleteSignIn = async (event: React.FormEvent) => {
+  event.preventDefault();
+  if (!auth) {
+    setMessage({ kind: "error", text: "Firebase auth is unavailable." });
+    return;
+  }
+  const safeFirst = sanitizeName(firstName);
+  const safeLast = sanitizeName(lastName);
+  const digits = normalizeDigits(passcode);
+
+  if (!safeFirst || !safeLast) {
+    setMessage({ kind: "error", text: "Enter first and last name." });
+    return;
+  }
+  if (digits.length !== 4) {
+    setMessage({
+      kind: "error",
+      text: "Passcode must be 4 digits. Ask your coach if you forgot it.",
+    });
+    return;
+  }
+
+  if (!team) {
+    setMessage({ kind: "error", text: "Select your team before signing in." });
+    return;
+  }
+
+  setSubmitting(true);
+  setMessage(null);
+  const email = buildAthleteEmail(safeFirst, safeLast);
+  const password = passcodeToPassword(digits);
+  let userUid: string | undefined;
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    userUid = auth.currentUser?.uid ?? undefined;
+  } catch (err: any) {
+    const error = err as AuthError;
+    const shouldAttemptCreate =
+      error.code === "auth/user-not-found" || error.code === "auth/invalid-credential";
+
+    if (shouldAttemptCreate) {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        userUid = cred.user.uid;
+      } catch (createErr: any) {
+        const code = (createErr as AuthError)?.code;
+        const text =
+          code === "auth/email-already-in-use"
+            ? "That athlete already exists. Double-check spelling or the passcode."
+            : (createErr?.message ?? "We could not create the account.");
+        setMessage({ kind: "error", text });
         setSubmitting(false);
         return;
       }
+    } else if (error.code === "auth/wrong-password") {
+      setMessage({
+        kind: "error",
+        text: "Passcode does not match. Ask your coach if you need help.",
+      });
+      setSubmitting(false);
+      return;
+    } else {
+      setMessage({
+        kind: "error",
+        text: error.message ?? "We could not sign you in.",
+      });
+      setSubmitting(false);
+      return;
+    }
+  }
+
+  if (!userUid) {
+    setSubmitting(false);
+    return;
+  }
+
+  try {
+    await persistProfile(userUid, safeFirst, safeLast, team);
+  } catch (err) {
+    console.warn("Failed to persist athlete profile", err);
   } finally {
+    setPasscode("");
+    setTeam("");
     setSubmitting(false);
   }
 };
@@ -167,12 +242,16 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     });
     return;
   }
-  const email = coachEmail.trim().toLowerCase();
-  if (!email) {
-    setMessage({ kind: "error", text: "Enter your team email address." });
+
+  const safeFirst = sanitizeName(firstName);
+  const safeLast = sanitizeName(lastName);
+  if (!safeFirst || !safeLast) {
+    setMessage({ kind: "error", text: "Enter first and last name." });
     return;
   }
-  const entered = normalizeCoachPasscode(coachPass);
+
+  const email = buildCoachEmail(safeFirst, safeLast);
+  const entered = normalizeCoachPasscode(passcode);
   if (!entered) {
     setMessage({ kind: "error", text: "Enter the coach passcode." });
     return;
@@ -181,7 +260,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   if (entered !== expected) {
     setMessage({
       kind: "error",
-      text: "That passcode doesn’t match. Check with your admin for the current coach code.",
+      text: "That passcode does not match. Check with your admin for the current coach code.",
     });
     return;
   }
@@ -189,8 +268,11 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   setSubmitting(true);
   setMessage(null);
   const password = coachPassword(entered);
+  let userUid: string | undefined;
+
   try {
     await signInWithEmailAndPassword(auth, email, password);
+    userUid = auth.currentUser?.uid ?? undefined;
   } catch (err: any) {
     const error = err as AuthError;
     const shouldCreate =
@@ -198,7 +280,8 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
 
     if (shouldCreate) {
       try {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        userUid = cred.user.uid;
       } catch (createErr: any) {
         const code = (createErr as AuthError)?.code;
         const text =
@@ -212,7 +295,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     } else if (error.code === "auth/wrong-password") {
       setMessage({
         kind: "error",
-        text: "Passcode doesn’t match. Ask your admin for the current coach code.",
+        text: "Passcode does not match. Ask your admin for the current coach code.",
       });
       setSubmitting(false);
       return;
@@ -226,24 +309,26 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     }
   }
 
+  if (!userUid) {
+    setSubmitting(false);
+    return;
+  }
+
   try {
     await ensureCoachRole();
   } catch (err) {
     console.warn("Failed to ensure coach role", err);
   }
 
-  const friendly = inferCoachName(email);
-  if (friendly) {
-    window.localStorage.setItem("pl-strength-display-name", friendly);
-  } else {
-    window.localStorage.removeItem("pl-strength-display-name");
+  try {
+    await persistProfile(userUid, safeFirst, safeLast, team);
+  } catch (err) {
+    console.warn("Failed to persist coach profile", err);
+  } finally {
+    setPasscode("");
+    setTeam("");
+    setSubmitting(false);
   }
-  setCoachPass("");
-  setMessage({
-    kind: "success",
-    text: "Signed in as coach. Loading the app…",
-  });
-  setSubmitting(false);
 };
 
   return (
@@ -255,7 +340,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
           </h1>
           <p className="text-sm text-gray-600">
             Athletes use the team email pattern (firstlast@pl.strength) and your 4-digit code.
-            Coaches sign in with their email and the shared coach passcode.
+            Coaches enter their name and the shared passcode-we build the coach email for you.
           </p>
         </div>
 
@@ -333,25 +418,41 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
               </div>
 
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                Team
+                <select
+                  className="field"
+                  value={team}
+                  onChange={(e) => setTeam(e.target.value as Team | "")}
+                  disabled={disabled}
+                >
+                  {TEAM_OPTIONS.map((opt) => (
+                    <option key={opt.label} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                 4-digit team code
                 <input
                   className="field tracking-widest text-center text-base"
+                  type="tel"
                   value={passcode}
                   onChange={(e) => setPasscode(normalizeDigits(e.target.value))}
                   placeholder="1234"
                   inputMode="numeric"
-                  pattern="\d{4}"
                   maxLength={4}
                   disabled={disabled}
                 />
               </label>
 
               <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                Team email we will use:{" "}
+                Team email we will use: {" "}
                 <span className="font-semibold text-gray-900">
                   {athleteEmail || "firstlast@pl.strength"}
                 </span>
-                . No real inbox required—coaches manage the codes.
+                . No real inbox required - coaches manage the codes.
               </div>
 
               <button
@@ -359,43 +460,80 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                 className="btn btn-primary w-full justify-center py-3 text-base"
                 disabled={disabled}
               >
-                {submitting && mode === "athlete" ? "Signing in…" : "Sign in"}
+                {submitting && mode === "athlete" ? "Signing in..." : "Sign in"}
               </button>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleCoachSignIn}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  First name
+                  <input
+                    className="field"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jordan"
+                    autoComplete="given-name"
+                    disabled={disabled}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  Last name
+                  <input
+                    className="field"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Taylor"
+                    autoComplete="family-name"
+                    disabled={disabled}
+                  />
+                </label>
+              </div>
+
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                Coach email
-                <input
+                Team (optional)
+                <select
                   className="field"
-                  value={coachEmail}
-                  onChange={(e) => setCoachEmail(e.target.value)}
-                  placeholder="coach@school.org"
-                  autoComplete="email"
-                  type="email"
+                  value={team}
+                  onChange={(e) => setTeam(e.target.value as Team | "")}
                   disabled={disabled}
-                />
+                >
+                  {TEAM_OPTIONS.map((opt) => (
+                    <option key={opt.label} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </label>
+
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                 Coach passcode
                 <input
                   className="field tracking-widest text-center text-base"
-                  value={coachPass}
-                  onChange={(e) => setCoachPass(normalizeCoachPasscode(e.target.value))}
-                  placeholder="****"
+                  value={passcode}
+                  onChange={(e) => setPasscode(normalizeCoachPasscode(e.target.value))}
+                  placeholder="FIREUP"
                   maxLength={16}
                   disabled={disabled}
                 />
               </label>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                Coach email we will use: {" "}
+                <span className="font-semibold text-gray-900">
+                  {coachEmail || "coach-firstlast@pl.strength"}
+                </span>
+                . Share the passcode only with trusted staff.
+              </div>
               <p className="text-xs text-gray-500">
-                Ask your program admin for the current passcode. (Configured via <code>VITE_COACH_PASSCODE</code>)
+                Ask your program admin for the current passcode (configured via <code>VITE_COACH_PASSCODE</code>).
               </p>
               <button
                 type="submit"
                 className="btn btn-primary w-full justify-center py-3 text-base"
                 disabled={disabled}
               >
-                {submitting && mode === "coach" ? "Signing in…" : "Sign in as coach"}
+                {submitting && mode === "coach" ? "Signing in..." : "Sign in as coach"}
               </button>
             </form>
           )}
@@ -404,3 +542,38 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

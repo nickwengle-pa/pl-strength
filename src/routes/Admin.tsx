@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   getCurrentRoles,
   hasFirebase,
@@ -64,7 +64,7 @@ export default function Admin() {
 
       {!configured && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          Firebase isn’t configured. Set env vars or window.__FBCONFIG__ and reload.
+          Firebase isn't configured. Set env vars or window.__FBCONFIG__ and reload.
         </div>
       )}
 
@@ -75,7 +75,7 @@ export default function Admin() {
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
         <div className="font-medium text-gray-700">Current roles</div>
         {loading ? (
-          <div>Loading…</div>
+          <div>loading</div>
         ) : roles.length ? (
           <ul className="list-disc pl-5 space-y-1">
             {roles.map((role) => (
@@ -96,7 +96,7 @@ export default function Admin() {
         <ol className="list-decimal pl-5 space-y-1">
           <li>
             Share the team email format with adults (e.g., <code>firstname.lastname@pl.strength</code>) and the coach
-            passcode you’ve set in <code>.env</code> (<code>VITE_COACH_PASSCODE</code>).
+            passcode you've set in <code>.env</code> (<code>VITE_COACH_PASSCODE</code>).
           </li>
           <li>
             When they sign in on the Coach tab using that passcode, the app creates their account (if needed) and gives
@@ -120,9 +120,19 @@ export default function Admin() {
         </div>
       ) : (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-          You’re currently in athlete mode. Have an admin share the coach passcode so you can log in via the Coach tab.
+          You're currently in athlete mode. Have an admin share the coach passcode so you can log in via the Coach tab.
         </div>
       )}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+

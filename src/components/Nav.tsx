@@ -44,6 +44,26 @@ export default function Nav() {
   }, [user]);
 
   useEffect(() => {
+    const handler: EventListener = (event) => {
+      const custom = event as CustomEvent<string | null>;
+      const detail = custom.detail;
+      if (typeof detail === "string") {
+        setFriendlyName(detail);
+      } else {
+        const stored = window.localStorage.getItem("pl-strength-display-name");
+        setFriendlyName(stored ?? "");
+      }
+    };
+
+    window.addEventListener("pl-display-name-change", handler);
+    return () => {
+      window.removeEventListener("pl-display-name-change", handler);
+    };
+  }, []);
+
+
+
+  useEffect(() => {
     if (!user) {
       setFriendlyName("");
       return;
@@ -115,12 +135,10 @@ export default function Nav() {
           ))}
           {coach && (
             <a
-              href="/docs/531%20Lifting.pdf"
               target="_blank"
               rel="noreferrer"
               className="nav-link"
             >
-              PDF
             </a>
           )}
           <div className="flex items-center gap-2">
@@ -142,3 +160,7 @@ export default function Nav() {
     </header>
   );
 }
+
+
+
+
