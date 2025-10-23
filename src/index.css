@@ -17,13 +17,17 @@ h3 { @apply text-xl font-semibold; }
 /* Layout helpers */
 .container { @apply max-w-6xl mx-auto px-4; }
 .card { @apply bg-white border border-gray-200 rounded-2xl p-6 shadow-soft; }
-.btn  { @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-gray-300 hover:bg-gray-50; }
-.btn-primary { @apply bg-brand-600 text-white border-transparent hover:bg-brand-700; }
-.badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100; }
+.btn  { @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 font-medium border border-gray-300 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60; }
+.btn-primary { @apply bg-brand-600 text-white border-transparent hover:bg-brand-700 disabled:bg-brand-400; }
+.badge { @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border border-gray-200 bg-gray-50; }
+.badge-success { @apply bg-emerald-100 text-emerald-700 border-emerald-200; }
+.badge-warning { @apply bg-amber-100 text-amber-700 border-amber-200; }
+.badge-muted { @apply bg-gray-100 text-gray-600 border-gray-200; }
+.field { @apply w-full rounded-2xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 transition focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100; }
 
 /* Nav */
-.nav-link { @apply text-sm font-medium text-gray-700 hover:text-gray-900 px-2 py-1 rounded-md; }
-.nav-link-active { @apply text-brand-600; }
+.nav-link { @apply inline-flex items-center text-sm font-medium text-gray-700 px-3 py-1.5 rounded-full border border-transparent transition-colors hover:text-brand-700 hover:bg-brand-50; }
+.nav-link-active { @apply bg-brand-50 text-brand-700 border-brand-200 shadow-sm; }
 
 /* Link underline styling */
 a { @apply hover:opacity-90; }

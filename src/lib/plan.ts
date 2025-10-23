@@ -31,16 +31,18 @@ export function buildPlan(lift: PlanSheet['lift'], week: PlanSheet['week'], unit
 
 export async function savePlan(sheet: PlanSheet) {
   const uid = await getUid();
-  if (!uid || !fb) return null;
-  const col = collection(fb.db, 'athletes', uid, 'plans');
+  const db = fb?.db;
+  if (!uid || !db) return null;
+  const col = collection(db, 'athletes', uid, 'plans');
   const docRef = await addDoc(col, { ...sheet, createdAt: serverTimestamp() });
   return docRef.id;
 }
 
 export async function recentPlans(n: number = 10): Promise<PlanSheet[]> {
   const uid = await getUid();
-  if (!uid || !fb) return [];
-  const col = collection(fb.db, 'athletes', uid, 'plans');
+  const db = fb?.db;
+  if (!uid || !db) return [];
+  const col = collection(db, 'athletes', uid, 'plans');
   const qRef = query(col, orderBy('createdAt', 'desc'), limit(n));
   const snap = await getDocs(qRef);
   const out: PlanSheet[] = [];

@@ -1,23 +1,50 @@
-self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open('pl-strength-v1').then(cache => cache.addAll(['/'])));
+const CACHE_NAME = "pl-strength-v2";
+const PRECACHE_URLS = ["/", "/index.html", "/manifest.webmanifest"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+  );
+  self.skipWaiting();
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-  event.respondWith(
-    caches.match(req).then(cached => {
-      const fetchPromise = fetch(req).then(networkResp => {
-        try {
-          const url = new URL(req.url);
-          if (networkResp && networkResp.status === 200 && url.origin === location.origin) {
-            const copy = networkResp.clone();
-            caches.open('pl-strength-v1').then(cache => cache.put(req, copy));
-          }
-        } catch {}
-        return networkResp;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
+      )
+    )
   );
+  self.clients.claim();
+});
+
+const handleNetworkRequest = async (request) => {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) {
+    return fetch(request);
+  }
+
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    if (cached) return cached;
+    if (request.mode === "navigate") {
+      return cache.match("/");
+    }
+    throw err;
+  }
+};
+
+self.addEventListener("fetch", (event) => {
+  event.respondWith(handleNetworkRequest(event.request));
 });

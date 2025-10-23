@@ -4,13 +4,16 @@ import { HashRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import ErrorBoundary from './ErrorBoundary';
+import { AuthProvider } from './lib/auth';
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <HashRouter>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
+    <AuthProvider>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </AuthProvider>
   </HashRouter>
 );
 
