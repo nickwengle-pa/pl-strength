@@ -5,10 +5,14 @@ import {
   type AuthError,
 } from "firebase/auth";
 import {
-  fb,
-  saveProfile,
+  AthleteAuthError,
+  buildAthleteEmail,
   ensureCoachRole,
+  fb,
   loadProfileRemote,
+  normalizePasscodeDigits,
+  saveProfile,
+  signInOrCreateAthleteAccount,
   type Team,
 } from "../lib/db";
 
@@ -20,18 +24,6 @@ function sanitizeName(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function buildAthleteEmail(firstName: string, lastName: string): string {
-  const canonical = `${firstName}${lastName}`
-    .toLowerCase()
-    .replace(/[^a-z]/g, "");
-  return `${canonical}@pl.strength`;
-}
-
-function normalizeDigits(code: string): string {
-  return code.replace(/\D+/g, "").slice(0, 4);
-}
-
-const passcodeToPassword = (code: string) => `${code}pl!`;
 const coachPasscodeFromEnv = (
   import.meta.env.VITE_COACH_PASSCODE ?? "2468"
 )
@@ -119,20 +111,20 @@ export default function SignIn() {
     teamSelection: Team | ""
   ) => {
     if (!uid) return;
-    const existing = await loadProfileRemote(uid);
-    const resolvedTeam = teamSelection ? teamSelection : existing?.team;
+    const base = await loadProfileRemote(uid);
+    const resolvedTeam = teamSelection ? teamSelection : base?.team;
+
     await saveProfile({
       uid,
       firstName: first,
       lastName: last,
-      unit: existing?.unit ?? "lb",
+      unit: base?.unit ?? "lb",
       team: resolvedTeam,
-      tm: existing?.tm ?? {},
+      tm: base?.tm ?? {},
+      accessCode: base?.accessCode ?? null,
     });
 
-    if (teamSelection) {
-      window.localStorage.setItem("pl-strength-team", teamSelection);
-    } else if (resolvedTeam != null) {
+    if (resolvedTeam) {
       window.localStorage.setItem("pl-strength-team", resolvedTeam);
     } else {
       window.localStorage.removeItem("pl-strength-team");
@@ -142,92 +134,94 @@ export default function SignIn() {
   };
 
   const handleAthleteSignIn = async (event: React.FormEvent) => {
-  event.preventDefault();
-  if (!auth) {
-    setMessage({ kind: "error", text: "Firebase auth is unavailable." });
-    return;
-  }
-  const safeFirst = sanitizeName(firstName);
-  const safeLast = sanitizeName(lastName);
-  const digits = normalizeDigits(passcode);
+    event.preventDefault();
+    if (!auth) {
+      setMessage({ kind: "error", text: "Firebase auth is unavailable." });
+      return;
+    }
+    const safeFirst = sanitizeName(firstName);
+    const safeLast = sanitizeName(lastName);
+    const digits = normalizePasscodeDigits(passcode);
 
-  if (!safeFirst || !safeLast) {
-    setMessage({ kind: "error", text: "Enter first and last name." });
-    return;
-  }
-  if (digits.length !== 4) {
-    setMessage({
-      kind: "error",
-      text: "Passcode must be 4 digits. Ask your coach if you forgot it.",
-    });
-    return;
-  }
+    if (!safeFirst || !safeLast) {
+      setMessage({ kind: "error", text: "Enter first and last name." });
+      return;
+    }
+    if (digits.length !== 4) {
+      setMessage({
+        kind: "error",
+        text: "Passcode must be 4 digits. Ask your coach if you forgot it.",
+      });
+      return;
+    }
 
-  if (!team) {
-    setMessage({ kind: "error", text: "Select your team before signing in." });
-    return;
-  }
+    if (!team) {
+      setMessage({ kind: "error", text: "Select your team before signing in." });
+      return;
+    }
 
-  setSubmitting(true);
-  setMessage(null);
-  const email = buildAthleteEmail(safeFirst, safeLast);
-  const password = passcodeToPassword(digits);
-  let userUid: string | undefined;
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const { profile } = await signInOrCreateAthleteAccount({
+        firstName: safeFirst,
+        lastName: safeLast,
+        passcodeDigits: digits,
+        team,
+      });
 
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    userUid = auth.currentUser?.uid ?? undefined;
-  } catch (err: any) {
-    const error = err as AuthError;
-    const shouldAttemptCreate =
-      error.code === "auth/user-not-found" || error.code === "auth/invalid-credential";
-
-    if (shouldAttemptCreate) {
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        userUid = cred.user.uid;
-      } catch (createErr: any) {
-        const code = (createErr as AuthError)?.code;
+      if (profile.team) {
+        window.localStorage.setItem("pl-strength-team", profile.team);
+      } else {
+        window.localStorage.removeItem("pl-strength-team");
+      }
+      updateDisplayNameCache(`${profile.firstName} ${profile.lastName}`.trim());
+      setMessage({
+        kind: "success",
+        text: "Signed in! You're ready to train.",
+      });
+    } catch (err: any) {
+      if (err instanceof AthleteAuthError) {
+        if (err.code === "auth/wrong-password") {
+          setMessage({
+            kind: "error",
+            text: "Passcode does not match. Ask your coach if you need help.",
+          });
+        } else if (err.code === "athlete-code/taken") {
+          setMessage({
+            kind: "error",
+            text: "That code is already being used by another athlete. Ask your coach for a unique code.",
+          });
+        } else if (err.code === "athlete-code/unavailable") {
+          setMessage({
+            kind: "error",
+            text: "We couldn't verify that code. Try again in a moment.",
+          });
+        } else if (err.code === "auth/unavailable") {
+          setMessage({
+            kind: "error",
+            text: "Firebase auth is unavailable.",
+          });
+        } else {
+          setMessage({
+            kind: "error",
+            text: err.message || "We could not sign you in.",
+          });
+        }
+      } else {
+        const code = (err as AuthError)?.code;
         const text =
           code === "auth/email-already-in-use"
             ? "That athlete already exists. Double-check spelling or the passcode."
-            : (createErr?.message ?? "We could not create the account.");
+            : (err?.message ?? "We could not sign you in.");
         setMessage({ kind: "error", text });
-        setSubmitting(false);
-        return;
       }
-    } else if (error.code === "auth/wrong-password") {
-      setMessage({
-        kind: "error",
-        text: "Passcode does not match. Ask your coach if you need help.",
-      });
+    } finally {
+      setPasscode("");
+      setTeam("");
       setSubmitting(false);
-      return;
-    } else {
-      setMessage({
-        kind: "error",
-        text: error.message ?? "We could not sign you in.",
-      });
-      setSubmitting(false);
-      return;
     }
-  }
-
-  if (!userUid) {
-    setSubmitting(false);
-    return;
-  }
-
-  try {
-    await persistProfile(userUid, safeFirst, safeLast, team);
-  } catch (err) {
-    console.warn("Failed to persist athlete profile", err);
-  } finally {
-    setPasscode("");
-    setTeam("");
-    setSubmitting(false);
-  }
-};
+  };
 
 const handleCoachSignIn = async (event: React.FormEvent) => {
   event.preventDefault();
@@ -439,7 +433,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   className="field tracking-widest text-center text-base"
                   type="tel"
                   value={passcode}
-                  onChange={(e) => setPasscode(normalizeDigits(e.target.value))}
+                  onChange={(e) => setPasscode(normalizePasscodeDigits(e.target.value))}
                   placeholder="1234"
                   inputMode="numeric"
                   maxLength={4}

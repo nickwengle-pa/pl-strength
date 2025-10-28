@@ -57,8 +57,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /athleteCodes/{code} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly(["uid", "updatedAt"])
+        && (
+          request.resource.data.uid == request.auth.uid
+          || isCoach()
+          || isAdmin()
+        );
+      allow delete: if isAdmin()
+        || (isSignedIn() && resource.data.uid == request.auth.uid)
+        || isCoach();
+    }
+
     match /athletes/{uid}/profile/{doc} {
-      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
+      allow create, update: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
     }
 
     match /{path=**}/profile/{doc} {

@@ -84,12 +84,13 @@ export default function Calculator() {
       setRoundStepText(String(defaultRound));
 
       const baseProfile: Profile = remote ?? {
-        uid: remote?.uid ?? resolvedUid,
-        firstName: remote?.firstName ?? local.firstName ?? "",
-        lastName: remote?.lastName ?? local.lastName ?? "",
+        uid: resolvedUid,
+        firstName: local.firstName ?? "",
+        lastName: local.lastName ?? "",
         unit: effectiveUnit,
         team: local.team,
-        tm: remote?.tm ?? local.tm ?? {},
+        tm: local.tm ?? {},
+        accessCode: local.accessCode ?? null,
       };
 
       setProfile(baseProfile);

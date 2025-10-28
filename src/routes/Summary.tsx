@@ -29,7 +29,7 @@ export default function Summary() {
       const u = await ensureAnon();
       setUid(u);
       const p = await loadProfileRemote(u);
-      setProfile(p || { uid: u, firstName:"", lastName:"", unit:"lb" });
+      setProfile(p || { uid: u, firstName:"", lastName:"", unit:"lb", accessCode: null });
       const existing = p?.tm?.[lift];
       setTm(existing ?? "");
     })();

@@ -11,7 +11,7 @@ export default function ProfilePage() {
       const u = await ensureAnon();
       setUid(u);
       const existing = await loadProfileRemote(u);
-      setP(existing || { uid: u, firstName: "", lastName: "", unit: "lb" });
+      setP(existing || { uid: u, firstName: "", lastName: "", unit: "lb", accessCode: null });
     })();
   }, []);
 
@@ -83,6 +83,16 @@ export default function ProfilePage() {
               <option value="Varsity">Varsity</option>
             </select>
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          <div className="font-semibold">Sign-in code</div>
+          <div className="mt-1 font-mono text-base text-gray-900">
+            {p.accessCode ?? "-"}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Coaches assign unique codes to each athlete. Ask a coach if you need yours reset.
+          </p>
         </div>
 
         <button className="btn btn-primary" onClick={save}>
