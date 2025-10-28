@@ -5,15 +5,18 @@ import './index.css';
 import App from './App';
 import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './lib/auth';
+import { DeviceProvider } from './lib/device';
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <HashRouter>
-    <AuthProvider>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </AuthProvider>
+    <DeviceProvider>
+      <AuthProvider>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </AuthProvider>
+    </DeviceProvider>
   </HashRouter>
 );
 
