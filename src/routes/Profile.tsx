@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ensureAnon, loadProfileRemote, saveProfile } from "../lib/db";
-import type { Profile as ProfileModel, Unit, Team } from "../lib/db";
+import {
+  defaultEquipment,
+  ensureAnon,
+  loadProfileRemote,
+  saveProfile,
+  type Profile as ProfileModel,
+  type Unit,
+  type Team,
+} from "../lib/db";
 
 export default function ProfilePage() {
   const [p, setP] = useState<ProfileModel | null>(null);
@@ -11,7 +18,17 @@ export default function ProfilePage() {
       const u = await ensureAnon();
       setUid(u);
       const existing = await loadProfileRemote(u);
-      setP(existing || { uid: u, firstName: "", lastName: "", unit: "lb", accessCode: null });
+      setP(
+        existing || {
+          uid: u,
+          firstName: "",
+          lastName: "",
+          unit: "lb",
+          accessCode: null,
+          tm: {},
+          equipment: defaultEquipment(),
+        }
+      );
     })();
   }, []);
 

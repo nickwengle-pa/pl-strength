@@ -58,6 +58,18 @@ export const hasFirebase = (): boolean => !!resolveHandles();
 // ---- Profile model ----
 export type Unit = "lb" | "kg";
 export type Team = "JH" | "Varsity";
+export type BarOption = {
+  id: string;
+  label: string;
+  weight: number;
+};
+
+export type EquipmentSettings = {
+  plates: Record<Unit, number[]>;
+  bars: Record<Unit, BarOption[]>;
+  activeBarId: Record<Unit, string | null>;
+};
+
 export type Profile = {
   uid: string;
   firstName: string;
@@ -66,6 +78,131 @@ export type Profile = {
   team?: Team;
   tm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
   accessCode?: string | null;
+  equipment?: EquipmentSettings;
+};
+
+const DEFAULT_PLATES: Record<Unit, number[]> = {
+  lb: [55, 45, 35, 25, 10, 5, 2.5, 1.25],
+  kg: [25, 20, 15, 10, 5, 2.5, 1.25, 0.5],
+};
+
+const DEFAULT_BAR_OPTIONS: Record<Unit, BarOption[]> = {
+  lb: [
+    { id: "bar-lb-standard-45", label: "Standard (45 lb)", weight: 45 },
+    { id: "bar-lb-short-35", label: "Short (35 lb)", weight: 35 },
+    { id: "bar-lb-ez-20", label: "EZ Bar (20 lb)", weight: 20 },
+  ],
+  kg: [
+    { id: "bar-kg-standard-20", label: "Standard (20 kg)", weight: 20 },
+    { id: "bar-kg-trainer-15", label: "Trainer (15 kg)", weight: 15 },
+    { id: "bar-kg-technique-10", label: "Technique (10 kg)", weight: 10 },
+  ],
+};
+
+const DEFAULT_ACTIVE_BAR: Record<Unit, string | null> = {
+  lb: DEFAULT_BAR_OPTIONS.lb[0]?.id ?? null,
+  kg: DEFAULT_BAR_OPTIONS.kg[0]?.id ?? null,
+};
+
+const cloneDefaultEquipment = (): EquipmentSettings => ({
+  plates: {
+    lb: [...DEFAULT_PLATES.lb],
+    kg: [...DEFAULT_PLATES.kg],
+  },
+  bars: {
+    lb: DEFAULT_BAR_OPTIONS.lb.map((bar) => ({ ...bar })),
+    kg: DEFAULT_BAR_OPTIONS.kg.map((bar) => ({ ...bar })),
+  },
+  activeBarId: { ...DEFAULT_ACTIVE_BAR },
+});
+
+const cleanLabel = (value: string): string => {
+  const trimmed = (value ?? "").trim();
+  return trimmed.length ? trimmed.slice(0, 80) : "";
+};
+
+const makeBarId = (unit: Unit, weight: number, label: string): string => {
+  const base = cleanLabel(label)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const slug = base || "bar";
+  return `bar-${unit}-${String(weight).replace(/\D+/g, "")}-${slug}`;
+};
+
+const normalizePlateList = (list: number[] | undefined, unit: Unit): number[] => {
+  if (!Array.isArray(list)) {
+    return [...DEFAULT_PLATES[unit]];
+  }
+  const source = list;
+  const unique = Array.from(
+    new Set(
+      source
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+        .map((value) => Number(value.toFixed(3)))
+    )
+  );
+  if (!unique.length) return [];
+  unique.sort((a, b) => b - a);
+  return unique;
+};
+
+const normalizeBarOptions = (bars: BarOption[] | undefined, unit: Unit): BarOption[] => {
+  const source = Array.isArray(bars) ? bars : [];
+  const acc = new Map<string, BarOption>();
+  source.forEach((item) => {
+    const weight = Number(item?.weight);
+    if (!Number.isFinite(weight) || weight <= 0) return;
+    const label = cleanLabel(item?.label ?? "") || `${weight} ${unit} bar`;
+    const id =
+      typeof item?.id === "string" && item.id.trim()
+        ? item.id
+        : makeBarId(unit, weight, label);
+    acc.set(id, {
+      id,
+      label,
+      weight: Number(weight.toFixed(2)),
+    });
+  });
+  if (!acc.size) {
+    if (Array.isArray(bars)) return [];
+    return DEFAULT_BAR_OPTIONS[unit].map((bar) => ({ ...bar }));
+  }
+  return Array.from(acc.values()).sort((a, b) => b.weight - a.weight);
+};
+
+export const defaultEquipment = (): EquipmentSettings => cloneDefaultEquipment();
+
+export const normalizeEquipment = (
+  input?: EquipmentSettings | null
+): EquipmentSettings => {
+  const base = cloneDefaultEquipment();
+  if (!input) return base;
+
+  const result: EquipmentSettings = {
+    plates: {
+      lb: normalizePlateList(input.plates?.lb, "lb"),
+      kg: normalizePlateList(input.plates?.kg, "kg"),
+    },
+    bars: {
+      lb: normalizeBarOptions(input.bars?.lb, "lb"),
+      kg: normalizeBarOptions(input.bars?.kg, "kg"),
+    },
+    activeBarId: { ...base.activeBarId },
+  };
+
+  (["lb", "kg"] as Unit[]).forEach((unit) => {
+    const preferred = input.activeBarId?.[unit];
+    const hasPreferred = preferred
+      ? result.bars[unit].some((bar) => bar.id === preferred)
+      : false;
+    result.activeBarId[unit] = hasPreferred
+      ? preferred!
+      : result.bars[unit][0]?.id ?? null;
+  });
+
+  return result;
 };
 
 const profRef = (database: Firestore, uid: string) =>
@@ -193,28 +330,36 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     team: data.team as Team | undefined,
     tm: data.tm || {},
     accessCode: data.accessCode ?? null,
+    equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
   };
 }
 
 export async function saveProfile(p: Profile) {
   const handles = resolveHandles();
   const database = handles?.db;
+  const normalizedEquipment = normalizeEquipment(p.equipment);
+  const normalizedProfile: Profile = {
+    ...p,
+    equipment: normalizedEquipment,
+  };
   if (!database) {
-    saveProfileLocal(p);
+    saveProfileLocal(normalizedProfile);
     return;
   }
   const ref = profRef(database, p.uid);
   const payload = {
-    firstName: p.firstName || "",
-    lastName: p.lastName || "",
-    unit: p.unit || "lb",
-    team: p.team || null,
-    tm: p.tm || {},
-    accessCode: p.accessCode ?? null,
+    firstName: normalizedProfile.firstName || "",
+    lastName: normalizedProfile.lastName || "",
+    unit: normalizedProfile.unit || "lb",
+    team: normalizedProfile.team || null,
+    tm: normalizedProfile.tm || {},
+    accessCode: normalizedProfile.accessCode ?? null,
+    equipment: normalizedEquipment,
   };
   const snap = await getDoc(ref);
   if (snap.exists()) await updateDoc(ref, payload);
   else await setDoc(ref, payload);
+  saveProfileLocal(normalizedProfile);
 }
 
 export const normalizePasscodeDigits = (code: string): string =>
@@ -335,6 +480,7 @@ export async function signInOrCreateAthleteAccount(
     team: resolvedTeam,
     tm: existingProfile?.tm ?? {},
     accessCode: code,
+    equipment: normalizeEquipment(existingProfile?.equipment),
   };
 
   await saveProfile(profile);

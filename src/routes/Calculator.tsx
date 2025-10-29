@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  defaultEquipment,
   ensureAnon,
   loadProfileRemote,
+  normalizeEquipment,
   saveProfile,
+  type BarOption,
+  type EquipmentSettings,
   type Profile,
   type Unit,
 } from "../lib/db";
@@ -32,10 +36,99 @@ const workRepScheme: Record<Week, [string, string, string]> = {
   4: ["5", "5", "5"],
 };
 
-const defaultStep = (unit: Unit) => (unit === "lb" ? 5 : 2.5);
+const defaultStep = (unit: Unit): number => (unit === "lb" ? 5 : 2.5);
 const percentLabel = (pct: number) => `${Math.round(pct * 100)}%`;
 const formatWeight = (value: number | null, unit: Unit) =>
-  value && value > 0 ? `${value} ${unit}` : "—";
+  value && value > 0 ? `${value} ${unit}` : "-";
+const formatNumber = (value: number, digits = 2): string => {
+  const fixed = value.toFixed(digits);
+  return Number(fixed).toString();
+};
+
+type PlatePlanRow = { weight: number; count: number };
+
+type PlatePlanResult = {
+  perSide: PlatePlanRow[];
+  difference: number;
+  totalUsed: number;
+  target: number;
+  barWeight: number;
+  isPossible: boolean;
+};
+
+const computePlatePlan = (
+  target: number | "",
+  barWeight: number,
+  plates: number[]
+): PlatePlanResult | null => {
+  if (typeof target !== "number" || !Number.isFinite(target) || target <= 0) {
+    return null;
+  }
+  const usableBarWeight = Number.isFinite(barWeight) && barWeight > 0 ? barWeight : 0;
+  const sortedPlates = Array.from(
+    new Set(
+      plates
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )
+  ).sort((a, b) => b - a);
+
+  const perSide: PlatePlanRow[] = [];
+  const plateTotal = target - usableBarWeight;
+
+  if (plateTotal <= 0 || !sortedPlates.length) {
+    const difference = Number((target - usableBarWeight).toFixed(3));
+    return {
+      perSide,
+      difference,
+      totalUsed: usableBarWeight,
+      target,
+      barWeight: usableBarWeight,
+      isPossible: Math.abs(difference) < 0.1,
+    };
+  }
+
+  let remainingPerSide = plateTotal / 2;
+  sortedPlates.forEach((plate) => {
+    const count = Math.floor((remainingPerSide + 1e-6) / plate);
+    if (count > 0) {
+      perSide.push({ weight: Number(plate.toFixed(3)), count });
+      remainingPerSide -= count * plate;
+    }
+  });
+
+  const totalPlatesWeight =
+    perSide.reduce((sum, item) => sum + item.weight * item.count, 0) * 2;
+  const totalUsed = usableBarWeight + totalPlatesWeight;
+  const difference = Number((target - totalUsed).toFixed(3));
+  const tolerance = Math.max(0.1, target * 0.002);
+
+  return {
+    perSide,
+    difference,
+    totalUsed,
+    target,
+    barWeight: usableBarWeight,
+    isPossible: Math.abs(difference) <= tolerance,
+  };
+};
+
+const flattenPlatesForVisual = (rows: PlatePlanRow[]): number[] =>
+  rows.flatMap((row) => Array.from({ length: row.count }, () => row.weight));
+
+const plateColor = (index: number): string => {
+  const palette = [
+    "#38bdf8",
+    "#34d399",
+    "#60a5fa",
+    "#a855f7",
+    "#f97316",
+    "#fbbf24",
+    "#14b8a6",
+    "#f472b6",
+  ];
+  return palette[index % palette.length];
+};
 
 function parseNumeric(value: string): number | "" {
   const trimmed = value.trim();
@@ -58,6 +151,15 @@ export default function Calculator() {
   const [estimatorReps, setEstimatorReps] = useState<number | "">("");
   const [week, setWeek] = useState<Week>(1);
   const [saving, setSaving] = useState(false);
+  const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
+  const [targetWeight, setTargetWeight] = useState<number | "">("");
+  const [equipmentDirty, setEquipmentDirty] = useState(false);
+  const [equipmentSaving, setEquipmentSaving] = useState(false);
+  const [equipmentMessage, setEquipmentMessage] = useState<string | null>(null);
+  const [manageEquipment, setManageEquipment] = useState(false);
+  const [newPlateWeight, setNewPlateWeight] = useState("");
+  const [newBarLabel, setNewBarLabel] = useState("");
+  const [newBarWeight, setNewBarWeight] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -83,17 +185,26 @@ export default function Calculator() {
       setRoundStep(defaultRound);
       setRoundStepText(String(defaultRound));
 
-      const baseProfile: Profile = remote ?? {
-        uid: resolvedUid,
-        firstName: local.firstName ?? "",
-        lastName: local.lastName ?? "",
-        unit: effectiveUnit,
-        team: local.team,
-        tm: local.tm ?? {},
-        accessCode: local.accessCode ?? null,
-      };
+      const equipmentSource = remote?.equipment ?? (local as any)?.equipment;
+      const baseEquipment = normalizeEquipment(
+        equipmentSource as EquipmentSettings | undefined
+      );
+
+      const baseProfile: Profile = remote
+        ? { ...remote, equipment: baseEquipment }
+        : {
+            uid: resolvedUid,
+            firstName: local.firstName ?? "",
+            lastName: local.lastName ?? "",
+            unit: effectiveUnit,
+            team: local.team,
+            tm: local.tm ?? {},
+            accessCode: local.accessCode ?? null,
+            equipment: baseEquipment,
+          };
 
       setProfile(baseProfile);
+      setEquipment(baseEquipment);
     })();
   }, []);
 
@@ -107,6 +218,14 @@ export default function Calculator() {
       setMeasured1rm("");
     }
   }, [profile, lift]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const stored = profile.tm?.[lift];
+    if (typeof stored === "number" && stored > 0 && targetWeight === "") {
+      setTargetWeight(stored);
+    }
+  }, [profile, lift, targetWeight]);
 
   const estimated1rm = useMemo(() => {
     if (useEstimator) {
@@ -157,6 +276,61 @@ export default function Calculator() {
     }));
   }, [trainingMax, unit, roundStep, week]);
 
+  const platesForUnit = useMemo(
+    () => equipment.plates[unit] ?? [],
+    [equipment, unit]
+  );
+  const barOptions = useMemo(
+    () => equipment.bars[unit] ?? [],
+    [equipment, unit]
+  );
+  const activeBarId =
+    equipment.activeBarId[unit] ?? (barOptions[0]?.id ?? null);
+  const activeBar =
+    barOptions.find((bar) => bar.id === activeBarId) ?? barOptions[0] ?? null;
+  const activeBarWeight = activeBar?.weight ?? 0;
+
+  const platePlan = useMemo(
+    () => computePlatePlan(targetWeight, activeBarWeight, platesForUnit),
+    [targetWeight, activeBarWeight, platesForUnit]
+  );
+
+  const platesUsedKeys = useMemo(() => {
+    if (!platePlan) return new Set<string>();
+    return new Set(
+      platePlan.perSide.map((row) => row.weight.toFixed(3))
+    );
+  }, [platePlan]);
+
+  const visualPlates = useMemo(
+    () => (platePlan ? flattenPlatesForVisual(platePlan.perSide) : []),
+    [platePlan]
+  );
+
+  const perSideTotal = platePlan
+    ? platePlan.perSide.reduce((sum, row) => sum + row.weight * row.count, 0)
+    : 0;
+  const planDifference = platePlan?.difference ?? 0;
+  const planSummary = platePlan
+    ? platePlan.isPossible
+      ? `Load ${formatNumber(perSideTotal)} ${unit} per side on the ${formatNumber(
+          activeBarWeight
+        )} ${unit} bar.`
+      : `You are short ${formatNumber(Math.abs(planDifference))} ${unit} with the current plates.`
+    : "Enter a target weight to calculate plates.";
+
+  useEffect(() => {
+    if (targetWeight === "" && trainingMax !== null) {
+      setTargetWeight(trainingMax);
+    }
+  }, [trainingMax, targetWeight]);
+
+  useEffect(() => {
+    if (!equipmentMessage) return;
+    const timer = window.setTimeout(() => setEquipmentMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [equipmentMessage]);
+
   function handleUnitChange(next: Unit) {
     const step = defaultStep(next);
     setUnit(next);
@@ -188,6 +362,127 @@ export default function Calculator() {
       setEstimatorReps("");
     }
   }
+
+  const handleTargetWeightChange = (value: string) => {
+    const parsed = parseNumeric(value);
+    if (parsed === "" || (typeof parsed === "number" && parsed >= 0)) {
+      setTargetWeight(parsed);
+    }
+  };
+
+  const applyEquipmentUpdate = (
+    updater: (prev: EquipmentSettings) => EquipmentSettings
+  ) => {
+    setEquipment((prev) => {
+      const next = normalizeEquipment(updater(prev));
+      setProfile((prevProfile) =>
+        prevProfile ? { ...prevProfile, equipment: next } : prevProfile
+      );
+      return next;
+    });
+    setEquipmentDirty(true);
+  };
+
+  const handleSelectBar = (id: string) => {
+    applyEquipmentUpdate((prev) => ({
+      ...prev,
+      activeBarId: { ...prev.activeBarId, [unit]: id },
+    }));
+  };
+
+  const handleAddPlate = () => {
+    const parsed = parseNumeric(newPlateWeight);
+    if (typeof parsed !== "number" || parsed <= 0) return;
+    applyEquipmentUpdate((prev) => {
+      const current = prev.plates[unit] ?? [];
+      return {
+        ...prev,
+        plates: { ...prev.plates, [unit]: [...current, parsed] },
+      };
+    });
+    setNewPlateWeight("");
+  };
+
+  const handleRemovePlate = (weight: number) => {
+    applyEquipmentUpdate((prev) => {
+      const current = prev.plates[unit] ?? [];
+      const nextList = current.filter(
+        (value) => Math.abs(value - weight) > 1e-6
+      );
+      return {
+        ...prev,
+        plates: { ...prev.plates, [unit]: nextList },
+      };
+    });
+  };
+
+  const handleAddBar = () => {
+    const parsedWeight = parseNumeric(newBarWeight);
+    if (typeof parsedWeight !== "number" || parsedWeight <= 0) return;
+    const label =
+      newBarLabel.trim() || `${formatNumber(parsedWeight)} ${unit} bar`;
+    applyEquipmentUpdate((prev) => {
+      const current = prev.bars[unit] ?? [];
+      return {
+        ...prev,
+        bars: {
+          ...prev.bars,
+          [unit]: [...current, { id: "", label, weight: parsedWeight }],
+        },
+      };
+    });
+    setNewBarLabel("");
+    setNewBarWeight("");
+  };
+
+  const handleRemoveBar = (id: string) => {
+    applyEquipmentUpdate((prev) => {
+      const current = prev.bars[unit] ?? [];
+      const nextList = current.filter((bar) => bar.id !== id);
+      const wasActive = prev.activeBarId[unit] === id;
+      return {
+        ...prev,
+        bars: { ...prev.bars, [unit]: nextList },
+        activeBarId: {
+          ...prev.activeBarId,
+          [unit]: wasActive ? nextList[0]?.id ?? null : prev.activeBarId[unit],
+        },
+      };
+    });
+  };
+
+  const handleResetEquipment = () => {
+    applyEquipmentUpdate(() => defaultEquipment());
+  };
+
+  const persistEquipmentChanges = async () => {
+    if (!profile) return;
+    setEquipmentSaving(true);
+    const nextProfile: Profile = { ...profile, equipment };
+    try {
+      await saveProfile(nextProfile);
+      setProfile(nextProfile);
+      setEquipmentDirty(false);
+      setEquipmentMessage("Equipment saved.");
+    } catch (err) {
+      console.warn("Failed to save equipment", err);
+      setEquipmentMessage("Could not save equipment right now.");
+    } finally {
+      setEquipmentSaving(false);
+    }
+  };
+
+  const toggleManageState = () => {
+    setManageEquipment((prev) => {
+      const next = !prev;
+      if (!next) {
+        setNewPlateWeight("");
+        setNewBarLabel("");
+        setNewBarWeight("");
+      }
+      return next;
+    });
+  };
 
   async function handleSave() {
     if (!profile) return;
@@ -228,8 +523,9 @@ export default function Calculator() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="card space-y-5">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+        <div className="space-y-6">
+          <div className="card space-y-5">
           <h2 className="text-xl font-semibold">Training Max Calculator</h2>
 
           <div className="grid gap-4">
@@ -329,12 +625,12 @@ export default function Calculator() {
               Estimated 1RM
             </div>
             <div className="text-2xl font-bold text-gray-900">
-              {estimated1rm ? `${estimated1rm.toFixed(1)} ${unit}` : "—"}
+              {estimated1rm ? `${estimated1rm.toFixed(1)} ${unit}` : "-"}
             </div>
             <div className="text-sm text-gray-600">
               Training Max (90%):{" "}
               <span className="font-semibold text-gray-900">
-                {trainingMax !== null ? `${trainingMax} ${unit}` : "—"}
+                {trainingMax !== null ? `${trainingMax} ${unit}` : "-"}
               </span>
             </div>
           </div>
@@ -346,6 +642,351 @@ export default function Calculator() {
           >
             {saving ? "Saving..." : "Save as TM for this lift"}
           </button>
+          </div>
+
+          <div className="card space-y-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <h2 className="text-xl font-semibold">Plate Calculator</h2>
+              <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    trainingMax !== null
+                      ? "border-brand-200 text-brand-700 hover:bg-brand-50"
+                      : "border-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                  onClick={() => {
+                    if (trainingMax !== null) setTargetWeight(trainingMax);
+                  }}
+                  disabled={trainingMax === null}
+                >
+                  Use TM
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    estimated1rm
+                      ? "border-brand-200 text-brand-700 hover:bg-brand-50"
+                      : "border-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                  onClick={() => {
+                    if (estimated1rm) setTargetWeight(estimated1rm);
+                  }}
+                  disabled={!estimated1rm}
+                >
+                  Use 1RM
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                  onClick={() => setTargetWeight("")}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                <span>Target weight ({unit})</span>
+                <input
+                  className="field"
+                  inputMode="decimal"
+                  value={targetWeight === "" ? "" : targetWeight}
+                  onChange={(e) => handleTargetWeightChange(e.target.value)}
+                  placeholder={unit === "lb" ? "225" : "100"}
+                />
+              </label>
+              <div className="flex gap-2">
+                {(["lb", "kg"] as Unit[]).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      unit === opt
+                        ? "border-brand-400 bg-brand-50 text-brand-700"
+                        : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                    }`}
+                    onClick={() => handleUnitChange(opt)}
+                  >
+                    {opt.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-gray-900 p-4 text-white">
+              <div className="space-y-4">
+                <div className="relative mx-auto h-40 w-full max-w-lg">
+                  <div
+                    className="absolute top-1/2 h-6 -translate-y-1/2 rounded-r-full bg-gray-500"
+                    style={{ left: "6rem", right: "1rem" }}
+                  />
+                  <div
+                    className="absolute top-1/2 flex h-14 w-20 -translate-y-1/2 items-center justify-center rounded-lg bg-gray-400 text-xs font-semibold text-gray-900"
+                    style={{ left: "2rem" }}
+                  >
+                    {formatNumber(activeBarWeight)} {unit}
+                  </div>
+                  <div
+                    className="absolute flex items-end gap-3"
+                    style={{ left: "8.5rem", bottom: "1rem" }}
+                  >
+                    {visualPlates.length ? (
+                      visualPlates.map((weight, index) => {
+                        const baseCandidate =
+                          platesForUnit[0] ?? (weight || 0);
+                        const base =
+                          typeof baseCandidate === "number" && baseCandidate > 0
+                            ? baseCandidate
+                            : 1;
+                        const scale = Math.max(56, (weight / base) * 60 + 48);
+                        return (
+                          <div
+                            key={`${weight}-${index}`}
+                            className="flex flex-col items-center text-xs font-semibold"
+                          >
+                            <div
+                              className="w-6 rounded-b-sm rounded-t-lg"
+                              style={{
+                                height: `${scale}px`,
+                                backgroundColor: plateColor(index),
+                              }}
+                            />
+                            <span className="mt-1 text-gray-200">
+                              {formatNumber(weight)}
+                            </span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <span className="text-xs text-gray-300">
+                        {platePlan && platePlan.isPossible && targetWeight !== ""
+                          ? "Only the bar is needed."
+                          : "Add a target weight to calculate plates."}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {platePlan && platePlan.perSide.length > 0 && (
+                  <div className="grid gap-1 text-xs text-gray-200 sm:text-sm">
+                    {platePlan.perSide.map((row, idx) => (
+                      <div
+                        key={`${row.weight}-${idx}`}
+                        className="flex justify-between"
+                      >
+                        <span>
+                          {row.count} x {formatNumber(row.weight)} {unit}
+                        </span>
+                        <span>
+                          {formatNumber(row.weight * row.count)} {unit}/side
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div
+                  className={`rounded-xl border px-3 py-2 text-xs sm:text-sm ${
+                    platePlan
+                      ? platePlan.isPossible
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                        : "border-rose-300 bg-rose-50 text-rose-700"
+                      : "border-gray-700 bg-gray-800 text-gray-200"
+                  }`}
+                >
+                  {planSummary}
+                  {platePlan && !platePlan.isPossible && (
+                    <div className="mt-1 text-xs">
+                      Add smaller plates or adjust the target weight.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Available Equipment
+                </h3>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                  onClick={toggleManageState}
+                >
+                  {manageEquipment ? "Done" : "Manage"}
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    Plates ({unit})
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {platesForUnit.length ? (
+                      platesForUnit.map((weight) => {
+                        const key = weight.toFixed(3);
+                        const active = platesUsedKeys.has(key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            className={`rounded-full border px-3 py-1 text-sm font-medium transition ${
+                              active
+                                ? "border-brand-400 bg-brand-50 text-brand-700"
+                                : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                            }`}
+                            onClick={() => {
+                              if (manageEquipment) handleRemovePlate(weight);
+                            }}
+                            title={
+                              manageEquipment ? "Remove plate size" : undefined
+                            }
+                          >
+                            {formatNumber(weight)} {unit}
+                            {manageEquipment && (
+                              <span className="ml-2 text-xs text-gray-400">
+                                ×
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        No plates listed yet.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    Bars ({unit})
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {barOptions.length ? (
+                      barOptions.map((bar) => {
+                        const isActive = bar.id === activeBarId;
+                        return (
+                          <button
+                            key={bar.id}
+                            type="button"
+                            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition ${
+                              isActive
+                                ? "border-brand-400 bg-brand-50 text-brand-700"
+                                : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                            }`}
+                            onClick={() => handleSelectBar(bar.id)}
+                          >
+                            <span>{bar.label}</span>
+                            <span className="text-xs text-gray-500">
+                              ({formatNumber(bar.weight)} {unit})
+                            </span>
+                            {manageEquipment && (
+                              <span
+                                className="ml-1 text-xs text-gray-400 hover:text-rose-500"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleRemoveBar(bar.id);
+                                }}
+                              >
+                                ×
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        No bars saved yet.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {manageEquipment && (
+                  <div className="space-y-4 border-t border-dashed border-gray-300 pt-4">
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                        <span>Add plate ({unit})</span>
+                        <input
+                          className="field"
+                          inputMode="decimal"
+                          value={newPlateWeight}
+                          onChange={(e) => setNewPlateWeight(e.target.value)}
+                          placeholder={unit === "lb" ? "2.5" : "1.25"}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn px-3 py-2 text-sm"
+                        onClick={handleAddPlate}
+                        disabled={newPlateWeight.trim() === ""}
+                      >
+                        Add plate
+                      </button>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                        <span>Bar label</span>
+                        <input
+                          className="field"
+                          value={newBarLabel}
+                          onChange={(e) => setNewBarLabel(e.target.value)}
+                          placeholder="Standard"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                        <span>Bar weight ({unit})</span>
+                        <input
+                          className="field"
+                          inputMode="decimal"
+                          value={newBarWeight}
+                          onChange={(e) => setNewBarWeight(e.target.value)}
+                          placeholder={unit === "lb" ? "45" : "20"}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn px-3 py-2 text-sm"
+                        onClick={handleAddBar}
+                        disabled={newBarWeight.trim() === ""}
+                      >
+                        Add bar
+                      </button>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                        onClick={handleResetEquipment}
+                      >
+                        Reset to defaults
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 border-t border-gray-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  {equipmentMessage && (
+                    <div className="text-xs text-gray-600">{equipmentMessage}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary px-4 py-2 text-sm"
+                    onClick={persistEquipmentChanges}
+                    disabled={equipmentSaving || !equipmentDirty}
+                  >
+                    {equipmentSaving ? "Saving..." : "Save equipment"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="card space-y-5">

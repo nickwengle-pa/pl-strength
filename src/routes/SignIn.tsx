@@ -122,6 +122,7 @@ export default function SignIn() {
       team: resolvedTeam,
       tm: base?.tm ?? {},
       accessCode: base?.accessCode ?? null,
+      equipment: base?.equipment,
     });
 
     if (resolvedTeam) {

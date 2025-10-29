@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ensureAnon, fb, loadProfileRemote, saveProfile, Profile, Unit } from "../lib/db";
+import {
+  defaultEquipment,
+  ensureAnon,
+  fb,
+  loadProfileRemote,
+  saveProfile,
+  type Profile,
+  type Unit,
+} from "../lib/db";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
@@ -29,7 +37,17 @@ export default function Summary() {
       const u = await ensureAnon();
       setUid(u);
       const p = await loadProfileRemote(u);
-      setProfile(p || { uid: u, firstName:"", lastName:"", unit:"lb", accessCode: null });
+      setProfile(
+        p || {
+          uid: u,
+          firstName: "",
+          lastName: "",
+          unit: "lb",
+          accessCode: null,
+          tm: {},
+          equipment: defaultEquipment(),
+        }
+      );
       const existing = p?.tm?.[lift];
       setTm(existing ?? "");
     })();

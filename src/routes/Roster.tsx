@@ -6,6 +6,7 @@ import {
   loadProfileRemote,
   regenerateAthleteCode,
   saveProfile,
+  defaultEquipment,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -137,6 +138,7 @@ export default function Roster() {
             team: selectedRow?.team,
             accessCode: selectedRow?.accessCode ?? null,
             tm: undefined,
+            equipment: defaultEquipment(),
           });
         }
         setDetailSessions(sessions);
