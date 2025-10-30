@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import {
   defaultEquipment,
   ensureAnon,
-  fb,
   loadProfileRemote,
   saveProfile,
   type Profile,
   type Unit,
 } from "../lib/db";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
@@ -32,33 +32,62 @@ export default function Summary() {
   const [week, setWeek] = useState<Week>(1);
   const [tm, setTm] = useState<number | "">( "");
 
-  useEffect(() => {
-    (async () => {
-      const u = await ensureAnon();
-      setUid(u);
-      const p = await loadProfileRemote(u);
-      setProfile(
-        p || {
-          uid: u,
-          firstName: "",
-          lastName: "",
-          unit: "lb",
-          accessCode: null,
-          tm: {},
-          oneRm: {},
-          equipment: defaultEquipment(),
-        }
-      );
-      const existing = p?.tm?.[lift];
-      setTm(existing ?? "");
-    })();
-  }, []);
+  const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
+  const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
+  const activeAthleteName = activeAthlete
+    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
+    : "";
+
 
   useEffect(() => {
-    if (!profile) return;
-    const existing = profile?.tm?.[lift];
+    (async () => {
+      if (targetUid) {
+        await ensureAnon();
+        const remote = await loadProfileRemote(targetUid);
+        const profileData: Profile = remote
+          ? { ...remote, equipment: remote.equipment ?? defaultEquipment() }
+          : {
+              uid: targetUid,
+              firstName: activeAthlete?.firstName ?? "",
+              lastName: activeAthlete?.lastName ?? "",
+              unit: (activeAthlete?.unit as Unit) || "lb",
+              accessCode: null,
+              tm: {},
+              oneRm: {},
+              equipment: defaultEquipment(),
+              team: activeAthlete?.team ?? undefined,
+            } as Profile;
+        setUid(targetUid);
+        setProfile(profileData);
+        return;
+      }
+      const u = await ensureAnon();
+      setUid(u);
+      const remote = await loadProfileRemote(u);
+      const profileData: Profile = remote
+        ? { ...remote, equipment: remote.equipment ?? defaultEquipment() }
+        : {
+            uid: u,
+            firstName: "",
+            lastName: "",
+            unit: "lb",
+            accessCode: null,
+            tm: {},
+            oneRm: {},
+            equipment: defaultEquipment(),
+          };
+      setProfile(profileData);
+    })();
+  }, [targetUid, activeAthlete, version]);
+
+  useEffect(() => {
+    if (!profile) {
+      setTm("");
+      return;
+    }
+    const existing = profile.tm?.[lift];
     setTm(existing ?? "");
-  }, [lift]);
+  }, [lift, profile]);
 
   const unit = profile?.unit || "lb";
 
@@ -68,8 +97,14 @@ export default function Summary() {
       ...profile,
       tm: { ...(profile.tm || {}), [lift]: Number(tm) }
     };
-    await saveProfile(updated);
-    setProfile(updated);
+    try {
+      await saveProfile(updated, { skipLocal: Boolean(targetUid) });
+      setProfile(updated);
+      notifyProfileChange();
+    } catch (err) {
+      console.warn("Failed to save training max", err);
+      alert("Unable to save the training max right now. Please try again.");
+    }
   };
 
   const sets = typeof tm === "number"
@@ -80,9 +115,30 @@ export default function Summary() {
       }))
     : [];
 
+  if (coachLoading) {
+    return (
+      <div className="container py-6">
+        <div className="card text-sm text-gray-600">Loading coach tools...</div>
+      </div>
+    );
+  }
+
+  if (isCoach && !targetUid) {
+    return (
+      <div className="container py-6">
+        <div className="card space-y-2 text-sm text-gray-600">
+          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
+          <p>Open the roster tab and choose an athlete to view their summary.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-6 space-y-6">
       <h1>Quick Summary</h1>
+
+      {targetUid ? (<div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {(["bench","squat","deadlift","press"] as Lift[]).map(k => (
@@ -116,7 +172,7 @@ export default function Summary() {
           <div className="badge">Units: {unit}</div>
         </div>
         <p className="text-sm text-gray-600">
-          TM = heavy single you could hit for ~2–3 reps. We’ll do simple math and round plates.
+          TM = heavy single you could hit for ~2-3 reps. We"ll do simple math and round plates.
         </p>
       </div>
 
@@ -137,9 +193,9 @@ export default function Summary() {
           <div className="card">
             <h3 className="mb-2">Coach Tips</h3>
             <ul className="list-disc pl-5 text-sm space-y-1">
-              <li>Move fast. Rest 2–3 min on the big sets.</li>
-              <li>“+” means stop with 1–2 reps in the tank. No grinders.</li>
-              <li>Week 4 is a reset. Easy work → lock in technique.</li>
+              <li>Move fast. Rest 2-3 min on the big sets.</li>
+              <li>"+" means stop with 1-2 reps in the tank. No grinders.</li>
+              <li>Week 4 is a reset. Easy work -&gt; lock in technique.</li>
             </ul>
           </div>
         </div>
@@ -150,3 +206,7 @@ export default function Summary() {
 
 function cap(s:string){ return s[0].toUpperCase()+s.slice(1); }
 function icon(k:Lift){ return {bench:"🧰", squat:"🦵", deadlift:"🧲", press:"🫱"}[k]; }
+
+
+
+

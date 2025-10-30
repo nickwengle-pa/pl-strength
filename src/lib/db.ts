@@ -241,11 +241,26 @@ const roleRef = (database: Firestore, uid: string) =>
 
 const normalizeRoles = (raw: any): string[] => {
   if (!raw) return [];
-  const roles: string[] = Array.isArray(raw.roles)
+  const baseList: string[] = Array.isArray(raw.roles)
     ? raw.roles
     : raw.role
     ? [raw.role]
     : [];
+  const truthyKeys =
+    typeof raw === "object" && raw
+      ? Object.entries(raw)
+          .filter(([key, value]) => {
+            if (key === "roles" || key === "role") return false;
+            if (typeof value === "boolean") return value;
+            if (typeof value === "string") {
+              const normalized = value.trim().toLowerCase();
+              return normalized === "true" || normalized === "yes" || normalized === "1";
+            }
+            return false;
+          })
+          .map(([key]) => key)
+      : [];
+  const roles = [...baseList, ...truthyKeys];
   return Array.from(
     new Set(
       roles
@@ -336,7 +351,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
   };
 }
 
-export async function saveProfile(p: Profile) {
+export async function saveProfile(p: Profile, options?: { skipLocal?: boolean }) {
   const handles = resolveHandles();
   const database = handles?.db;
   const normalizedEquipment = normalizeEquipment(p.equipment);
@@ -346,6 +361,9 @@ export async function saveProfile(p: Profile) {
     equipment: normalizedEquipment,
   };
   if (!database) {
+    if (options?.skipLocal) {
+      throw new Error("Firebase is not available to sync this profile right now.");
+    }
     saveProfileLocal(normalizedProfile);
     return;
   }
@@ -363,7 +381,9 @@ export async function saveProfile(p: Profile) {
   const snap = await getDoc(ref);
   if (snap.exists()) await updateDoc(ref, payload);
   else await setDoc(ref, payload);
-  saveProfileLocal(normalizedProfile);
+  if (!options?.skipLocal) {
+    saveProfileLocal(normalizedProfile);
+  }
 }
 
 export const normalizePasscodeDigits = (code: string): string =>
@@ -699,12 +719,28 @@ const normalizeSession = (
 };
 
 export async function saveSession(
-  payload: SessionPayload
+  payload: SessionPayload,
+  targetUid?: string
 ): Promise<{ source: "remote" | "local" }> {
   const base = normalizeSession(payload, {
     createdAt: Date.now(),
     source: "local",
   });
+
+  const handles = resolveHandles();
+  const database = handles?.db;
+
+  if (targetUid) {
+    if (!database) {
+      throw new Error("Firebase is not available for coach session save.");
+    }
+    const col = collection(database, "athletes", targetUid, "sessions");
+    await addDoc(col, {
+      ...payload,
+      createdAt: serverTimestamp(),
+    });
+    return { source: "remote" };
+  }
 
   let uid: string | null = null;
   try {
@@ -712,9 +748,6 @@ export async function saveSession(
   } catch (err) {
     console.warn("saveSession getUid failed", err);
   }
-
-  const handles = resolveHandles();
-  const database = handles?.db;
 
   if (!uid || !database) {
     persistLocalSession({ ...base, uid: uid ?? LOCAL_UID });
@@ -732,8 +765,36 @@ export async function saveSession(
 
 export async function recentSessions(
   lift: Lift,
-  count = 10
+  count = 10,
+  targetUid?: string
 ): Promise<SessionRecord[]> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+
+  if (targetUid) {
+    if (!database) return [];
+    try {
+      const col = collection(database, "athletes", targetUid, "sessions");
+      const fetchLimit = Math.max(count * 3, 25);
+      const snap = await getDocs(
+        query(col, orderBy("createdAt", "desc"), limit(fetchLimit))
+      );
+      const remote = snap.docs
+        .map((docSnap) =>
+          normalizeSession(docSnap.data(), {
+            id: docSnap.id,
+            uid: targetUid,
+            source: "remote",
+          })
+        )
+        .filter((s) => s.lift === lift);
+      return remote.slice(0, count);
+    } catch (err) {
+      console.warn("recentSessions coach query failed", err);
+      return [];
+    }
+  }
+
   const local = readLocalSessions().filter((s) => s.lift === lift);
   const localSorted = local
     .map((s) =>
@@ -748,8 +809,6 @@ export async function recentSessions(
     console.warn("recentSessions getUid failed", err);
   }
 
-  const handles = resolveHandles();
-  const database = handles?.db;
   if (!uid || !database) {
     return localSorted.slice(0, count);
   }
@@ -781,9 +840,10 @@ export async function recentSessions(
 
 export async function bestEst1RM(
   lift: Lift,
-  sample = 10
+  sample = 10,
+  targetUid?: string
 ): Promise<number> {
-  const rows = await recentSessions(lift, sample);
+  const rows = await recentSessions(lift, sample, targetUid);
   const ests = rows
     .map((r) => (typeof r.est1rm === "number" ? r.est1rm : Number(r.est1rm)))
     .filter((v): v is number => typeof v === "number" && !isNaN(v));

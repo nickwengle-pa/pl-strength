@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   estimate1RM,
   warmupPercents,
@@ -14,6 +14,7 @@ import {
 } from "../lib/db";
 import CoachTips from "../components/CoachTips";
 import TrendMini from "../components/TrendMini";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
@@ -34,6 +35,7 @@ export default function Session() {
   const [week, setWeek] = useState<Week>(1);
   const [unit, setUnit] = useState<Unit>("lb");
   const [tm, setTm] = useState<number | null>(null);
+
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
   const [note, setNote] = useState("");
@@ -43,23 +45,47 @@ export default function Session() {
   const [prFlag, setPrFlag] = useState<boolean>(false);
   const [warmOutcomes, setWarmOutcomes] = useState<SetOutcome[]>([]);
   const [workOutcomes, setWorkOutcomes] = useState<SetOutcome[]>([]);
+  const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
+  const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
+  const activeAthleteName = activeAthlete
+    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
+    : "";
+
 
   useEffect(() => {
     (async () => {
-      const remote = await loadProfileRemote();
-      const local = loadProfileLocal();
-      const profile = remote || local;
-      if (profile) {
-        const nextUnit = (profile.unit || "lb") as Unit;
-        setUnit(nextUnit);
-        setStep(nextUnit === "lb" ? 5 : 2.5);
-        const tmForLift = profile.tm?.[lift] ?? null;
-        setTm(tmForLift ?? null);
+      if (targetUid) {
+        const profile = await loadProfileRemote(targetUid);
+        if (profile) {
+          const nextUnit = (profile.unit || "lb") as Unit;
+          setUnit(nextUnit);
+          setStep(nextUnit === "lb" ? 5 : 2.5);
+          const tmForLift = profile.tm?.[lift] ?? null;
+          setTm(tmForLift ?? null);
+        } else {
+          setUnit("lb");
+          setStep(5);
+          setTm(null);
+        }
       } else {
-        setTm(null);
+        const remote = await loadProfileRemote();
+        const local = loadProfileLocal();
+        const profile = remote || local;
+        if (profile) {
+          const nextUnit = (profile.unit || "lb") as Unit;
+          setUnit(nextUnit);
+          setStep(nextUnit === "lb" ? 5 : 2.5);
+          const tmForLift = profile.tm?.[lift] ?? null;
+          setTm(tmForLift ?? null);
+        } else {
+          setTm(null);
+        }
       }
+      setAmrapReps(0);
+      setNote("");
+      setPrFlag(false);
     })();
-  }, [lift]);
+  }, [lift, targetUid, version]);
 
   const warm = useMemo(() => {
     if (!tm) return [];
@@ -104,11 +130,16 @@ export default function Session() {
   }, [amrapReps, work, tm, week, lastWorkWeight]);
 
   useEffect(() => {
+    if (coachLoading) return;
+    if (isCoach && !targetUid) {
+      setHistory([]);
+      return;
+    }
     (async () => {
-      const rows = await recentSessions(lift, 12);
+      const rows = await recentSessions(lift, 12, targetUid);
       setHistory(rows.reverse());
     })();
-  }, [lift]);
+  }, [lift, targetUid, isCoach, coachLoading, version]);
 
   const setWarmStatus = (index: number, status: "" | "S" | "F") => {
     setWarmOutcomes((prev) => {
@@ -195,34 +226,44 @@ export default function Session() {
     const workWithResults = mergeSets(work, workOutcomes);
 
     setSaving(true);
-    const est1rm = Number(estimate1RM(lastWorkWeight, amrapReps).toFixed(1));
-    const best = await bestEst1RM(lift, 20);
-    const pr = est1rm > best;
+    try {
+      const est1rm = Number(estimate1RM(lastWorkWeight, amrapReps).toFixed(1));
+      const best = await bestEst1RM(lift, 20, targetUid);
+      const pr = est1rm > best;
 
-    await saveSession({
-      lift,
-      week,
-      unit,
-      tm,
-      warmups: warmWithResults,
-      work: workWithResults,
-      amrap: { weight: lastWorkWeight, reps: amrapReps },
-      est1rm,
-      note,
-      pr,
-    });
+      await saveSession(
+        {
+          lift,
+          week,
+          unit,
+          tm,
+          warmups: warmWithResults,
+          work: workWithResults,
+          amrap: { weight: lastWorkWeight, reps: amrapReps },
+          est1rm,
+          note,
+          pr,
+        },
+        targetUid
+      );
 
-    setSaving(false);
-    setPrFlag(pr);
-    setEst(est1rm);
+      setPrFlag(pr);
+      setEst(est1rm);
 
-    const rows = await recentSessions(lift, 12);
-    setHistory(rows.reverse());
-    alert(
-      pr
-        ? `Saved. PR! New estimated 1RM ${est1rm} ${unit}`
-        : `Saved. Estimated 1RM ${est1rm} ${unit}`
-    );
+      const rows = await recentSessions(lift, 12, targetUid);
+      setHistory(rows.reverse());
+      notifyProfileChange();
+      alert(
+        pr
+          ? `Saved. PR! New estimated 1RM ${est1rm} ${unit}`
+          : `Saved. Estimated 1RM ${est1rm} ${unit}`
+      );
+    } catch (err) {
+      console.warn("Failed to save session", err);
+      alert("Unable to save session right now. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const estSeries = history
@@ -230,11 +271,32 @@ export default function Session() {
     .filter((value: number) => typeof value === "number" && !Number.isNaN(value));
   const prevBest = estSeries.length ? Math.max(...estSeries) : 0;
 
+  if (coachLoading) {
+    return (
+      <div className="container py-6">
+        <div className="card text-sm text-gray-600">Loading coach tools...</div>
+      </div>
+    );
+  }
+
+  if (isCoach && !targetUid) {
+    return (
+      <div className="container py-6">
+        <div className="card space-y-2 text-sm text-gray-600">
+          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
+          <p>Open the roster tab and choose an athlete to view their session data.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-3">
       <div className="md:col-span-2 space-y-3">
         <div className="card space-y-3">
           <h3 className="text-lg font-semibold">Train - {lift.toUpperCase()}</h3>
+
+          {targetUid ? (<div className="text-xs text-gray-500">Viewing: {activeAthleteName}</div>) : null}
 
           <div className="grid grid-cols-2 gap-2">
             <label className="text-sm">Lift</label>
@@ -266,6 +328,11 @@ export default function Session() {
 
             <label className="text-sm">Training Max</label>
             <div className="text-sm">{tm ?? "- set TM in Calculator"}</div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            <span className="font-semibold text-gray-700">Set status legend:</span> S = completed all prescribed reps.
+            F = stopped early  record the reps completed.
           </div>
 
           <div>
@@ -481,4 +548,8 @@ function SetRow({
     </div>
   );
 }
+
+
+
+
 

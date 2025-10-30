@@ -118,22 +118,28 @@ export default function Nav() {
       ? "badge badge-warning"
       : "badge badge-muted";
 
-  const baseLinks = [
+  const athleteLinks = [
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },
     { to: "/exercises", label: "Exercises" },
     { to: "/summary", label: "Summary" },
     { to: "/profile", label: "Profile" },
-    { to: "/roster", label: "Roster" },
   ];
 
-  const links = [
-    ...baseLinks.slice(0, 3),
-    ...(coach ? [{ to: "/program-outline", label: "Program Outline" }] : []),
-    ...baseLinks.slice(3),
-    ...(admin ? [{ to: "/admin", label: "Admin" }] : []),
+  const coachLinks = [
+    { to: "/roster", label: "Roster" },
+    { to: "/calculator", label: "Calculator" },
+    { to: "/session", label: "Session" },
+    { to: "/sheets", label: "Sheets" },
+    { to: "/program-outline", label: "Program Outline" },
+    { to: "/exercises", label: "Exercises" },
+    { to: "/summary", label: "Summary" },
+    { to: "/profile", label: "Profile" },
   ];
+
+  const baseLinks = coach ? coachLinks : athleteLinks;
+  const links = admin ? [...baseLinks, { to: "/admin", label: "Admin" }] : baseLinks;
 
   const isMobile = device.isMobile || (device.isTouch && !device.isDesktop);
 

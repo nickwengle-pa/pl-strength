@@ -11,6 +11,7 @@ import {
   type RosterEntry,
   type SessionRecord,
 } from "../lib/db";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 const LIFT_KEYS = ["bench", "squat", "deadlift", "press"] as const;
 type LiftKey = (typeof LIFT_KEYS)[number];
@@ -40,6 +41,7 @@ export default function Roster() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [tmDraft, setTmDraft] = useState<Record<LiftKey, string>>(() => emptyTmDraft());
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
+  const { setActiveAthlete, isCoach } = useActiveAthlete();
   const selectedRow = useMemo(
     () => rows.find((row) => row.uid === selectedUid) ?? null,
     [rows, selectedUid]
@@ -127,18 +129,26 @@ export default function Roster() {
           fetchAthleteSessions(selectedUid, 12),
         ]);
         if (!active) return;
-        if (profile) {
-          setDetailProfile(profile);
-        } else {
-          setDetailProfile({
-            uid: selectedUid,
-            firstName: selectedRow?.firstName ?? "",
-            lastName: selectedRow?.lastName ?? "",
-            unit: selectedRow?.unit ?? "lb",
-            team: selectedRow?.team,
-            accessCode: selectedRow?.accessCode ?? null,
-            tm: undefined,
-            equipment: defaultEquipment(),
+        const resolvedProfile: Profile = profile
+          ? profile
+          : {
+              uid: selectedUid,
+              firstName: selectedRow?.firstName ?? "",
+              lastName: selectedRow?.lastName ?? "",
+              unit: selectedRow?.unit ?? "lb",
+              team: selectedRow?.team,
+              accessCode: selectedRow?.accessCode ?? null,
+              tm: undefined,
+              equipment: defaultEquipment(),
+            };
+        setDetailProfile(resolvedProfile);
+        if (isCoach) {
+          setActiveAthlete({
+            uid: resolvedProfile.uid,
+            firstName: resolvedProfile.firstName ?? undefined,
+            lastName: resolvedProfile.lastName ?? undefined,
+            team: resolvedProfile.team ?? null,
+            unit: resolvedProfile.unit,
           });
         }
         setDetailSessions(sessions);
@@ -198,7 +208,7 @@ export default function Roster() {
         ...detailProfile,
         tm: hasAny ? nextTm : undefined,
       };
-      await saveProfile(updatedProfile);
+      await saveProfile(updatedProfile, { skipLocal: true });
       setDetailProfile(updatedProfile);
       setFlash({
         kind: "success",
@@ -349,15 +359,27 @@ export default function Roster() {
               </tr>
             </thead>
             <tbody>
-              {athleteRows.map((r) => {
+              {athleteRows.map((r, index) => {
                 const selected = selectedUid === r.uid;
+                const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
                 return (
                   <tr
-                    key={r.uid}
+                    key={rowKey}
                     className={`border-t cursor-pointer transition ${
                       selected ? "bg-brand-50" : "hover:bg-gray-50"
                     }`}
-                    onClick={() => setSelectedUid(r.uid)}
+                    onClick={() => {
+                      setSelectedUid(r.uid);
+                      if (isCoach && r.uid) {
+                        setActiveAthlete({
+                          uid: r.uid,
+                          firstName: r.firstName ?? undefined,
+                          lastName: r.lastName ?? undefined,
+                          team: r.team ?? null,
+                          unit: r.unit ?? undefined,
+                        });
+                      }
+                    }}
                   >
                     <td className="p-2">{r.firstName || "-"}</td>
                     <td className="p-2">{r.lastName || "-"}</td>

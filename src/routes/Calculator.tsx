@@ -12,6 +12,7 @@ import {
 } from "../lib/db";
 import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { estimate1RM, roundToPlate } from "../lib/tm";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 const lifts: Lift[] = ["bench", "squat", "deadlift", "press"];
@@ -128,11 +129,13 @@ function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisualProps
   const maxHeight = 120;
   const minWidth = 12;
   const maxWidth = 32;
+
   const scaleHeight = (weight: number): number => {
     if (!maxPlate) return minHeight;
     const ratio = weight / maxPlate;
     return Math.round(minHeight + ratio * (maxHeight - minHeight));
   };
+
   const scaleWidth = (weight: number): number => {
     if (!maxPlate) return minWidth;
     const ratio = weight / maxPlate;
@@ -156,11 +159,11 @@ function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisualProps
         </div>
         <div className="self-center h-14 w-3 rounded-r-md bg-slate-500 shadow-inner" />
         <div className="flex flex-1 items-end">
-            <div className="flex items-end gap-3">
-              {plateData.length ? (
-                plateData.map((plate) => (
-                  <div key={plate.key} className="flex flex-col items-center gap-1">
-                    <div
+          <div className="flex items-end gap-3">
+            {plateData.length ? (
+              plateData.map((plate) => (
+                <div key={plate.key} className="flex flex-col items-center gap-1">
+                  <div
                     className="rounded-md border border-slate-900"
                     style={{
                       height: `${plate.height}px`,
@@ -209,14 +212,81 @@ export default function Calculator() {
   const [newBarLabel, setNewBarLabel] = useState("");
   const [newBarWeight, setNewBarWeight] = useState("");
 
+  const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
+  const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
+  const activeAthleteName = activeAthlete
+    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
+    : "";
+
+
+
   useEffect(() => {
+    let active = true;
     (async () => {
+      setEquipmentMessage(null);
+      setEquipmentDirty(false);
+      setManageEquipment(false);
+      if (targetUid) {
+        try {
+          await ensureAnon();
+          const remote = await loadProfileRemote(targetUid);
+          if (!active) return;
+          const normalizedEquip = normalizeEquipment(
+            remote?.equipment as EquipmentSettings | undefined
+          );
+          const profileForAthlete: Profile = remote
+            ? { ...remote, equipment: normalizedEquip }
+            : {
+                uid: targetUid,
+                firstName: activeAthlete?.firstName ?? "",
+                lastName: activeAthlete?.lastName ?? "",
+                team: activeAthlete?.team ?? undefined,
+                unit: (activeAthlete?.unit as Unit) || "lb",
+                tm: {},
+                oneRm: {},
+                accessCode: null,
+                equipment: normalizedEquip ?? defaultEquipment(),
+              };
+          const nextUnit = (profileForAthlete.unit || "lb") as Unit;
+          const nextRound = defaultStep(nextUnit);
+          setUnit(nextUnit);
+          setRoundStep(nextRound);
+          setRoundStepText(String(nextRound));
+          setProfile(profileForAthlete);
+          setEquipment(profileForAthlete.equipment ?? defaultEquipment());
+          setTargetWeight("");
+        } catch (err) {
+          if (!active) return;
+          console.warn("Failed to load athlete profile", err);
+          const fallbackUnit = (activeAthlete?.unit as Unit) || "lb";
+          setUnit(fallbackUnit);
+          const nextRound = defaultStep(fallbackUnit);
+          setRoundStep(nextRound);
+          setRoundStepText(String(nextRound));
+          const fallbackProfile: Profile = {
+            uid: targetUid,
+            firstName: activeAthlete?.firstName ?? "",
+            lastName: activeAthlete?.lastName ?? "",
+            team: activeAthlete?.team ?? undefined,
+            unit: fallbackUnit,
+            tm: {},
+            oneRm: {},
+            accessCode: null,
+            equipment: defaultEquipment(),
+          };
+          setProfile(fallbackProfile);
+          setEquipment(defaultEquipment());
+          setTargetWeight("");
+        }
+        return;
+      }
+
       let resolvedUid = "local";
       try {
         resolvedUid = await ensureAnon();
       } catch {
         resolvedUid = "local";
-}
+      }
 
       const local = (loadProfileLocal() ?? {}) as Partial<Profile>;
       let remote: Profile | null = null;
@@ -247,14 +317,20 @@ export default function Calculator() {
             unit: effectiveUnit,
             team: local.team,
             tm: local.tm ?? {},
+            oneRm: local.oneRm ?? {},
             accessCode: local.accessCode ?? null,
             equipment: baseEquipment,
           };
 
       setProfile(baseProfile);
       setEquipment(baseEquipment);
+      setTargetWeight("");
     })();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [targetUid, activeAthlete, version]);
+
 
   useEffect(() => {
     if (!profile) return;
@@ -487,7 +563,7 @@ export default function Calculator() {
     setEquipmentSaving(true);
     const nextProfile: Profile = { ...profile, equipment };
     try {
-      await saveProfile(nextProfile);
+      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
       setProfile(nextProfile);
       setEquipmentDirty(false);
       setEquipmentMessage("Equipment saved.");
@@ -537,9 +613,11 @@ export default function Calculator() {
 
     setSaving(true);
     try {
-      await saveProfile(nextProfile);
+      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
       setProfile(nextProfile);
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
+      setTargetWeight(trainingMax);
+      notifyProfileChange();
       alert("Training max saved for this lift.");
     } catch (err) {
       console.warn("Failed to save training max", err);
@@ -549,10 +627,30 @@ export default function Calculator() {
     }
   }
 
+  if (coachLoading) {
+    return (
+      <div className="container py-6">
+        <div className="card text-sm text-gray-600">Loading coach tools...</div>
+      </div>
+    );
+  }
+
+  if (isCoach && !targetUid) {
+    return (
+      <div className="container py-6">
+        <div className="card space-y-2 text-sm text-gray-600">
+          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
+          <p>Open the roster tab and choose an athlete to view their training numbers.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-6 space-y-6">
       <div>
         <h1>Training Max Calculator</h1>
+        {targetUid ? (<div className="mt-1 text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
         <p className="mt-2 text-sm text-gray-600">
           Pick the lift, enter a 1RM (or estimate it), and we will round the
           5/3/1 sets using your plate math.
@@ -996,3 +1094,7 @@ export default function Calculator() {
     </div>
   );
 }
+
+
+
+

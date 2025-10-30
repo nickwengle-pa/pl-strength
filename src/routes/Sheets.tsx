@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  defaultEquipment,
   ensureAnon,
   loadProfileRemote,
   type Profile,
@@ -7,6 +8,7 @@ import {
 } from "../lib/db";
 import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { roundToPlate, weekPercents } from "../lib/tm";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type LiftKey = "squat" | "bench" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
@@ -78,14 +80,16 @@ const deriveOneRm = (profile: Profile | null, lift: LiftKey): number => {
   return DEFAULT_ONE_RM;
 };
 
-const resolveProfile = async (): Promise<Profile | null> => {
+const resolveProfile = async (targetUid?: string): Promise<Profile | null> => {
   const local = loadProfileLocal();
   try {
-    const uid = await ensureAnon();
+    const uid = targetUid ?? (await ensureAnon());
     const remote = await loadProfileRemote(uid);
-    return remote || ((local as Profile | null) ?? null);
-  } catch {
+    if (remote) return remote;
+    if (targetUid) return null;
     return (local as Profile | null) ?? null;
+  } catch {
+    return targetUid ? null : (local as Profile | null) ?? null;
   }
 };
 
@@ -98,15 +102,39 @@ export default function Sheets() {
   const [roundStepText, setRoundStepText] = useState<string>("5");
   const [showFullTable, setShowFullTable] = useState<boolean>(true);
 
+  const { activeAthlete, isCoach, loading: coachLoading } = useActiveAthlete();
+  const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
+  const activeAthleteName = activeAthlete
+    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
+    : "";
+
   const unit: Unit = (profile?.unit ?? "lb") as Unit;
   const effectiveRoundStep = roundStep > 0 ? roundStep : unit === "kg" ? 2.5 : 5;
 
   useEffect(() => {
     (async () => {
-      const resolved = await resolveProfile();
+      const resolved = await resolveProfile(targetUid);
+      if (resolved) {
+        setProfile(resolved);
+        return;
+      }
+      if (targetUid && activeAthlete) {
+        setProfile({
+          uid: targetUid,
+          firstName: activeAthlete.firstName ?? "",
+          lastName: activeAthlete.lastName ?? "",
+          unit: (activeAthlete.unit as Unit) || "lb",
+          team: activeAthlete.team ?? undefined,
+          tm: {},
+          oneRm: {},
+          accessCode: null,
+          equipment: defaultEquipment(),
+        });
+        return;
+      }
       setProfile(resolved);
     })();
-  }, []);
+  }, [targetUid, activeAthlete]);
 
   useEffect(() => {
     const defaultStep = unit === "kg" ? 2.5 : 5;
@@ -119,6 +147,7 @@ export default function Sheets() {
       setSelectedCycle(cycleCount || 1);
     }
   }, [cycleCount, selectedCycle]);
+
 
   const planData = useMemo<PlanCycle[]>(() => {
     const count = Math.max(1, cycleCount);
@@ -191,10 +220,30 @@ export default function Sheets() {
     [cycleCount]
   );
 
+  if (coachLoading) {
+    return (
+      <div className="container py-6">
+        <div className="card text-sm text-gray-600">Loading coach tools...</div>
+      </div>
+    );
+  }
+
+  if (isCoach && !targetUid) {
+    return (
+      <div className="container py-6">
+        <div className="card space-y-2 text-sm text-gray-600">
+          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
+          <p>Open the roster tab and choose an athlete to view their sheet outline.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Printable Training Sheets</h1>
+        {targetUid ? (<div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
         <button className="btn btn-primary no-print" onClick={() => window.print()}>
           Print / Save PDF
         </button>
@@ -476,3 +525,7 @@ export default function Sheets() {
     </div>
   );
 }
+
+
+
+
