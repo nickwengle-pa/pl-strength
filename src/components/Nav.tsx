@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { hasFirebase, isCoach } from "../lib/db";
+import { hasFirebase, isCoach, isAdmin } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
@@ -12,6 +12,7 @@ export default function Nav() {
   const location = useLocation();
   const [status, setStatus] = useState<Status>("checking");
   const [coach, setCoach] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -28,6 +29,7 @@ export default function Nav() {
 
     if (!ready || !user) {
       setCoach(false);
+      setAdmin(false);
       return () => {
         active = false;
       };
@@ -35,10 +37,19 @@ export default function Nav() {
 
     (async () => {
       try {
-        const flag = await isCoach();
-        if (active) setCoach(flag);
+        const [coachFlag, adminFlag] = await Promise.all([
+          isCoach(),
+          isAdmin(),
+        ]);
+        if (active) {
+          setCoach(coachFlag);
+          setAdmin(adminFlag);
+        }
       } catch {
-        if (active) setCoach(false);
+        if (active) {
+          setCoach(false);
+          setAdmin(false);
+        }
       }
     })();
 
@@ -107,14 +118,21 @@ export default function Nav() {
       ? "badge badge-warning"
       : "badge badge-muted";
 
-  const links = [
-    { to: "/session", label: "Session" },
+  const baseLinks = [
     { to: "/calculator", label: "Calculator" },
+    { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },
+    { to: "/exercises", label: "Exercises" },
     { to: "/summary", label: "Summary" },
     { to: "/profile", label: "Profile" },
     { to: "/roster", label: "Roster" },
-    { to: "/admin", label: "Admin" },
+  ];
+
+  const links = [
+    ...baseLinks.slice(0, 3),
+    ...(coach ? [{ to: "/program-outline", label: "Program Outline" }] : []),
+    ...baseLinks.slice(3),
+    ...(admin ? [{ to: "/admin", label: "Admin" }] : []),
   ];
 
   const isMobile = device.isMobile || (device.isTouch && !device.isDesktop);

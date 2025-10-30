@@ -77,6 +77,7 @@ export type Profile = {
   unit: Unit;
   team?: Team;
   tm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
+  oneRm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
   accessCode?: string | null;
   equipment?: EquipmentSettings;
 };
@@ -329,6 +330,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     unit: (data.unit || "lb") as Unit,
     team: data.team as Team | undefined,
     tm: data.tm || {},
+    oneRm: data.oneRm || {},
     accessCode: data.accessCode ?? null,
     equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
   };
@@ -340,6 +342,7 @@ export async function saveProfile(p: Profile) {
   const normalizedEquipment = normalizeEquipment(p.equipment);
   const normalizedProfile: Profile = {
     ...p,
+    oneRm: p.oneRm || {},
     equipment: normalizedEquipment,
   };
   if (!database) {
@@ -353,6 +356,7 @@ export async function saveProfile(p: Profile) {
     unit: normalizedProfile.unit || "lb",
     team: normalizedProfile.team || null,
     tm: normalizedProfile.tm || {},
+    oneRm: normalizedProfile.oneRm || {},
     accessCode: normalizedProfile.accessCode ?? null,
     equipment: normalizedEquipment,
   };
@@ -576,7 +580,13 @@ export async function ensureCoachRole(): Promise<void> {
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
 
-export type SessionSet = { pct: number; weight: number; reps: number };
+export type SessionSet = {
+  pct: number;
+  weight: number;
+  reps: number;
+  status?: "S" | "F";
+  actualReps?: number | null;
+};
 export type SessionPayload = {
   lift: Lift;
   week: Week;
@@ -639,6 +649,34 @@ const toMillis = (value: any): number => {
   return 0;
 };
 
+const normalizeSetList = (value: any): SessionSet[] => {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const pct = Number(item?.pct);
+    const weight = Number(item?.weight);
+    const reps = Number(item?.reps);
+    const status =
+      item?.status === "S" || item?.status === "F" ? (item.status as "S" | "F") : undefined;
+    const rawActual =
+      typeof item?.actualReps === "number"
+        ? item.actualReps
+        : typeof item?.actualReps === "string"
+        ? Number(item.actualReps)
+        : undefined;
+    const actualReps =
+      status === "F" && Number.isFinite(rawActual) && (rawActual as number) >= 0
+        ? Number(rawActual)
+        : undefined;
+    return {
+      pct: Number.isFinite(pct) ? pct : 0,
+      weight: Number.isFinite(weight) ? weight : 0,
+      reps: Number.isFinite(reps) ? reps : 0,
+      status,
+      actualReps,
+    };
+  });
+};
+
 const normalizeSession = (
   raw: any,
   overrides: Partial<SessionRecord> = {}
@@ -649,8 +687,8 @@ const normalizeSession = (
     week: raw.week,
     unit: raw.unit,
     tm: raw.tm,
-    warmups: raw.warmups || [],
-    work: raw.work || [],
+    warmups: normalizeSetList(raw.warmups),
+    work: normalizeSetList(raw.work),
     amrap: raw.amrap || { weight: 0, reps: 0 },
     est1rm: raw.est1rm ?? 0,
     note: raw.note || "",

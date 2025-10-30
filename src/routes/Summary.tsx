@@ -45,6 +45,7 @@ export default function Summary() {
           unit: "lb",
           accessCode: null,
           tm: {},
+          oneRm: {},
           equipment: defaultEquipment(),
         }
       );

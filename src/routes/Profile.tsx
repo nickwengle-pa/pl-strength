@@ -26,6 +26,7 @@ export default function ProfilePage() {
           unit: "lb",
           accessCode: null,
           tm: {},
+          oneRm: {},
           equipment: defaultEquipment(),
         }
       );

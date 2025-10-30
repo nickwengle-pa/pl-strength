@@ -16,7 +16,7 @@ export default function Login() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim()) return;
-    saveProfile({ firstName: firstName.trim(), unit, tm: {} });
+    saveProfile({ firstName: firstName.trim(), unit, tm: {}, oneRm: {} });
     nav('/home');
   };
 

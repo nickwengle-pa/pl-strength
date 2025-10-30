@@ -121,6 +121,7 @@ export default function SignIn() {
       unit: base?.unit ?? "lb",
       team: resolvedTeam,
       tm: base?.tm ?? {},
+      oneRm: base?.oneRm ?? {},
       accessCode: base?.accessCode ?? null,
       equipment: base?.equipment,
     });

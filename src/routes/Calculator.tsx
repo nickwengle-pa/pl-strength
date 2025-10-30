@@ -11,35 +11,12 @@ import {
   type Unit,
 } from "../lib/db";
 import { loadProfile as loadProfileLocal } from "../lib/storage";
-import {
-  estimate1RM,
-  roundToPlate,
-  warmupPercents,
-  weekPercents,
-} from "../lib/tm";
+import { estimate1RM, roundToPlate } from "../lib/tm";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
-type Week = 1 | 2 | 3 | 4;
-
 const lifts: Lift[] = ["bench", "squat", "deadlift", "press"];
-const weekLabels: Record<Week, string> = {
-  1: "Week 1 (65/75/85)",
-  2: "Week 2 (70/80/90)",
-  3: "Week 3 (75/85/95)",
-  4: "Week 4 (Deload 40/50/60)",
-};
-const warmupRepScheme = ["5", "5", "3"];
-const workRepScheme: Record<Week, [string, string, string]> = {
-  1: ["5", "5", "5+"],
-  2: ["3", "3", "3+"],
-  3: ["5", "3", "1+"],
-  4: ["5", "5", "5"],
-};
 
 const defaultStep = (unit: Unit): number => (unit === "lb" ? 5 : 2.5);
-const percentLabel = (pct: number) => `${Math.round(pct * 100)}%`;
-const formatWeight = (value: number | null, unit: Unit) =>
-  value && value > 0 ? `${value} ${unit}` : "-";
 const formatNumber = (value: number, digits = 2): string => {
   const fixed = value.toFixed(digits);
   return Number(fixed).toString();
@@ -137,6 +114,78 @@ function parseNumeric(value: string): number | "" {
   return Number.isFinite(num) ? num : "";
 }
 
+type PlateVisualProps = {
+  unit: Unit;
+  barWeight: number;
+  plates: number[];
+  targetWeight: number | "";
+};
+
+function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisualProps) {
+  const hasTarget = typeof targetWeight === "number" && targetWeight > 0;
+  const maxPlate = plates.length ? Math.max(...plates) : 0;
+  const minHeight = 52;
+  const maxHeight = 120;
+  const minWidth = 12;
+  const maxWidth = 32;
+  const scaleHeight = (weight: number): number => {
+    if (!maxPlate) return minHeight;
+    const ratio = weight / maxPlate;
+    return Math.round(minHeight + ratio * (maxHeight - minHeight));
+  };
+  const scaleWidth = (weight: number): number => {
+    if (!maxPlate) return minWidth;
+    const ratio = weight / maxPlate;
+    return Math.round(minWidth + ratio * (maxWidth - minWidth));
+  };
+
+  const plateData = plates.map((weight, index) => ({
+    weight,
+    height: scaleHeight(weight),
+    width: scaleWidth(weight),
+    color: plateColor(index),
+    key: `${weight}-${index}`,
+  }));
+
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-slate-900 p-5 text-white shadow-inner">
+      <div className="absolute left-8 right-8 top-1/2 h-5 -translate-y-1/2 rounded-full bg-slate-700" />
+      <div className="relative flex items-end gap-6">
+        <div className="self-center flex h-14 w-20 flex-col items-center justify-center rounded-lg bg-slate-300 text-xs font-semibold text-slate-900 shadow-md">
+          {barWeight > 0 ? `${formatNumber(barWeight)} ${unit}` : "Bar"}
+        </div>
+        <div className="self-center h-14 w-3 rounded-r-md bg-slate-500 shadow-inner" />
+        <div className="flex flex-1 items-end">
+            <div className="flex items-end gap-3">
+              {plateData.length ? (
+                plateData.map((plate) => (
+                  <div key={plate.key} className="flex flex-col items-center gap-1">
+                    <div
+                    className="rounded-md border border-slate-900"
+                    style={{
+                      height: `${plate.height}px`,
+                      width: `${plate.width}px`,
+                      backgroundColor: plate.color,
+                      boxShadow: "inset 0 0 6px rgba(15, 23, 42, 0.45)",
+                    }}
+                  />
+                  <span className="text-[11px] font-semibold text-gray-200">
+                    {formatNumber(plate.weight)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-gray-300">
+                {hasTarget ? "Only the bar is needed." : "Add a target weight to calculate plates."}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Calculator() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [unit, setUnit] = useState<Unit>("lb");
@@ -149,7 +198,6 @@ export default function Calculator() {
   const [measured1rm, setMeasured1rm] = useState<number | "">("");
   const [estimatorWeight, setEstimatorWeight] = useState<number | "">("");
   const [estimatorReps, setEstimatorReps] = useState<number | "">("");
-  const [week, setWeek] = useState<Week>(1);
   const [saving, setSaving] = useState(false);
   const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
   const [targetWeight, setTargetWeight] = useState<number | "">("");
@@ -168,7 +216,7 @@ export default function Calculator() {
         resolvedUid = await ensureAnon();
       } catch {
         resolvedUid = "local";
-      }
+}
 
       const local = (loadProfileLocal() ?? {}) as Partial<Profile>;
       let remote: Profile | null = null;
@@ -210,13 +258,18 @@ export default function Calculator() {
 
   useEffect(() => {
     if (!profile) return;
-    const stored = profile.tm?.[lift];
-    if (typeof stored === "number" && stored > 0) {
-      const approx = stored / 0.9;
-      setMeasured1rm(Number(approx.toFixed(1)));
-    } else {
-      setMeasured1rm("");
+    const storedOneRm = profile.oneRm?.[lift];
+    if (typeof storedOneRm === "number" && storedOneRm > 0) {
+      setMeasured1rm(Number(storedOneRm.toFixed(1)));
+      return;
     }
+    const storedTm = profile.tm?.[lift];
+    if (typeof storedTm === "number" && storedTm > 0) {
+      const approx = storedTm / 0.9;
+      setMeasured1rm(Number(approx.toFixed(1)));
+      return;
+    }
+    setMeasured1rm("");
   }, [profile, lift]);
 
   useEffect(() => {
@@ -247,34 +300,8 @@ export default function Calculator() {
 
   const trainingMax = useMemo(() => {
     if (!estimated1rm) return null;
-    return Math.round(estimated1rm * 0.9);
-  }, [estimated1rm]);
-
-  const warmupRows = useMemo(
-    () =>
-      warmupPercents().map((pct, idx) => ({
-        pct,
-        reps: warmupRepScheme[idx],
-        weight:
-          trainingMax !== null
-            ? roundToPlate(trainingMax * pct, unit, roundStep)
-            : null,
-      })),
-    [trainingMax, unit, roundStep]
-  );
-
-  const workRows = useMemo(() => {
-    const reps = workRepScheme[week];
-    const percents = weekPercents(week);
-    return percents.map((pct, idx) => ({
-      pct,
-      reps: reps[idx],
-      weight:
-        trainingMax !== null
-          ? roundToPlate(trainingMax * pct, unit, roundStep)
-          : null,
-    }));
-  }, [trainingMax, unit, roundStep, week]);
+    return roundToPlate(estimated1rm * 0.9, unit, roundStep);
+  }, [estimated1rm, unit, roundStep]);
 
   const platesForUnit = useMemo(
     () => equipment.plates[unit] ?? [],
@@ -491,6 +518,10 @@ export default function Calculator() {
       return;
     }
 
+    const nextOneRm = estimated1rm
+      ? Number(estimated1rm.toFixed(1))
+      : Number((trainingMax / 0.9).toFixed(1));
+
     const nextProfile: Profile = {
       ...profile,
       unit,
@@ -498,12 +529,17 @@ export default function Calculator() {
         ...(profile.tm ?? {}),
         [lift]: trainingMax,
       },
+      oneRm: {
+        ...(profile.oneRm ?? {}),
+        [lift]: nextOneRm,
+      },
     };
 
     setSaving(true);
     try {
       await saveProfile(nextProfile);
       setProfile(nextProfile);
+      setMeasured1rm(Number(nextOneRm.toFixed(1)));
       alert("Training max saved for this lift.");
     } catch (err) {
       console.warn("Failed to save training max", err);
@@ -644,182 +680,19 @@ export default function Calculator() {
           </button>
           </div>
 
-          <div className="card space-y-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <h2 className="text-xl font-semibold">Plate Calculator</h2>
-              <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                <button
-                  type="button"
-                  className={`rounded-full border px-3 py-1 transition ${
-                    trainingMax !== null
-                      ? "border-brand-200 text-brand-700 hover:bg-brand-50"
-                      : "border-gray-200 text-gray-400 cursor-not-allowed"
-                  }`}
-                  onClick={() => {
-                    if (trainingMax !== null) setTargetWeight(trainingMax);
-                  }}
-                  disabled={trainingMax === null}
-                >
-                  Use TM
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-full border px-3 py-1 transition ${
-                    estimated1rm
-                      ? "border-brand-200 text-brand-700 hover:bg-brand-50"
-                      : "border-gray-200 text-gray-400 cursor-not-allowed"
-                  }`}
-                  onClick={() => {
-                    if (estimated1rm) setTargetWeight(estimated1rm);
-                  }}
-                  disabled={!estimated1rm}
-                >
-                  Use 1RM
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                  onClick={() => setTargetWeight("")}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                <span>Target weight ({unit})</span>
-                <input
-                  className="field"
-                  inputMode="decimal"
-                  value={targetWeight === "" ? "" : targetWeight}
-                  onChange={(e) => handleTargetWeightChange(e.target.value)}
-                  placeholder={unit === "lb" ? "225" : "100"}
-                />
-              </label>
-              <div className="flex gap-2">
-                {(["lb", "kg"] as Unit[]).map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      unit === opt
-                        ? "border-brand-400 bg-brand-50 text-brand-700"
-                        : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                    }`}
-                    onClick={() => handleUnitChange(opt)}
-                  >
-                    {opt.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-gray-900 p-4 text-white">
-              <div className="space-y-4">
-                <div className="relative mx-auto h-40 w-full max-w-lg">
-                  <div
-                    className="absolute top-1/2 h-6 -translate-y-1/2 rounded-r-full bg-gray-500"
-                    style={{ left: "6rem", right: "1rem" }}
-                  />
-                  <div
-                    className="absolute top-1/2 flex h-14 w-20 -translate-y-1/2 items-center justify-center rounded-lg bg-gray-400 text-xs font-semibold text-gray-900"
-                    style={{ left: "2rem" }}
-                  >
-                    {formatNumber(activeBarWeight)} {unit}
-                  </div>
-                  <div
-                    className="absolute flex items-end gap-3"
-                    style={{ left: "8.5rem", bottom: "1rem" }}
-                  >
-                    {visualPlates.length ? (
-                      visualPlates.map((weight, index) => {
-                        const baseCandidate =
-                          platesForUnit[0] ?? (weight || 0);
-                        const base =
-                          typeof baseCandidate === "number" && baseCandidate > 0
-                            ? baseCandidate
-                            : 1;
-                        const scale = Math.max(56, (weight / base) * 60 + 48);
-                        return (
-                          <div
-                            key={`${weight}-${index}`}
-                            className="flex flex-col items-center text-xs font-semibold"
-                          >
-                            <div
-                              className="w-6 rounded-b-sm rounded-t-lg"
-                              style={{
-                                height: `${scale}px`,
-                                backgroundColor: plateColor(index),
-                              }}
-                            />
-                            <span className="mt-1 text-gray-200">
-                              {formatNumber(weight)}
-                            </span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <span className="text-xs text-gray-300">
-                        {platePlan && platePlan.isPossible && targetWeight !== ""
-                          ? "Only the bar is needed."
-                          : "Add a target weight to calculate plates."}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {platePlan && platePlan.perSide.length > 0 && (
-                  <div className="grid gap-1 text-xs text-gray-200 sm:text-sm">
-                    {platePlan.perSide.map((row, idx) => (
-                      <div
-                        key={`${row.weight}-${idx}`}
-                        className="flex justify-between"
-                      >
-                        <span>
-                          {row.count} x {formatNumber(row.weight)} {unit}
-                        </span>
-                        <span>
-                          {formatNumber(row.weight * row.count)} {unit}/side
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div
-                  className={`rounded-xl border px-3 py-2 text-xs sm:text-sm ${
-                    platePlan
-                      ? platePlan.isPossible
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                        : "border-rose-300 bg-rose-50 text-rose-700"
-                      : "border-gray-700 bg-gray-800 text-gray-200"
-                  }`}
-                >
-                  {planSummary}
-                  {platePlan && !platePlan.isPossible && (
-                    <div className="mt-1 text-xs">
-                      Add smaller plates or adjust the target weight.
-                    </div>
-                  )}
-                </div>
-              </div>
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Equipment</h2>
+              <button
+                type="button"
+                className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                onClick={toggleManageState}
+              >
+                {manageEquipment ? "Done" : "Manage"}
+              </button>
             </div>
 
             <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Available Equipment
-                </h3>
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                  onClick={toggleManageState}
-                >
-                  {manageEquipment ? "Done" : "Manage"}
-                </button>
-              </div>
-
               <div className="space-y-4">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-gray-500">
@@ -991,63 +864,133 @@ export default function Calculator() {
 
         <div className="card space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-xl font-semibold">Week Table</h2>
-            <select
-              className="field md:w-56"
-              value={week}
-              onChange={(e) => setWeek(Number(e.target.value) as Week)}
-            >
-              {(Object.keys(weekLabels) as unknown as Week[]).map((w) => (
-                <option key={w} value={w}>
-                  {weekLabels[w]}
-                </option>
-              ))}
-            </select>
+            <h2 className="text-xl font-semibold">Plate Calculator</h2>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold">
+              <button
+                type="button"
+                className={`rounded-full border px-3 py-1 transition ${
+                  trainingMax !== null
+                    ? "border-brand-200 text-brand-700 hover:bg-brand-50"
+                    : "border-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
+                onClick={() => {
+                  if (trainingMax !== null) setTargetWeight(trainingMax);
+                }}
+                disabled={trainingMax === null}
+              >
+                Use TM
+              </button>
+              <button
+                type="button"
+                className={`rounded-full border px-3 py-1 transition ${
+                  estimated1rm
+                    ? "border-brand-200 text-brand-700 hover:bg-brand-50"
+                    : "border-gray-200 text-gray-400 cursor-not-allowed"
+                }`}
+                onClick={() => {
+                  if (estimated1rm)
+                    setTargetWeight(roundToPlate(estimated1rm, unit, roundStep));
+                }}
+                disabled={!estimated1rm}
+              >
+                Use 1RM
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                onClick={() => setTargetWeight("")}
+              >
+                Clear
+              </button>
+            </div>
           </div>
 
-          {trainingMax !== null ? (
-            <div className="space-y-4 text-sm text-gray-700">
-              <div>
-                <div className="mb-1 font-semibold">Warm-ups</div>
-                <ul className="list-disc space-y-1 pl-5">
-                  {warmupRows.map((row, idx) => (
-                    <li key={row.pct}>
-                      {percentLabel(row.pct)} -{" "}
-                      <span className="font-semibold">
-                        {formatWeight(row.weight, unit)}
-                      </span>{" "}
-                      x {warmupRepScheme[idx]}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <div className="mb-1 font-semibold">Work sets</div>
-                <ul className="list-disc space-y-1 pl-5">
-                  {workRows.map((row, idx) => (
-                    <li key={row.pct}>
-                      {percentLabel(row.pct)} -{" "}
-                      <span className="font-semibold">
-                        {formatWeight(row.weight, unit)}
-                      </span>{" "}
-                      x {workRepScheme[week][idx]}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <p className="text-xs text-gray-500">
-                Rounding uses your plate step ({roundStep} {unit}). Adjust the
-                step if you keep change plates on hand.
-              </p>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+              <span>Target weight ({unit})</span>
+              <input
+                className="field"
+                inputMode="decimal"
+                value={targetWeight === "" ? "" : targetWeight}
+                onChange={(e) => handleTargetWeightChange(e.target.value)}
+                placeholder={unit === "lb" ? "225" : "100"}
+              />
+            </label>
+            <div className="flex gap-2">
+              {(["lb", "kg"] as Unit[]).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    unit === opt
+                      ? "border-brand-400 bg-brand-50 text-brand-700"
+                      : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                  }`}
+                  onClick={() => handleUnitChange(opt)}
+                >
+                  {opt.toUpperCase()}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500">
-              Enter a 1RM to generate warm-up and work-set numbers for this
-              week.
+          </div>
+
+          <div className="space-y-1 text-sm text-gray-600">
+            <div>
+              Target:&nbsp;
+              <span className="font-semibold">
+                {typeof targetWeight === "number" && targetWeight > 0
+                  ? `${formatNumber(targetWeight)} ${unit}`
+                  : "-"}
+              </span>
             </div>
-          )}
+            <div>
+              Bar weight:&nbsp;
+              <span className="font-semibold">
+                {formatNumber(activeBarWeight)} {unit}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-900 p-4 text-white">
+            <PlateVisual
+              unit={unit}
+              barWeight={activeBarWeight}
+              plates={visualPlates}
+              targetWeight={targetWeight}
+            />
+
+            {platePlan && platePlan.perSide.length > 0 && (
+              <div className="grid gap-x-6 gap-y-1 text-xs text-gray-200 sm:grid-cols-2 sm:text-sm">
+                {platePlan.perSide.map((row, idx) => (
+                  <React.Fragment key={`${row.weight}-${idx}`}>
+                    <div>
+                      {row.count} x {formatNumber(row.weight)} {unit}
+                    </div>
+                    <div className="text-right">
+                      {formatNumber(row.weight * row.count)} {unit}/side
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            <div
+              className={`rounded-xl border px-3 py-2 text-xs sm:text-sm ${
+                platePlan
+                  ? platePlan.isPossible
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                    : "border-rose-300 bg-rose-50 text-rose-700"
+                  : "border-gray-700 bg-gray-800 text-gray-200"
+              }`}
+            >
+              {planSummary}
+              {platePlan && !platePlan.isPossible && (
+                <div className="mt-1 text-xs">
+                  Add smaller plates or adjust the target weight.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

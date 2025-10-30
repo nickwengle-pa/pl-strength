@@ -9,6 +9,8 @@ import Summary from "./routes/Summary";
 import Sheets from "./routes/Sheets";
 import Admin from "./routes/Admin";
 import Profile from "./routes/Profile";
+import Exercises from "./routes/Exercises";
+import ProgramOutline from "./routes/ProgramOutline";
 import SignIn from "./routes/SignIn";
 import { useAuth } from "./lib/auth";
 
@@ -37,6 +39,8 @@ export default function App() {
           <Route path="/summary" element={<Summary />} />
           <Route path="/calculator" element={<Calculator />} />
           <Route path="/sheets" element={<Sheets />} />
+          <Route path="/program-outline" element={<ProgramOutline />} />
+          <Route path="/exercises" element={<Exercises />} />
           <Route path="/roster" element={<Roster />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/profile" element={<Profile />} />
