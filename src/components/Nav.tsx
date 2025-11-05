@@ -129,6 +129,7 @@ export default function Nav() {
 
   const coachLinks = [
     { to: "/roster", label: "Roster" },
+    { to: "/attendance", label: "Attendance" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },

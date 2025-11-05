@@ -567,6 +567,237 @@ export async function listRoster(): Promise<RosterEntry[]> {
   return rows;
 }
 
+// ---- Attendance sheets ----
+
+export type AttendanceLevel = Team;
+
+export type AttendanceAthlete = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  level: AttendanceLevel;
+};
+
+export type AttendanceSheet = {
+  team: Team;
+  dates: string[];
+  athletes: AttendanceAthlete[];
+  records: Record<string, Record<string, boolean>>;
+  updatedAt?: number;
+};
+
+const ATTENDANCE_STORAGE_PREFIX = "pl.attendance.";
+
+const attendanceStorageKey = (team: Team): string =>
+  `${ATTENDANCE_STORAGE_PREFIX}${team}`;
+
+const defaultAttendanceSheet = (team: Team): AttendanceSheet => ({
+  team,
+  dates: [],
+  athletes: [],
+  records: {},
+  updatedAt: undefined,
+});
+
+const readAttendanceLocal = (team: Team): AttendanceSheet | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(attendanceStorageKey(team));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return normalizeAttendanceSheet(parsed, team);
+  } catch (_) {
+    return null;
+  }
+};
+
+const writeAttendanceLocal = (sheet: AttendanceSheet) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      attendanceStorageKey(sheet.team),
+      JSON.stringify(sheet)
+    );
+  } catch (_) {
+    // ignore storage issues
+  }
+};
+
+const sanitizeName = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim().slice(0, 60);
+  return trimmed;
+};
+
+const normalizeAttendanceRecords = (
+  athletes: AttendanceAthlete[],
+  dates: string[],
+  raw: unknown
+): Record<string, Record<string, boolean>> => {
+  const records: Record<string, Record<string, boolean>> = {};
+  const source =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const dateSet = new Set(dates);
+  athletes.forEach((athlete) => {
+    const athleteSource = source[athlete.id];
+    const row: Record<string, boolean> = {};
+    if (
+      athleteSource &&
+      typeof athleteSource === "object" &&
+      !Array.isArray(athleteSource)
+    ) {
+      Object.entries(athleteSource as Record<string, unknown>).forEach(
+        ([date, value]) => {
+          if (dateSet.has(date)) {
+            row[date] = value === true;
+          }
+        }
+      );
+    }
+    dates.forEach((date) => {
+      if (!(date in row)) {
+        row[date] = false;
+      }
+    });
+    records[athlete.id] = row;
+  });
+  return records;
+};
+
+const normalizeAttendanceSheet = (
+  input: any,
+  team: Team
+): AttendanceSheet => {
+  const rawDates = Array.isArray(input?.dates) ? input.dates : [];
+  const dates = Array.from(
+    new Set(
+      rawDates
+        .map((value) =>
+          typeof value === "string" ? value.trim().slice(0, 40) : ""
+        )
+        .filter((value) => value.length > 0)
+    )
+  );
+
+  const rawAthletes = Array.isArray(input?.athletes) ? input.athletes : [];
+  const athletes: AttendanceAthlete[] = rawAthletes
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const id =
+        typeof item.id === "string" && item.id.trim()
+          ? item.id.trim()
+          : null;
+      const firstName = sanitizeName((item as any).firstName);
+      const lastName = sanitizeName((item as any).lastName);
+      const level =
+        (item as any).level === "Varsity" ? "Varsity" : "JH";
+      if (!id || (!firstName && !lastName)) return null;
+      return { id, firstName, lastName, level };
+    })
+    .filter((item): item is AttendanceAthlete => item !== null);
+
+  const updatedAtRaw = input?.updatedAt;
+  let updatedAt: number | undefined;
+  if (typeof updatedAtRaw === "number" && Number.isFinite(updatedAtRaw)) {
+    updatedAt = updatedAtRaw;
+  } else if (
+    updatedAtRaw &&
+    typeof (updatedAtRaw as any).toMillis === "function"
+  ) {
+    try {
+      updatedAt = (updatedAtRaw as any).toMillis();
+    } catch (_) {
+      updatedAt = undefined;
+    }
+  }
+
+  return {
+    team,
+    dates,
+    athletes,
+    records: normalizeAttendanceRecords(
+      athletes,
+      dates,
+      input?.records ?? {}
+    ),
+    updatedAt,
+  };
+};
+
+const attendanceDocRef = (database: Firestore, team: Team) =>
+  doc(database, "attendance", team);
+
+export async function loadAttendanceSheet(
+  team: Team
+): Promise<AttendanceSheet> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    return readAttendanceLocal(team) ?? defaultAttendanceSheet(team);
+  }
+
+  try {
+    const ref = attendanceDocRef(database, team);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      const fallback = readAttendanceLocal(team) ?? defaultAttendanceSheet(team);
+      return fallback;
+    }
+    const normalized = normalizeAttendanceSheet(snap.data(), team);
+    writeAttendanceLocal(normalized);
+    return normalized;
+  } catch (err) {
+    console.warn(`loadAttendanceSheet failed for ${team}`, err);
+    return readAttendanceLocal(team) ?? defaultAttendanceSheet(team);
+  }
+}
+
+export async function saveAttendanceSheet(
+  sheet: AttendanceSheet
+): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+
+  const cleanDates = Array.from(
+    new Set(sheet.dates.map((value) => value.trim()).filter(Boolean))
+  );
+  const cleanAthletes = sheet.athletes
+    .map((athlete) => ({
+      ...athlete,
+      firstName: sanitizeName(athlete.firstName),
+      lastName: sanitizeName(athlete.lastName),
+      level: athlete.level === "Varsity" ? "Varsity" : "JH",
+    }))
+    .filter((athlete) => athlete.id && (athlete.firstName || athlete.lastName));
+
+  const cleanRecords = normalizeAttendanceRecords(
+    cleanAthletes,
+    cleanDates,
+    sheet.records
+  );
+
+  const payload = {
+    dates: cleanDates,
+    athletes: cleanAthletes,
+    records: cleanRecords,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (database) {
+    const ref = attendanceDocRef(database, sheet.team);
+    await setDoc(ref, payload, { merge: true });
+  }
+
+  writeAttendanceLocal({
+    team: sheet.team,
+    dates: cleanDates,
+    athletes: cleanAthletes,
+    records: cleanRecords,
+    updatedAt: Date.now(),
+  });
+}
+
 export async function getCurrentRoles(): Promise<string[]> {
   return await fetchRoles();
 }
