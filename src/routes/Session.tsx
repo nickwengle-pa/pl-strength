@@ -279,17 +279,6 @@ export default function Session() {
     );
   }
 
-  if (isCoach && !targetUid) {
-    return (
-      <div className="container py-6">
-        <div className="card space-y-2 text-sm text-gray-600">
-          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
-          <p>Open the roster tab and choose an athlete to view their session data.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="grid gap-6 md:grid-cols-3">
       <div className="md:col-span-2 space-y-3">
@@ -297,6 +286,11 @@ export default function Session() {
           <h3 className="text-lg font-semibold">Train - {lift.toUpperCase()}</h3>
 
           {targetUid ? (<div className="text-xs text-gray-500">Viewing: {activeAthleteName}</div>) : null}
+          {isCoach && !targetUid ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              No athlete selected. Log your own sessions or pick someone from the roster to load their training plan.
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-2">
             <label className="text-sm">Lift</label>

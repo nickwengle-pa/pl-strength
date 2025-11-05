@@ -84,5 +84,11 @@ service cloud.firestore {
     match /athletes/{uid}/sessions/{sid} {
       allow read, write: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
     }
+
+    match /attendance/{team} {
+      allow read: if isCoach() || isAdmin();
+      allow create, update: if isCoach() || isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

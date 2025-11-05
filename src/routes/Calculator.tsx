@@ -635,22 +635,16 @@ export default function Calculator() {
     );
   }
 
-  if (isCoach && !targetUid) {
-    return (
-      <div className="container py-6">
-        <div className="card space-y-2 text-sm text-gray-600">
-          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
-          <p>Open the roster tab and choose an athlete to view their training numbers.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container py-6 space-y-6">
       <div>
         <h1>Training Max Calculator</h1>
         {targetUid ? (<div className="mt-1 text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
+        {isCoach && !targetUid ? (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+            No athlete selected. Use the calculator for quick estimates, or pick someone from the roster to load their numbers.
+          </div>
+        ) : null}
         <p className="mt-2 text-sm text-gray-600">
           Pick the lift, enter a 1RM (or estimate it), and we will round the
           5/3/1 sets using your plate math.

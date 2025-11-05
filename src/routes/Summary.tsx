@@ -123,20 +123,15 @@ export default function Summary() {
     );
   }
 
-  if (isCoach && !targetUid) {
-    return (
-      <div className="container py-6">
-        <div className="card space-y-2 text-sm text-gray-600">
-          <h1 className="text-lg font-semibold text-gray-800">Select an athlete</h1>
-          <p>Open the roster tab and choose an athlete to view their summary.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container py-6 space-y-6">
       <h1>Quick Summary</h1>
+
+      {isCoach && !targetUid ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          No athlete selected. You can still review the template numbers, or choose an athlete from the roster for personalized data.
+        </div>
+      ) : null}
 
       {targetUid ? (<div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
 
