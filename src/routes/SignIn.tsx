@@ -291,13 +291,24 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
         userUid = cred.user.uid;
       } catch (createErr: any) {
         const code = (createErr as AuthError)?.code;
-        const text =
-          code === "auth/email-already-in-use"
-            ? "That email is already registered with a different passcode."
-            : (createErr?.message ?? "We could not create the account.");
-        setMessage({ kind: "error", text });
-        setSubmitting(false);
-        return;
+        if (code === "auth/email-already-in-use") {
+          try {
+            const cred = await signInWithEmailAndPassword(auth, email, password);
+            userUid = cred.user.uid;
+          } catch (retryErr: any) {
+            const text =
+              (retryErr as AuthError)?.message ??
+              "We could not sign you in with the existing coach account. Ask an admin to reset the coach passcode.";
+            setMessage({ kind: "error", text });
+            setSubmitting(false);
+            return;
+          }
+        } else {
+          const text = createErr?.message ?? "We could not create the account.";
+          setMessage({ kind: "error", text });
+          setSubmitting(false);
+          return;
+        }
       }
     } else if (error.code === "auth/wrong-password") {
       setMessage({
