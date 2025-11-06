@@ -118,13 +118,25 @@ export default function Nav() {
       ? "badge badge-warning"
       : "badge badge-muted";
 
+  const renderStatusIndicator = () => {
+    if (status === "connected") {
+      return (
+        <span
+          className="inline-flex h-3 w-3 items-center justify-center"
+          aria-label="Connected to Firebase"
+          title="Connected to Firebase"
+        >
+          <span className="h-3 w-3 rounded-full bg-emerald-500" aria-hidden="true" />
+        </span>
+      );
+    }
+    return <span className={`${statusClass} leading-none`}>{statusLabel}</span>;
+  };
+
   const athleteLinks = [
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
-    { to: "/sheets", label: "Sheets" },
     { to: "/exercises", label: "Exercises" },
-    { to: "/summary", label: "Summary" },
-    { to: "/profile", label: "Profile" },
   ];
 
   const coachLinks = [
@@ -175,9 +187,7 @@ export default function Nav() {
           <img src="/assets/dragon.png" alt="Dragon" className="h-8 w-8 object-contain" />
           <span className="text-xl font-bold tracking-tight">PL Strength</span>
         </Link>
-        {!isMobile && (
-          <span className={`${statusClass} leading-none`}>{statusLabel}</span>
-        )}
+        {!isMobile && renderStatusIndicator()}
         <div className="ml-auto flex items-center gap-2 md:gap-3">
           {isMobile ? (
             <>
@@ -242,7 +252,7 @@ export default function Nav() {
         >
           <div className="container pb-3">
             <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-soft">
-              <span className={`${statusClass} leading-none`}>{statusLabel}</span>
+              <div>{renderStatusIndicator()}</div>
               <nav className="space-y-2">
                 {links.map(({ to, label }) => (
                   <NavLink
