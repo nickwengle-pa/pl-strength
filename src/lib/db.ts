@@ -23,6 +23,7 @@ import {
   where,
   writeBatch,
   type DocumentReference,
+  type DocumentSnapshot,
   type Firestore,
 } from "firebase/firestore";
 import { tryInitFirebase, type FirebaseHandles } from "./firebase";
@@ -1117,6 +1118,11 @@ export async function ensureAthleteCode(
   try {
     await runTransaction(database, async (tx) => {
       const existing = await tx.get(newRef);
+      let prevSnap: DocumentSnapshot | null = null;
+      if (prevRef) {
+        prevSnap = await tx.get(prevRef);
+      }
+
       if (existing.exists()) {
         const owner = existing.data()?.uid;
         if (owner && owner !== uid) {
@@ -1126,13 +1132,10 @@ export async function ensureAthleteCode(
 
       tx.set(newRef, { uid, updatedAt: serverTimestamp() });
 
-      if (prevRef) {
-        const prevSnap = await tx.get(prevRef);
-        if (prevSnap.exists()) {
-          const owner = prevSnap.data()?.uid;
-          if (owner === uid) {
-            tx.delete(prevRef);
-          }
+      if (prevRef && prevSnap?.exists()) {
+        const owner = prevSnap.data()?.uid;
+        if (owner === uid) {
+          tx.delete(prevRef);
         }
       }
     });
