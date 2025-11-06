@@ -387,7 +387,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <img
-              src="/dragon-logo.png"
+              src="/assets/dragon.png"
               alt="PL Strength logo"
               className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain shadow-soft"
             />
@@ -402,27 +402,27 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
               type="button"
               onClick={() => chooseSignInMode("athlete")}
               disabled={disabled}
-              className="group flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-10 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
+              className="group flex flex-col items-center justify-center gap-1 rounded-3xl border border-rose-200 bg-rose-100/80 p-12 text-center transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              <span className="text-3xl font-semibold leading-none text-gray-900">
+              <span className="text-3xl font-extrabold uppercase tracking-wide text-rose-700">
                 Athlete
               </span>
-              <span className="text-3xl font-semibold leading-none text-gray-900">Login</span>
-              <p className="text-sm text-gray-600">
-                Enter your name, select your team, and use your 4-digit code.
-              </p>
+              <span className="text-3xl font-extrabold uppercase tracking-wide text-rose-700">
+                Login
+              </span>
             </button>
             <button
               type="button"
               onClick={() => chooseSignInMode("coach")}
               disabled={disabled}
-              className="group flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-10 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
+              className="group flex flex-col items-center justify-center gap-1 rounded-3xl border border-rose-200 bg-rose-100/80 p-12 text-center transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              <span className="text-3xl font-semibold leading-none text-gray-900">Coach</span>
-              <span className="text-3xl font-semibold leading-none text-gray-900">Login</span>
-              <p className="text-sm text-gray-600">
-                Enter your name and the shared coach passcode to access staff tools.
-              </p>
+              <span className="text-3xl font-extrabold uppercase tracking-wide text-rose-700">
+                Coach
+              </span>
+              <span className="text-3xl font-extrabold uppercase tracking-wide text-rose-700">
+                Login
+              </span>
             </button>
           </div>
         ) : (
