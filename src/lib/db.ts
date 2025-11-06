@@ -307,19 +307,11 @@ async function setCurrentUserRoles(nextRoles: string[]): Promise<string[]> {
   const roles = Array.from(
     new Set(nextRoles.map((r) => String(r).toLowerCase()).filter(Boolean))
   );
-  const primaryRole = roles.includes("admin")
-    ? "admin"
-    : roles.includes("coach")
-    ? "coach"
-    : roles[0] ?? null;
 
   const payload: Record<string, any> = {
     roles,
     updatedAt: serverTimestamp(),
   };
-  if (primaryRole && primaryRole !== "coach") {
-    payload.role = primaryRole;
-  }
 
   await setDoc(roleRef(database, uid), payload, { merge: true });
   roleCache = roles;
@@ -825,11 +817,7 @@ export async function ensureRole(role: string): Promise<void> {
   const roles = await fetchRoles();
   if (roles.includes(normalized)) return;
   const updatedRoles = await setCurrentUserRoles([...roles, normalized]);
-  if (updatedRoles.length) {
-    roleCache = updatedRoles;
-  } else {
-    roleCache = [...roles, normalized];
-  }
+  roleCache = updatedRoles.length ? updatedRoles : [...roles, normalized];
 }
 
 export async function ensureCoachRole(): Promise<void> {
@@ -837,8 +825,17 @@ export async function ensureCoachRole(): Promise<void> {
 }
 
 export async function ensureAdminRole(): Promise<void> {
-  await ensureRole("admin");
-  await ensureRole("coach");
+  const roles = await fetchRoles();
+  if (roles.includes("admin")) {
+    if (!roles.includes("coach")) {
+      const updated = await setCurrentUserRoles([...roles, "coach"]);
+      roleCache = updated.length ? updated : [...roles, "coach"];
+    }
+    return;
+  }
+  const combined = Array.from(new Set([...roles, "admin", "coach"]));
+  const updated = await setCurrentUserRoles(combined);
+  roleCache = updated.length ? updated : combined;
 }
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
