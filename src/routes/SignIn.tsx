@@ -274,7 +274,9 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
 
   setSubmitting(true);
   setMessage(null);
-  const password = coachPassword(entered);
+  const standardPassword = coachPassword(expected);
+  const enteredPassword = coachPassword(entered);
+  const password = isAdminOverride ? standardPassword : enteredPassword;
   let userUid: string | undefined;
 
   try {
