@@ -836,6 +836,11 @@ export async function ensureCoachRole(): Promise<void> {
   await ensureRole("coach");
 }
 
+export async function ensureAdminRole(): Promise<void> {
+  await ensureRole("admin");
+  await ensureRole("coach");
+}
+
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
 

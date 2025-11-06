@@ -7,6 +7,7 @@ import {
 import {
   AthleteAuthError,
   buildAthleteEmail,
+  ensureAdminRole,
   ensureCoachRole,
   fb,
   loadProfileRemote,
@@ -26,6 +27,11 @@ function sanitizeName(value: string): string {
 
 const coachPasscodeFromEnv = (
   import.meta.env.VITE_COACH_PASSCODE ?? "2468"
+)
+  .toString()
+  .trim();
+const adminCoachPasscodeFromEnv = (
+  import.meta.env.VITE_ADMIN_COACH_PASSCODE ?? "1357"
 )
   .toString()
   .trim();
@@ -253,7 +259,12 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     return;
   }
   const expected = normalizeCoachPasscode(coachPasscodeFromEnv);
-  if (entered !== expected) {
+  const adminExpected = adminCoachPasscodeFromEnv
+    ? normalizeCoachPasscode(adminCoachPasscodeFromEnv)
+    : null;
+  const isAdminOverride = adminExpected ? entered === adminExpected : false;
+
+  if (entered !== expected && !isAdminOverride) {
     setMessage({
       kind: "error",
       text: "That passcode does not match. Check with your admin for the current coach code.",
@@ -311,13 +322,17 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   }
 
   try {
-    await ensureCoachRole();
+    if (isAdminOverride) {
+      await ensureAdminRole();
+    } else {
+      await ensureCoachRole();
+    }
   } catch (err: any) {
-    console.warn("Failed to ensure coach role", err);
+    console.warn("Failed to ensure coach/admin role", err);
     setMessage({
       kind: "error",
       text:
-        "Signed in, but we could not add the coach role in Firestore. Ask an admin to confirm Firebase configuration.",
+        "Signed in, but we could not update coach/admin permissions in Firestore. Ask an admin to confirm Firebase configuration.",
     });
   }
 
