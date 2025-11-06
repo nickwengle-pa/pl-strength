@@ -106,6 +106,188 @@ const DEFAULT_OUTLINE: ProgramOutlineData = {
 };
 
 const OUTLINE_STORAGE_KEY = "pl-strength.program-outline";
+const OUTLINE_LIBRARY_STORAGE_KEY = "pl-strength.program-outline.library";
+
+type OutlineLibrary = {
+  turfWarmup: string[];
+  plyometrics: string[];
+  plyoDays: string[];
+  coreWarmup: string[];
+  liftWeekNames: string[];
+  liftDays: string[];
+  deadliftAccessory: AccessoryItem[];
+  benchAccessory: AccessoryItem[];
+  squatAccessory: AccessoryItem[];
+};
+
+function isMeaningfulString(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.length >= 5) return true;
+  if (trimmed.length >= 3 && /\s/.test(trimmed)) return true;
+  if (trimmed.length >= 3 && /\d/.test(trimmed)) return true;
+  if (/^[A-Z]{2,}$/.test(trimmed)) return true;
+  return false;
+}
+
+function createUniqueStringList(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  values.forEach((value) => {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (!isMeaningfulString(trimmed)) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push(trimmed);
+  });
+  const sorted = output.sort((a, b) => a.localeCompare(b));
+  return sorted.filter((entry) => {
+    if (entry.length > 3) return true;
+    if (/^[A-Z]{2,}$/.test(entry)) return true;
+    const lower = entry.toLowerCase();
+    return !sorted.some(
+      (other) => other.length > entry.length && other.toLowerCase().startsWith(lower)
+    );
+  });
+}
+
+function createUniqueAccessoryList(values: AccessoryItem[]): AccessoryItem[] {
+  const map = new Map<string, AccessoryItem>();
+  values.forEach((item) => {
+    const name = typeof item?.name === "string" ? item.name.trim() : "";
+    if (!name) return;
+    const prescription =
+      typeof item?.prescription === "string" ? item.prescription.trim() : "";
+    const key = name.toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, { name, prescription });
+      return;
+    }
+    const existing = map.get(key);
+    if (existing && !existing.prescription && prescription) {
+      map.set(key, { name, prescription });
+    }
+  });
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildLibraryFromOutline(outline: ProgramOutlineData): OutlineLibrary {
+  return {
+    turfWarmup: createUniqueStringList(outline.turfWarmup),
+    plyometrics: createUniqueStringList(outline.plyometrics),
+    plyoDays: createUniqueStringList(outline.plyoDays),
+    coreWarmup: createUniqueStringList(outline.coreWarmup),
+    liftWeekNames: createUniqueStringList(outline.liftWeeks.map((week) => week.week)),
+    liftDays: createUniqueStringList(
+      outline.liftWeeks.flatMap((week) => week.days)
+    ),
+    deadliftAccessory: createUniqueAccessoryList(outline.deadliftAccessory),
+    benchAccessory: createUniqueAccessoryList(outline.benchAccessory),
+    squatAccessory: createUniqueAccessoryList(outline.squatAccessory),
+  };
+}
+
+const DEFAULT_LIBRARY: OutlineLibrary = buildLibraryFromOutline(DEFAULT_OUTLINE);
+
+function normalizeStoredStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return (value as unknown[])
+    .map((entry) => (typeof entry === "string" ? entry : ""))
+    .filter((entry) => entry.trim().length > 0);
+}
+
+function normalizeStoredAccessoryArray(value: unknown): AccessoryItem[] {
+  if (!Array.isArray(value)) return [];
+  return (value as unknown[]).map((entry) => ({
+    name: typeof (entry as any)?.name === "string" ? (entry as any).name : "",
+    prescription:
+      typeof (entry as any)?.prescription === "string"
+        ? (entry as any).prescription
+        : "",
+  }));
+}
+
+function normalizeLibraryCandidate(input: any): OutlineLibrary {
+  if (!input || typeof input !== "object") {
+    return DEFAULT_LIBRARY;
+  }
+  return {
+    turfWarmup: createUniqueStringList(normalizeStoredStringArray(input.turfWarmup)),
+    plyometrics: createUniqueStringList(normalizeStoredStringArray(input.plyometrics)),
+    plyoDays: createUniqueStringList(normalizeStoredStringArray(input.plyoDays)),
+    coreWarmup: createUniqueStringList(normalizeStoredStringArray(input.coreWarmup)),
+    liftWeekNames: createUniqueStringList(
+      normalizeStoredStringArray(input.liftWeekNames)
+    ),
+    liftDays: createUniqueStringList(normalizeStoredStringArray(input.liftDays)),
+    deadliftAccessory: createUniqueAccessoryList(
+      normalizeStoredAccessoryArray(input.deadliftAccessory)
+    ),
+    benchAccessory: createUniqueAccessoryList(
+      normalizeStoredAccessoryArray(input.benchAccessory)
+    ),
+    squatAccessory: createUniqueAccessoryList(
+      normalizeStoredAccessoryArray(input.squatAccessory)
+    ),
+  };
+}
+
+function mergeLibrary(base: OutlineLibrary, outline: ProgramOutlineData): OutlineLibrary {
+  const extracted = buildLibraryFromOutline(outline);
+  return {
+    turfWarmup: createUniqueStringList([...base.turfWarmup, ...extracted.turfWarmup]),
+    plyometrics: createUniqueStringList([...base.plyometrics, ...extracted.plyometrics]),
+    plyoDays: createUniqueStringList([...base.plyoDays, ...extracted.plyoDays]),
+    coreWarmup: createUniqueStringList([...base.coreWarmup, ...extracted.coreWarmup]),
+    liftWeekNames: createUniqueStringList([
+      ...base.liftWeekNames,
+      ...extracted.liftWeekNames,
+    ]),
+    liftDays: createUniqueStringList([...base.liftDays, ...extracted.liftDays]),
+    deadliftAccessory: createUniqueAccessoryList([
+      ...base.deadliftAccessory,
+      ...extracted.deadliftAccessory,
+    ]),
+    benchAccessory: createUniqueAccessoryList([
+      ...base.benchAccessory,
+      ...extracted.benchAccessory,
+    ]),
+    squatAccessory: createUniqueAccessoryList([
+      ...base.squatAccessory,
+      ...extracted.squatAccessory,
+    ]),
+  };
+}
+
+function loadStoredLibrary(): OutlineLibrary {
+  if (typeof window === "undefined") {
+    return DEFAULT_LIBRARY;
+  }
+  try {
+    const raw = window.localStorage.getItem(OUTLINE_LIBRARY_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_LIBRARY;
+    }
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeLibraryCandidate(parsed);
+    return mergeLibrary(normalized, DEFAULT_OUTLINE);
+  } catch (err) {
+    console.warn("Failed to load outline library", err);
+    return DEFAULT_LIBRARY;
+  }
+}
+
+function slugifyId(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "outline"
+  );
+}
 
 type StringListKey = "turfWarmup" | "plyometrics" | "plyoDays" | "coreWarmup";
 
@@ -197,6 +379,9 @@ export default function ProgramOutline() {
   const [cycleCount, setCycleCount] = useState(3);
   const [selectedCycle, setSelectedCycle] = useState(1);
   const [outline, setOutline] = useState<ProgramOutlineData>(() => loadStoredOutline());
+  const [library, setLibrary] = useState<OutlineLibrary>(() =>
+    mergeLibrary(loadStoredLibrary(), loadStoredOutline())
+  );
 
   useEffect(() => {
     let active = true;
@@ -236,6 +421,15 @@ export default function ProgramOutline() {
     }
   }, [outline]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(OUTLINE_LIBRARY_STORAGE_KEY, JSON.stringify(library));
+    } catch (err) {
+      console.warn("Failed to persist outline library", err);
+    }
+  }, [library]);
+
   const cycleButtons = useMemo(
     () => Array.from({ length: Math.max(1, cycleCount) }, (_, i) => i + 1),
     [cycleCount]
@@ -264,7 +458,11 @@ export default function ProgramOutline() {
   }
 
   const updateOutline = (partial: Partial<ProgramOutlineData>) => {
-    setOutline((prev) => normalizeOutline({ ...prev, ...partial }));
+    setOutline((prev) => {
+      const next = normalizeOutline({ ...prev, ...partial });
+      setLibrary((current) => mergeLibrary(current, next));
+      return next;
+    });
   };
 
   return (
@@ -329,6 +527,7 @@ export default function ProgramOutline() {
         data={outline}
         editable={admin && editMode}
         onUpdate={updateOutline}
+        library={library}
       />
     </div>
   );
@@ -339,9 +538,10 @@ type OutlineCycleProps = {
   data: ProgramOutlineData;
   editable: boolean;
   onUpdate: (update: Partial<ProgramOutlineData>) => void;
+  library: OutlineLibrary;
 };
 
-function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCycleProps) {
+function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: OutlineCycleProps) {
   const updateStringList = (key: StringListKey) => (items: string[]) => {
     onUpdate({ [key]: [...items] } as Partial<ProgramOutlineData>);
   };
@@ -395,6 +595,7 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCyclePro
           title="Warmup (Turf)"
           items={data.turfWarmup}
           editable={editable}
+          options={library.turfWarmup}
           onItemsChange={updateStringList("turfWarmup")}
         />
 
@@ -465,6 +666,8 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCyclePro
           footerLabel="Weekly emphasis"
           footerItems={data.plyoDays}
           editable={editable}
+          options={library.plyometrics}
+          footerOptions={library.plyoDays}
           onItemsChange={updateStringList("plyometrics")}
           onFooterItemsChange={updateStringList("plyoDays")}
         />
@@ -473,6 +676,7 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCyclePro
           title="Warmup (All core lifts)"
           items={data.coreWarmup}
           editable={editable}
+          options={library.coreWarmup}
           onItemsChange={updateStringList("coreWarmup")}
         />
 
@@ -485,28 +689,104 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCyclePro
           </div>
           {editable ? (
             <div className="space-y-4">
-              {data.liftWeeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-2">
-                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                    Week name
-                    <input
-                      className="field"
-                      value={week.week}
-                      onChange={(event) => updateLiftWeekName(weekIndex, event.target.value)}
-                    />
-                  </label>
-                  {Array.from({ length: dayRows }, (_, dayIndex) => (
-                    <div key={dayIndex} className="flex items-center gap-2">
-                      <span className="w-20 text-xs text-gray-500">Day {dayIndex + 1}</span>
+              {data.liftWeeks.map((week, weekIndex) => {
+                const weekListId = `lift-week-${cycleNumber}-${weekIndex}`;
+                return (
+                  <div
+                    key={weekIndex}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-2"
+                  >
+                    <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                      Week name
                       <input
-                        className="field flex-1"
-                        value={week.days[dayIndex] ?? ""}
-                        onChange={(event) => updateLiftWeekDay(weekIndex, dayIndex, event.target.value)}
+                        className="field"
+                        value={week.week}
+                        list={library.liftWeekNames.length ? weekListId : undefined}
+                        onChange={(event) => updateLiftWeekName(weekIndex, event.target.value)}
+                        placeholder={
+                          library.liftWeekNames.length
+                            ? "Select or type a saved week name"
+                            : "Week name"
+                        }
                       />
-                    </div>
-                  ))}
-                </div>
-              ))}
+                      {library.liftWeekNames.length ? (
+                        <datalist id={weekListId}>
+                          {library.liftWeekNames.map((option) => (
+                            <option key={`${weekListId}-${option}`} value={option} />
+                          ))}
+                        </datalist>
+                      ) : null}
+                    </label>
+                    {Array.from({ length: dayRows }, (_, dayIndex) => {
+                      const dayListId = `lift-day-${cycleNumber}-${weekIndex}-${dayIndex}`;
+                      return (
+                        <div key={dayIndex} className="flex items-center gap-2">
+                          <span className="w-20 text-xs text-gray-500">Day {dayIndex + 1}</span>
+                          <input
+                            className="field flex-1"
+                            value={week.days[dayIndex] ?? ""}
+                            list={library.liftDays.length ? dayListId : undefined}
+                            onChange={(event) =>
+                              updateLiftWeekDay(weekIndex, dayIndex, event.target.value)
+                            }
+                            placeholder={
+                              library.liftDays.length
+                                ? "Select or type a saved training focus"
+                                : "Lift focus"
+                            }
+                          />
+                          {library.liftDays.length ? (
+                            <datalist id={dayListId}>
+                              {library.liftDays.map((option) => (
+                                <option key={`${dayListId}-${option}`} value={option} />
+                              ))}
+                            </datalist>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {(library.liftWeekNames.length > 0 || library.liftDays.length > 0) && (
+                <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
+                  <summary className="cursor-pointer font-semibold text-gray-700">
+                    Browse saved week layouts
+                  </summary>
+                  <div className="mt-2 space-y-3">
+                    {library.liftWeekNames.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-gray-700">Week names</div>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {library.liftWeekNames.map((option) => (
+                            <span
+                              key={`week-chip-${option}`}
+                              className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
+                            >
+                              {option}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {library.liftDays.length > 0 && (
+                      <div>
+                        <div className="font-semibold text-gray-700">Day templates</div>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {library.liftDays.map((option) => (
+                            <span
+                              key={`day-chip-${option}`}
+                              className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
+                            >
+                              {option}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -546,18 +826,21 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate }: OutlineCyclePro
           title="Deadlift Accessory Lifts"
           rows={data.deadliftAccessory}
           editable={editable}
+          options={library.deadliftAccessory}
           onRowsChange={updateAccessory("deadliftAccessory")}
         />
         <AccessorySection
           title="Bench Accessory Lifts"
           rows={data.benchAccessory}
           editable={editable}
+          options={library.benchAccessory}
           onRowsChange={updateAccessory("benchAccessory")}
         />
         <AccessorySection
           title="Squat Accessory Lifts"
           rows={data.squatAccessory}
           editable={editable}
+          options={library.squatAccessory}
           onRowsChange={updateAccessory("squatAccessory")}
         />
 
@@ -575,6 +858,8 @@ type SectionProps = {
   footerLabel?: string;
   footerItems?: string[];
   editable?: boolean;
+  options?: string[];
+  footerOptions?: string[];
   onItemsChange?: (items: string[]) => void;
   onFooterItemsChange?: (items: string[]) => void;
 };
@@ -585,6 +870,8 @@ function Section({
   footerLabel,
   footerItems,
   editable = false,
+  options,
+  footerOptions,
   onItemsChange,
   onFooterItemsChange,
 }: SectionProps) {
@@ -617,30 +904,72 @@ function Section({
     onFooterItemsChange(footerItems.filter((_, i) => i !== index));
   };
 
+  const baseId = slugifyId(title);
+  const optionList = options ?? [];
+  const footerList = footerOptions ?? [];
+  const showOptionSuggestions = editable && optionList.length > 0;
+  const showFooterSuggestions = editable && footerList.length > 0;
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-2">
       <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
       {editable ? (
-        <div className="space-y-2">
-          {items.map((item, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <input
-                className="field flex-1"
-                value={item}
-                onChange={(event) => updateItem(index, event.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-sm text-xs"
-                onClick={() => removeItem(index)}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn btn-sm text-xs" onClick={addItem}>
-            Add item
-          </button>
+        <div className="space-y-3">
+          {items.map((item, index) => {
+            const datalistId = `${baseId}-item-${index}`;
+            return (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  className="field flex-1"
+                  value={item}
+                  list={showOptionSuggestions ? datalistId : undefined}
+                  onChange={(event) => updateItem(index, event.target.value)}
+                  placeholder={showOptionSuggestions ? "Select or type a saved item" : undefined}
+                />
+                {showOptionSuggestions ? (
+                  <datalist id={datalistId}>
+                    {optionList.map((option) => (
+                      <option key={`${datalistId}-${option}`} value={option} />
+                    ))}
+                  </datalist>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-sm text-xs"
+                  onClick={() => removeItem(index)}
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-sm text-xs" onClick={addItem}>
+              Add item
+            </button>
+            {showOptionSuggestions ? (
+              <span className="text-xs text-gray-500">
+                Start typing to pick from saved items or add a new one.
+              </span>
+            ) : null}
+          </div>
+          {showOptionSuggestions ? (
+            <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
+              <summary className="cursor-pointer font-semibold text-gray-700">
+                Browse saved items
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {optionList.map((option) => (
+                  <span
+                    key={`${baseId}-chip-${option}`}
+                    className="rounded-full border border-rose-200 bg-white px-2 py-0.5"
+                  >
+                    {option}
+                  </span>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : (
         <ul className="list-disc pl-6 space-y-1">
@@ -653,26 +982,62 @@ function Section({
         <div className="pt-2 text-xs text-gray-600 space-y-2">
           {footerLabel && <div className="font-semibold">{footerLabel}</div>}
           {editable ? (
-            <div className="space-y-2">
-              {(footerItems ?? []).map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    className="field flex-1"
-                    value={item}
-                    onChange={(event) => updateFooter(index, event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-sm text-xs"
-                    onClick={() => removeFooter(index)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="btn btn-sm text-xs" onClick={addFooter}>
-                Add item
-              </button>
+            <div className="space-y-3">
+              {(footerItems ?? []).map((item, index) => {
+                const footerId = `${baseId}-footer-${index}`;
+                return (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      className="field flex-1"
+                      value={item}
+                      list={showFooterSuggestions ? footerId : undefined}
+                      onChange={(event) => updateFooter(index, event.target.value)}
+                      placeholder={showFooterSuggestions ? "Select or type a saved item" : undefined}
+                    />
+                    {showFooterSuggestions ? (
+                      <datalist id={footerId}>
+                        {footerList.map((option) => (
+                          <option key={`${footerId}-${option}`} value={option} />
+                        ))}
+                      </datalist>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="btn btn-sm text-xs"
+                      onClick={() => removeFooter(index)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn btn-sm text-xs" onClick={addFooter}>
+                  Add item
+                </button>
+                {showFooterSuggestions ? (
+                  <span className="text-xs text-gray-500">
+                    Pick from saved emphasis points or add a new one.
+                  </span>
+                ) : null}
+              </div>
+              {showFooterSuggestions ? (
+                <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
+                  <summary className="cursor-pointer font-semibold text-gray-700">
+                    Browse saved items
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {footerList.map((option) => (
+                      <span
+                        key={`${baseId}-footer-chip-${option}`}
+                        className="rounded-full border border-rose-200 bg-white px-2 py-0.5"
+                      >
+                        {option}
+                      </span>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </div>
           ) : (
             <ul className="list-disc pl-6 space-y-1">
@@ -692,9 +1057,23 @@ type AccessorySectionProps = {
   rows: AccessoryItem[];
   editable?: boolean;
   onRowsChange?: (rows: AccessoryItem[]) => void;
+  options?: AccessoryItem[];
 };
 
-function AccessorySection({ title, rows, editable = false, onRowsChange }: AccessorySectionProps) {
+function AccessorySection({
+  title,
+  rows,
+  editable = false,
+  onRowsChange,
+  options,
+}: AccessorySectionProps) {
+  const optionList = options ?? [];
+  const prescriptionList = createUniqueStringList(
+    optionList.map((item) => item.prescription)
+  );
+  const showNameSuggestions = editable && optionList.length > 0;
+  const showPrescriptionSuggestions = editable && prescriptionList.length > 0;
+  const baseId = slugifyId(title);
   const displayRows = editable
     ? rows
     : rows.filter((row) => row.name.trim().length > 0 || row.prescription.trim().length > 0);
@@ -702,9 +1081,29 @@ function AccessorySection({ title, rows, editable = false, onRowsChange }: Acces
   const addRow = () => onRowsChange?.([...rows, { name: "", prescription: "" }]);
   const updateRow = (index: number, key: keyof AccessoryItem, value: string) => {
     if (!onRowsChange) return;
-    const next = rows.map((row, rowIndex) =>
-      rowIndex === index ? { ...row, [key]: value } : { ...row }
-    );
+    const next = rows.map((row, rowIndex) => {
+      if (rowIndex !== index) return { ...row };
+      const previous = rows[rowIndex] ?? { name: "", prescription: "" };
+      const updated: AccessoryItem = { ...row, [key]: value };
+      if (key === "name") {
+        const trimmed = value.trim();
+        if (trimmed && optionList.length > 0) {
+          const match = optionList.find(
+            (opt) => opt.name.trim().toLowerCase() === trimmed.toLowerCase()
+          );
+          if (match && match.prescription.trim()) {
+            const existingPrescription = previous.prescription?.trim() ?? "";
+            if (!updated.prescription.trim() || updated.prescription === existingPrescription) {
+              updated.prescription = match.prescription;
+            }
+          }
+        }
+      }
+      if (key === "prescription") {
+        updated.prescription = value;
+      }
+      return updated;
+    });
     onRowsChange(next);
   };
   const removeRow = (index: number) => {
@@ -717,38 +1116,108 @@ function AccessorySection({ title, rows, editable = false, onRowsChange }: Acces
       <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
       {editable ? (
         <div className="space-y-3">
-          {rows.map((row, index) => (
-            <div key={index} className="grid gap-2 md:grid-cols-[2fr_2fr_auto]">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-gray-500">Exercise</span>
-                <input
-                  className="field"
-                  value={row.name}
-                  onChange={(event) => updateRow(index, "name", event.target.value)}
-                />
+          {rows.map((row, index) => {
+            const nameListId = `${baseId}-name-${index}`;
+            const prescriptionListId = `${baseId}-prescription-${index}`;
+            return (
+              <div key={index} className="grid gap-2 md:grid-cols-[2fr_2fr_auto]">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-500">Exercise</span>
+                  <input
+                    className="field"
+                    value={row.name}
+                    list={showNameSuggestions ? nameListId : undefined}
+                    onChange={(event) => updateRow(index, "name", event.target.value)}
+                    placeholder={
+                      showNameSuggestions ? "Select or type a saved lift" : "Enter lift name"
+                    }
+                  />
+                  {showNameSuggestions ? (
+                    <datalist id={nameListId}>
+                      {optionList.map((option) => (
+                        <option key={`${nameListId}-${option.name}`} value={option.name} />
+                      ))}
+                    </datalist>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-gray-500">Prescription</span>
+                  <input
+                    className="field"
+                    value={row.prescription}
+                    list={showPrescriptionSuggestions ? prescriptionListId : undefined}
+                    onChange={(event) => updateRow(index, "prescription", event.target.value)}
+                    placeholder={
+                      showPrescriptionSuggestions
+                        ? "Select or type a saved prescription"
+                        : "Sets x reps"
+                    }
+                  />
+                  {showPrescriptionSuggestions ? (
+                    <datalist id={prescriptionListId}>
+                      {prescriptionList.map((option) => (
+                        <option key={`${prescriptionListId}-${option}`} value={option} />
+                      ))}
+                    </datalist>
+                  ) : null}
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    className="btn btn-sm text-xs"
+                    onClick={() => removeRow(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-gray-500">Prescription</span>
-                <input
-                  className="field"
-                  value={row.prescription}
-                  onChange={(event) => updateRow(index, "prescription", event.target.value)}
-                />
+            );
+          })}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-sm text-xs" onClick={addRow}>
+              Add lift
+            </button>
+            {showNameSuggestions ? (
+              <span className="text-xs text-gray-500">
+                Start typing to reuse a saved lift or add a brand-new one.
+              </span>
+            ) : null}
+          </div>
+          {showNameSuggestions ? (
+            <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
+              <summary className="cursor-pointer font-semibold text-gray-700">
+                Browse saved lifts
+              </summary>
+              <div className="mt-2 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {optionList.map((option) => (
+                    <span
+                      key={`${baseId}-lift-chip-${option.name}`}
+                      className="rounded-full border border-rose-200 bg-white px-2 py-0.5"
+                    >
+                      {option.name}
+                      {option.prescription ? ` · ${option.prescription}` : ""}
+                    </span>
+                  ))}
+                </div>
+                {showPrescriptionSuggestions ? (
+                  <div>
+                    <div className="mt-2 font-semibold text-gray-700">Saved prescriptions</div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {prescriptionList.map((item) => (
+                        <span
+                          key={`${baseId}-prescription-chip-${item}`}
+                          className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  className="btn btn-sm text-xs"
-                  onClick={() => removeRow(index)}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
-          <button type="button" className="btn btn-sm text-xs" onClick={addRow}>
-            Add lift
-          </button>
+            </details>
+          ) : null}
         </div>
       ) : (
         <div className="overflow-x-auto">
