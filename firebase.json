@@ -1,5 +1,6 @@
 {
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "serviceAccount": "compute-engine-default@pl-strengthl.iam.gserviceaccount.com"
   }
 }
