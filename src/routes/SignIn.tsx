@@ -61,7 +61,7 @@ const updateDisplayNameCache = (name: string | null) => {
 
 
 export default function SignIn() {
-  const [mode, setMode] = useState<Mode>("athlete");
+  const [mode, setMode] = useState<Mode | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [passcode, setPasscode] = useState("");
@@ -109,6 +109,27 @@ export default function SignIn() {
     }
     setPasscode("");
   }, [mode]);
+
+  const resetSharedState = () => {
+    setMessage(null);
+    setSubmitting(false);
+    setPasscode("");
+  };
+
+  const chooseSignInMode = (nextMode: Mode) => {
+    resetSharedState();
+    setFirstName("");
+    setLastName("");
+    setMode(nextMode);
+  };
+
+  const backToChooser = () => {
+    resetSharedState();
+    setFirstName("");
+    setLastName("");
+    setTeam("");
+    setMode(null);
+  };
 
   const persistProfile = async (
     uid: string | undefined,
@@ -362,211 +383,234 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-3xl space-y-6">
+      <div className="w-full max-w-4xl space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            PL Strength Sign In
-          </h1>
-          <p className="text-sm text-gray-600">
-            Athletes use the team email pattern (firstlast@pl.strength) and your 4-digit code.
-            Coaches enter their name and the shared passcode-we build the coach email for you.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">PL Strength Sign In</h1>
+          <p className="text-sm text-gray-600">Choose how you want to log in to start training.</p>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-6">
-          <div className="flex justify-center mb-6 gap-2">
+        {mode === null ? (
+          <div className="grid gap-6 md:grid-cols-2">
             <button
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                mode === "athlete"
-                  ? "bg-brand-50 text-brand-700 border border-brand-200"
-                  : "border border-gray-200 text-gray-600 hover:text-gray-900"
-              }`}
               type="button"
-              onClick={() => {
-                setMode("athlete");
-                setMessage(null);
-              }}
+              onClick={() => chooseSignInMode("athlete")}
               disabled={disabled}
+              className="group flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-8 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              Athlete Sign In
+              <span className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+                Athlete
+              </span>
+              <span className="text-2xl font-semibold text-gray-900">
+                Log in with your team code
+              </span>
+              <p className="text-sm text-gray-600">
+                Enter your name, pick your team, and use the 4-digit code from your coach.
+              </p>
             </button>
             <button
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                mode === "coach"
-                  ? "bg-brand-50 text-brand-700 border border-brand-200"
-                  : "border border-gray-200 text-gray-600 hover:text-gray-900"
-              }`}
               type="button"
-              onClick={() => {
-                setMode("coach");
-                setMessage(null);
-              }}
+              onClick={() => chooseSignInMode("coach")}
               disabled={disabled}
+              className="group flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-8 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              Coach Sign In
+              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                Coach
+              </span>
+              <span className="text-2xl font-semibold text-gray-900">
+                Sign in with the coach passcode
+              </span>
+              <p className="text-sm text-gray-600">
+                Share your name and the shared coach passcode. We&apos;ll build your coach email for
+                you.
+              </p>
             </button>
           </div>
-
-          {message && (
-            <div
-              className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-                message.kind === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-rose-200 bg-rose-50 text-rose-700"
-              }`}
-            >
-              {message.text}
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-6 md:p-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-900 disabled:opacity-50"
+                onClick={backToChooser}
+                disabled={disabled}
+              >
+                <span aria-hidden="true">←</span>
+                Choose a different login
+              </button>
+              <div className="text-right">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  {mode === "athlete" ? "Athlete Sign In" : "Coach Sign In"}
+                </p>
+                <p className="text-sm text-gray-700">
+                  {mode === "athlete"
+                    ? "Use your team code to get started."
+                    : "Use the shared passcode from your program admin."}
+                </p>
+              </div>
             </div>
-          )}
 
-          {mode === "athlete" ? (
-            <form className="space-y-4" onSubmit={handleAthleteSignIn}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  First name
-                  <input
-                    className="field"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Jordan"
-                    autoComplete="given-name"
-                    disabled={disabled}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Last name
-                  <input
-                    className="field"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Taylor"
-                    autoComplete="family-name"
-                    disabled={disabled}
-                  />
-                </label>
+            {message && (
+              <div
+                className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+                  message.kind === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-rose-200 bg-rose-50 text-rose-700"
+                }`}
+              >
+                {message.text}
               </div>
+            )}
 
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                Team
-                <select
-                  className="field"
-                  value={team}
-                  onChange={(e) => setTeam(e.target.value as Team | "")}
+            {mode === "athlete" ? (
+              <form className="space-y-4" onSubmit={handleAthleteSignIn}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    First name
+                    <input
+                      className="field"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Jordan"
+                      autoComplete="given-name"
+                      disabled={disabled}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Last name
+                    <input
+                      className="field"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Taylor"
+                      autoComplete="family-name"
+                      disabled={disabled}
+                    />
+                  </label>
+                </div>
+
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  Team
+                  <select
+                    className="field"
+                    value={team}
+                    onChange={(e) => setTeam(e.target.value as Team | "")}
+                    disabled={disabled}
+                  >
+                    {TEAM_OPTIONS.map((opt) => (
+                      <option key={opt.label} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  4-digit team code
+                  <input
+                    className="field tracking-widest text-center text-base"
+                    type="tel"
+                    value={passcode}
+                    onChange={(e) => setPasscode(normalizePasscodeDigits(e.target.value))}
+                    placeholder="1234"
+                    inputMode="numeric"
+                    maxLength={4}
+                    disabled={disabled}
+                  />
+                </label>
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  Team email we will use:{" "}
+                  <span className="font-semibold text-gray-900">
+                    {athleteEmail || "firstlast@pl.strength"}
+                  </span>
+                  . No real inbox required - coaches manage the codes.
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary w-full justify-center py-3 text-base"
                   disabled={disabled}
                 >
-                  {TEAM_OPTIONS.map((opt) => (
-                    <option key={opt.label} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {submitting && mode === "athlete" ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+            ) : (
+              <form className="space-y-4" onSubmit={handleCoachSignIn}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    First name
+                    <input
+                      className="field"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Jordan"
+                      autoComplete="given-name"
+                      disabled={disabled}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    Last name
+                    <input
+                      className="field"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Taylor"
+                      autoComplete="family-name"
+                      disabled={disabled}
+                    />
+                  </label>
+                </div>
 
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                4-digit team code
-                <input
-                  className="field tracking-widest text-center text-base"
-                  type="tel"
-                  value={passcode}
-                  onChange={(e) => setPasscode(normalizePasscodeDigits(e.target.value))}
-                  placeholder="1234"
-                  inputMode="numeric"
-                  maxLength={4}
-                  disabled={disabled}
-                />
-              </label>
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                Team email we will use: {" "}
-                <span className="font-semibold text-gray-900">
-                  {athleteEmail || "firstlast@pl.strength"}
-                </span>
-                . No real inbox required - coaches manage the codes.
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary w-full justify-center py-3 text-base"
-                disabled={disabled}
-              >
-                {submitting && mode === "athlete" ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
-          ) : (
-            <form className="space-y-4" onSubmit={handleCoachSignIn}>
-              <div className="grid gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  First name
-                  <input
+                  Team (optional)
+                  <select
                     className="field"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Jordan"
-                    autoComplete="given-name"
+                    value={team}
+                    onChange={(e) => setTeam(e.target.value as Team | "")}
+                    disabled={disabled}
+                  >
+                    {TEAM_OPTIONS.map((opt) => (
+                      <option key={opt.label} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  Coach passcode
+                  <input
+                    className="field tracking-widest text-center text-base"
+                    value={passcode}
+                    onChange={(e) => setPasscode(normalizeCoachPasscode(e.target.value))}
+                    placeholder="FIREUP"
+                    maxLength={16}
                     disabled={disabled}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Last name
-                  <input
-                    className="field"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Taylor"
-                    autoComplete="family-name"
-                    disabled={disabled}
-                  />
-                </label>
-              </div>
 
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                Team (optional)
-                <select
-                  className="field"
-                  value={team}
-                  onChange={(e) => setTeam(e.target.value as Team | "")}
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  Coach email we will use:{" "}
+                  <span className="font-semibold text-gray-900">
+                    {coachEmail || "coach-firstlast@pl.strength"}
+                  </span>
+                  . Share the passcode only with trusted staff.
+                </div>
+                <p className="text-xs text-gray-500">
+                  Ask your program admin for the current passcode (configured via{" "}
+                  <code>VITE_COACH_PASSCODE</code>).
+                </p>
+                <button
+                  type="submit"
+                  className="btn btn-primary w-full justify-center py-3 text-base"
                   disabled={disabled}
                 >
-                  {TEAM_OPTIONS.map((opt) => (
-                    <option key={opt.label} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                Coach passcode
-                <input
-                  className="field tracking-widest text-center text-base"
-                  value={passcode}
-                  onChange={(e) => setPasscode(normalizeCoachPasscode(e.target.value))}
-                  placeholder="FIREUP"
-                  maxLength={16}
-                  disabled={disabled}
-                />
-              </label>
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                Coach email we will use: {" "}
-                <span className="font-semibold text-gray-900">
-                  {coachEmail || "coach-firstlast@pl.strength"}
-                </span>
-                . Share the passcode only with trusted staff.
-              </div>
-              <p className="text-xs text-gray-500">
-                Ask your program admin for the current passcode (configured via <code>VITE_COACH_PASSCODE</code>).
-              </p>
-              <button
-                type="submit"
-                className="btn btn-primary w-full justify-center py-3 text-base"
-                disabled={disabled}
-              >
-                {submitting && mode === "coach" ? "Signing in..." : "Sign in as coach"}
-              </button>
-            </form>
-          )}
-        </div>
+                  {submitting && mode === "coach" ? "Signing in..." : "Sign in as coach"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
