@@ -297,12 +297,12 @@ async function fetchRoles(): Promise<string[]> {
   return rolePromise;
 }
 
-async function setCurrentUserRoles(nextRoles: string[]): Promise<void> {
+async function setCurrentUserRoles(nextRoles: string[]): Promise<string[]> {
   const handles = resolveHandles();
   const auth = handles?.auth;
   const database = handles?.db;
   const uid = auth?.currentUser?.uid;
-  if (!database || !uid) return;
+  if (!database || !uid) return [];
 
   const roles = Array.from(
     new Set(nextRoles.map((r) => String(r).toLowerCase()).filter(Boolean))
@@ -323,6 +323,7 @@ async function setCurrentUserRoles(nextRoles: string[]): Promise<void> {
 
   await setDoc(roleRef(database, uid), payload, { merge: true });
   roleCache = roles;
+  return roles;
 }
 
 export async function getUid(): Promise<string | null> {
@@ -823,7 +824,12 @@ export async function ensureRole(role: string): Promise<void> {
   const normalized = role.toLowerCase();
   const roles = await fetchRoles();
   if (roles.includes(normalized)) return;
-  await setCurrentUserRoles([...roles, normalized]);
+  const updatedRoles = await setCurrentUserRoles([...roles, normalized]);
+  if (updatedRoles.length) {
+    roleCache = updatedRoles;
+  } else {
+    roleCache = [...roles, normalized];
+  }
 }
 
 export async function ensureCoachRole(): Promise<void> {

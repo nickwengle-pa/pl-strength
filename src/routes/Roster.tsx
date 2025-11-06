@@ -338,7 +338,7 @@ export default function Roster() {
           <h3 className="text-lg font-semibold mb-2">Roster</h3>
           <div className="text-sm text-red-700">Error: {err}</div>
           <p className="text-sm mt-2">
-            If this says “Missing or insufficient permissions”, create Firestore <code>{'roles/{uid}'}</code> with <code>{"{ role: \"coach\" }"}</code>, then publish rules.
+            If this says "Missing or insufficient permissions", create Firestore <code>{'roles/{uid}'}</code> with <code>{"{ roles: [\"coach\"], updatedAt: serverTimestamp() }"}</code>, then publish rules.
           </p>
         </div>
       </div>
