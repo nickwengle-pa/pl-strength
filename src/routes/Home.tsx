@@ -103,7 +103,7 @@ export default function Home() {
                 className="rounded-2xl bg-white/12 px-4 py-3 shadow-sm backdrop-blur-sm transition hover:bg-white/16"
               >
                 <div className="text-[11px] uppercase tracking-wide text-white/70">
-                  {item.badge} · {item.label}
+                  {item.badge} - {item.label}
                 </div>
                 <div className="mt-1 text-lg font-semibold text-white">
                   {item.message}
@@ -136,7 +136,7 @@ export default function Home() {
                 <p className="text-sm text-gray-600">{feature.message}</p>
                 <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">
                   Open {feature.label}
-                  <span aria-hidden="true">?</span>
+                  <span aria-hidden="true">-&gt;</span>
                 </span>
               </div>
             </Link>
