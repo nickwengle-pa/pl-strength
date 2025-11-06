@@ -1,0 +1,13 @@
+{
+  "name": "pl-strength-functions",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^5.1.1"
+  }
+}

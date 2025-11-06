@@ -384,7 +384,14 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-4xl space-y-8">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img
+              src="/dragon-logo.png"
+              alt="PL Strength logo"
+              className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain shadow-soft"
+            />
+          </div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">PL Strength Sign In</h1>
           <p className="text-sm text-gray-600">Choose how you want to log in to start training.</p>
         </div>
@@ -395,33 +402,26 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
               type="button"
               onClick={() => chooseSignInMode("athlete")}
               disabled={disabled}
-              className="group flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-8 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
+              className="group flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-10 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+              <span className="text-3xl font-semibold leading-none text-gray-900">
                 Athlete
               </span>
-              <span className="text-2xl font-semibold text-gray-900">
-                Log in with your team code
-              </span>
+              <span className="text-3xl font-semibold leading-none text-gray-900">Login</span>
               <p className="text-sm text-gray-600">
-                Enter your name, pick your team, and use the 4-digit code from your coach.
+                Enter your name, select your team, and use your 4-digit code.
               </p>
             </button>
             <button
               type="button"
               onClick={() => chooseSignInMode("coach")}
               disabled={disabled}
-              className="group flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-8 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
+              className="group flex flex-col gap-2 rounded-3xl border border-gray-200 bg-white p-10 text-left transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:pointer-events-none disabled:opacity-60"
             >
-              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
-                Coach
-              </span>
-              <span className="text-2xl font-semibold text-gray-900">
-                Sign in with the coach passcode
-              </span>
+              <span className="text-3xl font-semibold leading-none text-gray-900">Coach</span>
+              <span className="text-3xl font-semibold leading-none text-gray-900">Login</span>
               <p className="text-sm text-gray-600">
-                Share your name and the shared coach passcode. We&apos;ll build your coach email for
-                you.
+                Enter your name and the shared coach passcode to access staff tools.
               </p>
             </button>
           </div>
