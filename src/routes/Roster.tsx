@@ -8,6 +8,8 @@ import {
   regenerateAthleteCode,
   saveProfile,
   defaultEquipment,
+  isAdmin,
+  fb,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -82,6 +84,8 @@ export default function Roster() {
   const [tmDraft, setTmDraft] = useState<Record<LiftKey, string>>(() => emptyTmDraft());
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const currentUid = fb.auth?.currentUser?.uid ?? null;
   const selectedRow = useMemo(
     () => rows.find((row) => row.uid === selectedUid) ?? null,
     [rows, selectedUid]
@@ -99,6 +103,21 @@ export default function Roster() {
     const timer = window.setTimeout(() => setFlash(null), 5000);
     return () => window.clearTimeout(timer);
   }, [flash]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const flag = await isAdmin();
+        if (active) setIsAdminUser(flag);
+      } catch (err) {
+        console.warn("Failed to resolve admin status", err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleRegenerate = async (row: RosterEntry) => {
     if (!row.uid) return;
@@ -175,11 +194,19 @@ export default function Roster() {
     }
   };
 
-  const handleDelete = async (row: RosterEntry) => {
+  const handleDelete = async (row: RosterEntry, kind: "athlete" | "coach" = "athlete") => {
     if (!row.uid) return;
-    const confirmDelete = window.confirm(
-      `Delete ${row.firstName ?? "this athlete"} from roster? This clears their profile and sessions.`
-    );
+
+    if (currentUid && row.uid === currentUid) {
+      alert("You cannot remove your own account from the roster while signed in.");
+      return;
+    }
+
+    const label =
+      kind === "coach"
+        ? `Remove ${row.firstName ?? "this coach"}? This will revoke access and queue account deletion.`
+        : `Delete ${row.firstName ?? "this athlete"} from roster? This clears their profile and sessions.`;
+    const confirmDelete = window.confirm(label);
     if (!confirmDelete) return;
 
     setDeleteUid(row.uid);
@@ -193,7 +220,10 @@ export default function Roster() {
       }
       setFlash({
         kind: "success",
-        text: `${row.firstName ?? "Athlete"} removed.`,
+        text:
+          kind === "coach"
+            ? `${row.firstName ?? "Coach"} removed. Auth account will be deleted shortly.`
+            : `${row.firstName ?? "Athlete"} removed.`,
       });
     } catch (e: any) {
       const message =
@@ -406,6 +436,7 @@ export default function Roster() {
                 <th className="p-2 text-left">Last</th>
                 <th className="p-2 text-left">Access</th>
                 <th className="p-2 text-left">Team</th>
+                <th className="p-2 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -423,12 +454,26 @@ export default function Roster() {
                       <RoleBadges roles={r.roles} />
                     </td>
                     <td className="p-2">{r.team || "-"}</td>
+                    <td className="p-2">
+                      {isAdminUser ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm text-xs text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => handleDelete(r, "coach")}
+                          disabled={deleteUid === r.uid}
+                        >
+                          {deleteUid === r.uid ? "Removing..." : "Remove"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">Admin only</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {coachRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={4}>
+                  <td className="p-2 text-gray-500" colSpan={5}>
                     No coaches yet.
                   </td>
                 </tr>

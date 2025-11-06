@@ -18,6 +18,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  deleteDoc,
   updateDoc,
   where,
   writeBatch,
@@ -1231,6 +1232,7 @@ export async function deleteAthlete(uid: string): Promise<void> {
     throw new Error("Firebase is required to delete athletes.");
   }
 
+  const auth = handles?.auth;
   const profile = await loadProfileRemote(uid);
   const sessionsCol = collection(database, "athletes", uid, "sessions");
   let sessionRefs: DocumentReference[] = [];
@@ -1271,7 +1273,29 @@ export async function deleteAthlete(uid: string): Promise<void> {
     cleanupBatch.delete(doc(database, "athleteCodes", code))
   );
 
-  await cleanupBatch.commit();
+  try {
+    await cleanupBatch.commit();
+  } catch (err) {
+    console.warn("Failed to cleanup athlete records", err);
+    throw err;
+  }
+
+  try {
+    await deleteDoc(roleRef(database, uid));
+  } catch (err) {
+    console.warn(`Failed to remove role mapping for ${uid}`, err);
+  }
+
+  if (auth?.currentUser?.uid === uid) {
+    return;
+  }
+
+  try {
+    const queueRef = doc(collection(database, "__deleteAuthUser__"), uid);
+    await setDoc(queueRef, { uid, requestedAt: serverTimestamp() });
+  } catch (err) {
+    console.warn(`Failed to queue auth deletion for ${uid}`, err);
+  }
 }
 
 export async function fetchAthleteSessions(
