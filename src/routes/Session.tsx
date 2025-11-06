@@ -30,6 +30,36 @@ const workRepLabels: Record<Week, [string, string, string]> = {
   4: ["5", "5", "5"],
 };
 
+const LIFT_LABELS: Record<Lift, string> = {
+  bench: "Bench Press",
+  squat: "Back Squat",
+  deadlift: "Deadlift",
+  press: "Overhead Press",
+};
+
+const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> = {
+  1: {
+    name: "Foundation Volume",
+    focus: "Set the tone with crisp sets of five.",
+    blurb: "Smooth technique and steady breathing build momentum for the cycle.",
+  },
+  2: {
+    name: "Power Triples",
+    focus: "Drive explosively through the sticking point.",
+    blurb: "Sharpen power output and keep one rep in the tank on every set.",
+  },
+  3: {
+    name: "Peak Week",
+    focus: "Prime the nervous system and chase a confident AMRAP.",
+    blurb: "Own each top set and push smartly into PR territory.",
+  },
+  4: {
+    name: "Deload Reset",
+    focus: "Move well, recover hard, and stay fast.",
+    blurb: "Keep the groove light so you return fresher next week.",
+  },
+};
+
 export default function Session() {
   const [lift, setLift] = useState<Lift>("bench");
   const [week, setWeek] = useState<Week>(1);
@@ -271,6 +301,24 @@ export default function Session() {
     .filter((value: number) => typeof value === "number" && !Number.isNaN(value));
   const prevBest = estSeries.length ? Math.max(...estSeries) : 0;
 
+  const theme = WEEK_THEMES[week];
+  const liftLabel = LIFT_LABELS[lift];
+  const quickStats = [
+    { label: "Lift", value: liftLabel },
+    { label: "Week", value: `Week ${week} | ${theme.name}` },
+    {
+      label: "Training Max",
+      value: tm && Number.isFinite(tm) ? `${tm} ${unit}` : "Set in Calculator",
+    },
+    {
+      label: "Best Est. 1RM",
+      value: prevBest > 0 ? `${prevBest} ${unit}` : "Log a session",
+    },
+  ];
+  const heroBadge = targetUid
+    ? `Working with ${activeAthleteName}`
+    : "Personal session";
+
   if (coachLoading) {
     return (
       <div className="container py-6">
@@ -280,178 +328,302 @@ export default function Session() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-3">
-      <div className="md:col-span-2 space-y-3">
-        <div className="card space-y-3">
-          <h3 className="text-lg font-semibold">Train - {lift.toUpperCase()}</h3>
-
-          {targetUid ? (<div className="text-xs text-gray-500">Viewing: {activeAthleteName}</div>) : null}
-          {isCoach && !targetUid ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              No athlete selected. Log your own sessions or pick someone from the roster to load their training plan.
+    <div className="pb-12">
+      <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white shadow-lg">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_55%)]" />
+        <div className="absolute -right-24 top-1/2 hidden h-72 w-72 -translate-y-1/2 rounded-full bg-white/10 blur-3xl lg:block" />
+        <div className="container relative px-4 py-8 md:py-12">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-4">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
+                Let's Train
+              </span>
+              <h1 className="text-3xl font-semibold md:text-4xl">{liftLabel}</h1>
+              <p className="max-w-xl text-sm text-white/80 md:text-base">{theme.blurb}</p>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white">
+                <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                {heroBadge}
+              </span>
             </div>
-          ) : null}
-
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-sm">Lift</label>
-            <select
-              className="border rounded-xl px-2 py-1"
-              value={lift}
-              onChange={(event) => setLift(event.target.value as Lift)}
-            >
-              <option value="bench">Bench</option>
-              <option value="squat">Squat</option>
-              <option value="deadlift">Deadlift</option>
-              <option value="press">Press</option>
-            </select>
-
-            <label className="text-sm">Week</label>
-            <select
-              className="border rounded-xl px-2 py-1"
-              value={week}
-              onChange={(event) => setWeek(Number(event.target.value) as Week)}
-            >
-              <option value={1}>Week 1 (65/75/85)</option>
-              <option value={2}>Week 2 (70/80/90)</option>
-              <option value={3}>Week 3 (75/85/95)</option>
-              <option value={4}>Deload (40/50/60)</option>
-            </select>
-
-            <label className="text-sm">Units</label>
-            <div className="text-sm">{unit}</div>
-
-            <label className="text-sm">Training Max</label>
-            <div className="text-sm">{tm ?? "- set TM in Calculator"}</div>
+            <div className="flex flex-col items-start gap-2 text-sm text-white/80 md:items-end">
+              <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 font-medium uppercase tracking-wide text-white">
+                Week {week}
+              </span>
+              <span className="text-lg font-semibold text-white md:text-xl">{theme.name}</span>
+              <span className="text-sm text-white/80">{theme.focus}</span>
+            </div>
           </div>
-
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            <span className="font-semibold text-gray-700">Set status legend:</span> S = completed all prescribed reps.
-            F = stopped early  record the reps completed.
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {quickStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl bg-white/12 px-4 py-3 shadow-sm backdrop-blur-sm transition hover:bg-white/16"
+              >
+                <div className="text-[11px] uppercase tracking-wide text-white/70">
+                  {stat.label}
+                </div>
+                <div className="mt-1 text-lg font-semibold text-white">
+                  {stat.value}
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          <div>
-            <div className="mb-2 text-sm font-medium">Warm-ups</div>
-            <div className="space-y-2">
-              {warm.map((set, index) => (
-                <SetRow
-                  key={`warm-${index}`}
-                  phase="Warm-up"
-                  index={index}
-                  set={set}
-                  unit={unit}
-                  repsLabel={set.repsDisplay}
-                  outcome={warmOutcomes[index]}
-                  onStatusChange={(status) => setWarmStatus(index, status)}
-                  onActualChange={(value) => setWarmActual(index, value)}
-                  showActualInput
-                />
-              ))}
-              {warm.length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">
-                  No training max set yet.
+      <div className="container -mt-12 space-y-10">
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <div className="card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
+              <div className="flex flex-col gap-3 border-b border-gray-100 pb-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-600">
+                    Session Builder
+                  </span>
+                  <h3 className="text-2xl font-semibold text-gray-900">Let's Train - {liftLabel}</h3>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {targetUid ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+                      Viewing {activeAthleteName}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+                      Personal session
+                    </span>
+                  )}
+                  {isCoach && !targetUid ? (
+                    <span className="inline-flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                      No athlete selected. Log your own session or pick someone from the roster to load their plan.
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 shadow-inner">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Lift</span>
+                    <select
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                      value={lift}
+                      onChange={(event) => setLift(event.target.value as Lift)}
+                    >
+                      <option value="bench">Bench Press</option>
+                      <option value="squat">Back Squat</option>
+                      <option value="deadlift">Deadlift</option>
+                      <option value="press">Overhead Press</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Week</span>
+                    <select
+                      className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                      value={week}
+                      onChange={(event) => setWeek(Number(event.target.value) as Week)}
+                    >
+                      <option value={1}>Week 1 - 65/75/85</option>
+                      <option value={2}>Week 2 - 70/80/90</option>
+                      <option value={3}>Week 3 - 75/85/95</option>
+                      <option value={4}>Deload - 40/50/60</option>
+                    </select>
+                  </label>
+
+                  <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Units</span>
+                    <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm">
+                      <span>{unit.toUpperCase()}</span>
+                      <span className="text-xs uppercase text-gray-500">auto</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Training max</span>
+                    {tm && Number.isFinite(tm) ? (
+                      <div className="inline-flex items-center justify-between rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm">
+                        <span>{tm} {unit}</span>
+                        <span className="text-xs uppercase text-brand-600">ready</span>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">
+                        Set training max in Calculator.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-xs text-gray-600 shadow-inner">
+                <span className="font-semibold text-gray-700">Set status legend:</span> S = completed all prescribed reps. F = stopped early - record the reps completed.
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-sky-900">Warm-up ramp</p>
+                      <p className="text-xs text-sky-800/80">Prime the groove with smooth sets.</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                      Warm-up
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {warm.map((set, index) => (
+                      <SetRow
+                        key={`warm-${index}`}
+                        phase="Warm-up"
+                        index={index}
+                        set={set}
+                        unit={unit}
+                        repsLabel={set.repsDisplay}
+                        outcome={warmOutcomes[index]}
+                        onStatusChange={(status) => setWarmStatus(index, status)}
+                        onActualChange={(value) => setWarmActual(index, value)}
+                        showActualInput
+                      />
+                    ))}
+                    {warm.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-sky-200 px-3 py-2 text-sm text-sky-700">
+                        Add a training max to unlock warm-ups.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-brand-700">Main work</p>
+                      <p className="text-xs text-brand-600">Own each top set and log how it felt.</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
+                      Work sets
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {work.map((set, index) => (
+                      <SetRow
+                        key={`work-${index}`}
+                        phase="Work"
+                        index={index}
+                        set={set}
+                        unit={unit}
+                        repsLabel={set.repsDisplay}
+                        outcome={workOutcomes[index]}
+                        onStatusChange={(status) => setWorkStatus(index, status)}
+                        onActualChange={(value) => setWorkActual(index, value)}
+                        showActualInput
+                      />
+                    ))}
+                    {work.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-brand-200 px-3 py-2 text-sm text-brand-700">
+                        Add a training max to populate the working weights.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {week !== 4 && (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                      <span className="text-xs uppercase tracking-wide text-amber-700">Last set AMRAP reps</span>
+                      <input
+                        className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        type="number"
+                        min={0}
+                        value={amrapReps}
+                        onChange={(event) => setAmrapReps(Number(event.target.value) || 0)}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                      <span className="text-xs uppercase tracking-wide text-amber-700">Session notes</span>
+                      <input
+                        className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder="Form cues, RPE, reminders"
+                      />
+                    </label>
+                  </div>
                 </div>
               )}
+
+              <div
+                className={`rounded-2xl px-4 py-4 text-white shadow-lg ${
+                  est ? "bg-gradient-to-r from-emerald-500 to-emerald-600" : "bg-slate-500/90"
+                }`}
+              >
+                <div className="text-xs uppercase tracking-wide text-white/80">Estimated 1RM</div>
+                <div className="text-3xl font-bold">
+                  {est ? `${est} ${unit}` : "Log reps to calculate"}
+                </div>
+                {prFlag && (
+                  <div className="mt-1 text-sm font-medium text-white">
+                    New PR unlocked! Record it before you forget.
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn btn-primary w-full justify-center py-3 text-base"
+                onClick={save}
+                disabled={saving || !tm || (week !== 4 && amrapReps <= 0)}
+              >
+                {week === 4 ? "Deload (no save)" : saving ? "Saving..." : "Save session"}
+              </button>
             </div>
           </div>
 
-          <div>
-            <div className="mb-2 text-sm font-medium">Work sets</div>
-            <div className="space-y-2">
-              {work.map((set, index) => (
-                <SetRow
-                  key={`work-${index}`}
-                  phase="Work"
-                  index={index}
-                  set={set}
-                  unit={unit}
-                  repsLabel={set.repsDisplay}
-                  outcome={workOutcomes[index]}
-                  onStatusChange={(status) => setWorkStatus(index, status)}
-                  onActualChange={(value) => setWorkActual(index, value)}
-                  showActualInput
-                />
+          <div className="card space-y-5 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Recent sessions</h3>
+              <span className="text-xs uppercase tracking-wide text-gray-400">{liftLabel}</span>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+              <TrendMini values={estSeries} unit={unit} />
+            </div>
+            <ul className="space-y-3 text-sm text-gray-700">
+              {history.slice(-5).map((session, index) => (
+                <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="font-semibold text-gray-900">
+                      {session.est1rm ? `est1RM ${session.est1rm} ${session.unit}` : "Logged session"}
+                    </div>
+                    {session.pr ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                        PR
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit} - Week {session.week}
+                  </div>
+                </li>
               ))}
-            </div>
+              {history.length === 0 && (
+                <li className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500">
+                  Log your first session to see trends here.
+                </li>
+              )}
+            </ul>
           </div>
-
-          {week !== 4 && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-sm">Last set AMRAP reps</label>
-              <input
-                className="border rounded-xl px-2 py-1"
-                type="number"
-                min={0}
-                value={amrapReps}
-                onChange={(event) =>
-                  setAmrapReps(Number(event.target.value) || 0)
-                }
-              />
-              <label className="text-sm">Notes</label>
-              <input
-                className="border rounded-xl px-2 py-1"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Form cues, RPE, reminders"
-              />
-            </div>
-          )}
-
-          <div className="rounded-xl border bg-gray-50 p-3">
-            <div className="text-sm">Estimated 1RM</div>
-            <div className="text-2xl font-bold">
-              {est ? `${est} ${unit}` : "-"}
-            </div>
-            {prFlag && (
-              <div className="text-sm text-green-700">New PR! Great work.</div>
-            )}
-          </div>
-
-          <button
-            className="btn-primary"
-            onClick={save}
-            disabled={saving || !tm || (week !== 4 && amrapReps <= 0)}
-          >
-            {week === 4 ? "Deload (no save)" : saving ? "Saving..." : "Save session"}
-          </button>
         </div>
 
-        <div className="card">
-          <h3 className="mb-2 text-lg font-semibold">
-            Recent Sessions ({lift})
-          </h3>
-          <TrendMini values={estSeries} unit={unit} />
-          <ul className="mt-2 space-y-2 text-sm">
-            {history.slice(-5).map((session, index) => (
-              <li key={index} className="border-b pb-2 last:border-0">
-                <div>
-                  {session.est1rm
-                    ? `est1RM ${session.est1rm} ${session.unit}`
-                    : ""}
-                  {session.pr ? " - PR" : ""}
-                </div>
-                <div className="text-gray-600">
-                  AMRAP {session.amrap?.weight} x {session.amrap?.reps}{" "}
-                  {session.unit} - Week {session.week}
-                </div>
-              </li>
-            ))}
-            {history.length === 0 && (
-              <li className="text-gray-500">No sessions logged yet.</li>
-            )}
-          </ul>
-        </div>
+        <CoachTips
+          week={week}
+          amrapReps={amrapReps}
+          unit={unit}
+          tm={tm}
+          est1rm={est}
+          prevBest={prevBest}
+          lastWeight={lastWorkWeight || 0}
+          lift={lift}
+        />
       </div>
-
-      <CoachTips
-        week={week}
-        amrapReps={amrapReps}
-        unit={unit}
-        tm={tm}
-        est1rm={est}
-        prevBest={prevBest}
-        lastWeight={lastWorkWeight || 0}
-        lift={lift}
-      />
     </div>
   );
 }
@@ -487,14 +659,27 @@ function SetRow({
   const weightLabel =
     set.weight && Number.isFinite(set.weight) ? `${set.weight} ${unit}` : "-";
   const percentLabel = `${Math.round(set.pct * 100)}%`;
+  const accentClass =
+    phase === "Work"
+      ? "border-l-4 border-brand-300 bg-white shadow-sm"
+      : "border-l-4 border-sky-300 bg-white shadow-sm";
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 px-3 py-2">
-      <div className="min-w-[140px]">
-        <div className="text-xs uppercase text-gray-500">
-          {phase} {index + 1}
+    <div
+      className={`flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 px-4 py-3 ${accentClass}`}
+    >
+      <div className="min-w-[160px]">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+              phase === "Work" ? "bg-brand-50 text-brand-700" : "bg-sky-50 text-sky-700"
+            }`}
+          >
+            {phase}
+          </span>
+          <span className="text-xs text-gray-500">Set {index + 1}</span>
         </div>
-        <div className="text-sm font-semibold">{weightLabel}</div>
+        <div className="text-sm font-semibold text-gray-900">{weightLabel}</div>
         <div className="text-xs text-gray-500">
           {percentLabel} | {repsLabel} reps
         </div>
@@ -504,10 +689,10 @@ function SetRow({
         <button
           type="button"
           onClick={() => onStatusChange(status === "S" ? "" : "S")}
-          className={`px-3 py-1 text-sm font-semibold rounded border transition ${
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
             status === "S"
-              ? "border-green-600 bg-green-100 text-green-700"
-              : "border-gray-300 text-gray-700 hover:border-green-500"
+              ? "border-emerald-500 bg-emerald-100 text-emerald-700 shadow-sm"
+              : "border-gray-300 bg-white text-gray-700 hover:border-emerald-400 hover:text-emerald-600"
           }`}
         >
           S
@@ -515,10 +700,10 @@ function SetRow({
         <button
           type="button"
           onClick={() => onStatusChange(status === "F" ? "" : "F")}
-          className={`px-3 py-1 text-sm font-semibold rounded border transition ${
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
             status === "F"
-              ? "border-red-600 bg-red-100 text-red-700"
-              : "border-gray-300 text-gray-700 hover:border-red-500"
+              ? "border-rose-500 bg-rose-100 text-rose-700 shadow-sm"
+              : "border-gray-300 bg-white text-gray-700 hover:border-rose-400 hover:text-rose-600"
           }`}
         >
           F
@@ -526,10 +711,10 @@ function SetRow({
       </div>
 
       {showActualInput && status === "F" && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase text-gray-500">Actual reps</span>
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <span className="font-semibold uppercase tracking-wide">Actual reps</span>
           <input
-            className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm"
+            className="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
             type="number"
             min={0}
             step={1}
