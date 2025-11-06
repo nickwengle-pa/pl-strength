@@ -1138,29 +1138,54 @@ const generateCodeCandidate = (): string => {
   return String(value);
 };
 
-export async function regenerateAthleteCode(targetUid: string): Promise<string> {
-  const handles = resolveHandles();
-  const database = handles?.db;
-  if (!database) {
-    throw new Error("Firebase is required to regenerate codes.");
+export async function assignAthleteAccessCode(
+  targetUid: string,
+  code: string
+): Promise<{ status: AthleteCodeStatus; code: string }> {
+  const trimmed = (code ?? "").trim();
+  if (!/^\d{4}$/.test(trimmed)) {
+    return { status: "unavailable", code: trimmed };
   }
 
-  const profile = await loadProfileRemote(targetUid);
+  let profile = await loadProfileRemote(targetUid);
   if (!profile) {
-    throw new Error("Athlete profile not found.");
+    profile = {
+      uid: targetUid,
+      firstName: "",
+      lastName: "",
+      unit: "lb",
+      team: undefined,
+      tm: {},
+      oneRm: {},
+      accessCode: null,
+      equipment: defaultEquipment(),
+    };
   }
 
-  const previous = profile.accessCode ?? null;
+  const status = await ensureAthleteCode(targetUid, trimmed, profile.accessCode ?? null);
+  if (status !== "ok") {
+    return { status, code: trimmed };
+  }
+
+  const normalized: Profile = {
+    ...profile,
+    accessCode: trimmed,
+    tm: profile.tm ?? {},
+    oneRm: profile.oneRm ?? {},
+    equipment: profile.equipment ?? defaultEquipment(),
+  };
+  await saveProfile(normalized);
+  return { status: "ok", code: trimmed };
+}
+
+export async function regenerateAthleteCode(targetUid: string): Promise<string> {
   for (let attempt = 0; attempt < 25; attempt++) {
     const candidate = generateCodeCandidate();
-    const status = await ensureAthleteCode(targetUid, candidate, previous);
-    if (status === "ok") {
-      await saveProfile({ ...profile, accessCode: candidate });
-      return candidate;
+    const result = await assignAthleteAccessCode(targetUid, candidate);
+    if (result.status === "ok") {
+      return result.code;
     }
-    if (status === "unavailable") {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("Could not reserve a unique code. Try again.");
 }

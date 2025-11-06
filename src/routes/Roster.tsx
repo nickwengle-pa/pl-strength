@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  assignAthleteAccessCode,
   deleteAthlete,
   fetchAthleteSessions,
   listRoster,
@@ -62,20 +63,59 @@ export default function Roster() {
 
   const handleRegenerate = async (row: RosterEntry) => {
     if (!row.uid) return;
-    const confirmReset = window.confirm(
-      `Generate a new code for ${row.firstName ?? "this athlete"}?`
+
+    const input = window.prompt(
+      `Enter a 4-digit code for ${row.firstName ?? "this athlete"}.\nLeave blank to auto-generate a new code.`,
+      ""
     );
-    if (!confirmReset) return;
+    if (input === null) return;
+
+    const trimmed = input.trim();
+    if (trimmed && !/^\d{4}$/.test(trimmed)) {
+      alert("Codes must be exactly 4 digits (for example, 1234).");
+      return;
+    }
+
     setBusyUid(row.uid);
     try {
-      const code = await regenerateAthleteCode(row.uid);
+      let nextCode: string | null = null;
+
+      if (trimmed) {
+        const result = await assignAthleteAccessCode(row.uid, trimmed);
+        if (result.status === "taken") {
+          setFlash({
+            kind: "error",
+            text: "That code is already used by another athlete. Try a different four-digit code.",
+          });
+          return;
+        }
+        if (result.status === "unavailable") {
+          setFlash({
+            kind: "error",
+            text: "We couldn't reserve that code. Try again with a different value.",
+          });
+          return;
+        }
+        nextCode = result.code;
+      } else {
+        nextCode = await regenerateAthleteCode(row.uid);
+      }
+
+      if (!nextCode) {
+        setFlash({
+          kind: "error",
+          text: "A code was not generated. Try again.",
+        });
+        return;
+      }
+
       setRows((prev) =>
-        prev.map((r) => (r.uid === row.uid ? { ...r, accessCode: code } : r))
+        prev.map((r) => (r.uid === row.uid ? { ...r, accessCode: nextCode } : r))
       );
-      setFlash({ kind: "success", text: `New code ${code} assigned.` });
+      setFlash({ kind: "success", text: `Code ${nextCode} assigned.` });
     } catch (e: any) {
       const message =
-        e?.message ?? "Could not generate a new code. Try again in a moment.";
+        e?.message ?? "Could not set a new code. Try again in a moment.";
       setFlash({ kind: "error", text: message });
     } finally {
       setBusyUid(null);
@@ -311,7 +351,6 @@ export default function Roster() {
                 <th className="p-2 text-left">Last</th>
                 <th className="p-2 text-left">Roles</th>
                 <th className="p-2 text-left">Team</th>
-                <th className="p-2 text-left">UID</th>
               </tr>
             </thead>
             <tbody>
@@ -323,12 +362,11 @@ export default function Roster() {
                     {(r.roles ?? []).join(", ") || "coach"}
                   </td>
                   <td className="p-2">{r.team || "-"}</td>
-                  <td className="p-2 text-xs">{r.uid}</td>
                 </tr>
               ))}
               {coachRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={5}>
+                  <td className="p-2 text-gray-500" colSpan={4}>
                     No coaches yet.
                   </td>
                 </tr>
@@ -354,7 +392,6 @@ export default function Roster() {
                 <th className="p-2 text-left">Team</th>
                 <th className="p-2 text-left">Unit</th>
                 <th className="p-2 text-left">Code</th>
-                <th className="p-2 text-left">UID</th>
                 <th className="p-2 text-left">Actions</th>
               </tr>
             </thead>
@@ -386,7 +423,6 @@ export default function Roster() {
                     <td className="p-2">{r.team || "-"}</td>
                     <td className="p-2">{r.unit || "-"}</td>
                     <td className="p-2 font-mono text-xs">{r.accessCode ?? "-"}</td>
-                    <td className="p-2 text-xs">{r.uid}</td>
                     <td className="p-2">
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -398,7 +434,7 @@ export default function Roster() {
                           }}
                           disabled={busyUid === r.uid || deleteUid === r.uid}
                         >
-                          {busyUid === r.uid ? "Working..." : "New code"}
+                          {busyUid === r.uid ? "Working..." : "Set code"}
                         </button>
                         <button
                           type="button"
@@ -418,7 +454,7 @@ export default function Roster() {
               })}
               {athleteRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={7}>
+                  <td className="p-2 text-gray-500" colSpan={6}>
                     No athletes yet.
                   </td>
                 </tr>
@@ -435,9 +471,6 @@ export default function Roster() {
               <h3 className="text-lg font-semibold">
                 Review: {detailProfile?.firstName} {detailProfile?.lastName}
               </h3>
-              <div className="text-xs text-gray-500">
-                UID: <code>{selectedUid}</code>
-              </div>
             </div>
             <button
               type="button"
