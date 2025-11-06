@@ -92,7 +92,7 @@ export default function Roster() {
         if (result.status === "unavailable") {
           setFlash({
             kind: "error",
-            text: "We couldn't reserve that code. Try again with a different value.",
+            text: "We could not reserve that code. Check Firestore permissions and try again.",
           });
           return;
         }
@@ -112,10 +112,16 @@ export default function Roster() {
       setRows((prev) =>
         prev.map((r) => (r.uid === row.uid ? { ...r, accessCode: nextCode } : r))
       );
+      if (detailProfile?.uid === row.uid) {
+        setDetailProfile((prev) =>
+          prev ? { ...prev, accessCode: nextCode ?? null } : prev
+        );
+      }
       setFlash({ kind: "success", text: `Code ${nextCode} assigned.` });
     } catch (e: any) {
       const message =
         e?.message ?? "Could not set a new code. Try again in a moment.";
+      console.error("Failed to assign athlete code", e);
       setFlash({ kind: "error", text: message });
     } finally {
       setBusyUid(null);
