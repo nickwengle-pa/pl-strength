@@ -317,7 +317,9 @@ async function setCurrentUserRoles(nextRoles: string[]): Promise<void> {
     roles,
     updatedAt: serverTimestamp(),
   };
-  if (primaryRole) payload.role = primaryRole;
+  if (primaryRole && primaryRole !== "coach") {
+    payload.role = primaryRole;
+  }
 
   await setDoc(roleRef(database, uid), payload, { merge: true });
   roleCache = roles;

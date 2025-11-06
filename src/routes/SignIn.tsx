@@ -312,8 +312,13 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
 
   try {
     await ensureCoachRole();
-  } catch (err) {
+  } catch (err: any) {
     console.warn("Failed to ensure coach role", err);
+    setMessage({
+      kind: "error",
+      text:
+        "Signed in, but we could not add the coach role in Firestore. Ask an admin to confirm Firebase configuration.",
+    });
   }
 
   try {
