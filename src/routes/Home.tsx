@@ -6,28 +6,28 @@ const FEATURE_LINKS = [
     to: "/summary",
     label: "Quick Summary",
     message: "Simple plan for today. Big buttons. No fluff.",
-    icon: "?",
+    badge: "QS",
     accent: "from-amber-400/90 to-orange-500/90",
   },
   {
     to: "/calculator",
     label: "Calculator / Table",
     message: "Auto-calc warm-ups and work sets with rounding.",
-    icon: "??",
+    badge: "CT",
     accent: "from-sky-400/90 to-sky-600/90",
   },
   {
     to: "/sheets",
     label: "Printable / Fillable Sheets",
     message: "Week 1-4 or blank sheets. Print or fill and save.",
-    icon: "??",
+    badge: "SH",
     accent: "from-emerald-400/90 to-emerald-600/90",
   },
   {
     to: "/roster",
     label: "Roster",
     message: "Coaches: names, teams, units. Clean and fast.",
-    icon: "??",
+    badge: "RS",
     accent: "from-fuchsia-400/90 to-fuchsia-600/90",
   },
 ];
@@ -52,7 +52,7 @@ const ABBREVIATIONS = [
   {
     code: "PR",
     title: "Personal Record",
-    detail: "Your best lift so far. New PRs mean progress—celebrate them.",
+    detail: "Your best lift so far. New PRs mean progress - celebrate them.",
   },
   {
     code: "RPE",
@@ -92,7 +92,7 @@ export default function Home() {
                 Ready when you are
               </span>
               <span className="text-base text-white/80">
-                Calculator, sheets, roster, and a quick plan—all within two taps.
+                Calculator, sheets, roster, and a quick plan - all within two taps.
               </span>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function Home() {
                 className="rounded-2xl bg-white/12 px-4 py-3 shadow-sm backdrop-blur-sm transition hover:bg-white/16"
               >
                 <div className="text-[11px] uppercase tracking-wide text-white/70">
-                  {item.icon} {item.label}
+                  {item.badge} · {item.label}
                 </div>
                 <div className="mt-1 text-lg font-semibold text-white">
                   {item.message}
@@ -128,7 +128,7 @@ export default function Home() {
               />
               <div className="relative z-10 space-y-3">
                 <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  {feature.icon} {feature.label}
+                  {feature.badge}
                 </span>
                 <h3 className="text-2xl font-semibold text-gray-900">
                   {feature.label}
