@@ -29,6 +29,45 @@ const formatWeight = (value: number): string => {
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 };
 
+const normalizeRoles = (roles?: string[] | null): string[] =>
+  Array.from(
+    new Set(
+      (roles ?? [])
+        .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+        .filter(Boolean)
+    )
+  );
+
+type RoleBadgesProps = {
+  roles?: string[] | null;
+};
+
+function RoleBadges({ roles }: RoleBadgesProps) {
+  const normalized = normalizeRoles(roles);
+  if (!normalized.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {normalized.map((role) => {
+        const label = role === "admin" ? "Admin" : role === "coach" ? "Coach" : role;
+        const pillClass =
+          role === "admin"
+            ? "border border-purple-200 bg-purple-50 text-purple-700"
+            : role === "coach"
+            ? "border border-brand-200 bg-brand-50 text-brand-700"
+            : "border border-gray-200 bg-gray-50 text-gray-600";
+        return (
+          <span
+            key={role}
+            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${pillClass}`}
+          >
+            {label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Roster() {
   const [rows, setRows] = useState<RosterEntry[]>([]);
   const [err, setErr] = useState<string|undefined>();
@@ -316,9 +355,7 @@ export default function Roster() {
   }, [detailProfile, detailSessions]);
 
   const isCoachRow = (row: RosterEntry) => {
-    const roles = (row.roles ?? []).map((value) =>
-      typeof value === "string" ? value.toLowerCase() : ""
-    );
+    const roles = normalizeRoles(row.roles);
     return roles.includes("coach") || roles.includes("admin");
   };
 
@@ -367,21 +404,28 @@ export default function Roster() {
               <tr>
                 <th className="p-2 text-left">First</th>
                 <th className="p-2 text-left">Last</th>
-                <th className="p-2 text-left">Roles</th>
+                <th className="p-2 text-left">Access</th>
                 <th className="p-2 text-left">Team</th>
               </tr>
             </thead>
             <tbody>
-              {coachRows.map((r) => (
-                <tr key={r.uid} className="border-t">
-                  <td className="p-2">{r.firstName || "-"}</td>
-                  <td className="p-2">{r.lastName || "-"}</td>
-                  <td className="p-2 text-xs uppercase tracking-wide text-gray-600">
-                    {(r.roles ?? []).join(", ") || "coach"}
-                  </td>
-                  <td className="p-2">{r.team || "-"}</td>
-                </tr>
-              ))}
+              {coachRows.map((r) => {
+                const rolesList = normalizeRoles(r.roles);
+                const admin = rolesList.includes("admin");
+                return (
+                  <tr
+                    key={r.uid}
+                    className={`border-t ${admin ? "bg-purple-50/60" : ""}`}
+                  >
+                    <td className="p-2 font-medium text-gray-800">{r.firstName || "-"}</td>
+                    <td className="p-2">{r.lastName || "-"}</td>
+                    <td className="p-2">
+                      <RoleBadges roles={r.roles} />
+                    </td>
+                    <td className="p-2">{r.team || "-"}</td>
+                  </tr>
+                );
+              })}
               {coachRows.length === 0 && (
                 <tr>
                   <td className="p-2 text-gray-500" colSpan={4}>
@@ -485,11 +529,12 @@ export default function Roster() {
       {selectedUid && (
         <div className="card space-y-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">
-                Review: {detailProfile?.firstName} {detailProfile?.lastName}
-              </h3>
-            </div>
+          <div>
+            <h3 className="text-lg font-semibold">
+              Review: {detailProfile?.firstName} {detailProfile?.lastName}
+            </h3>
+            {selectedRow?.roles && <RoleBadges roles={selectedRow.roles} />}
+          </div>
             <button
               type="button"
               className="btn text-xs md:text-sm"
