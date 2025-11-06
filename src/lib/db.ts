@@ -1138,13 +1138,19 @@ const generateCodeCandidate = (): string => {
   return String(value);
 };
 
+export type AssignAthleteAccessCodeResult = {
+  status: AthleteCodeStatus;
+  code: string;
+  source: "remote" | "local";
+};
+
 export async function assignAthleteAccessCode(
   targetUid: string,
   code: string
-): Promise<{ status: AthleteCodeStatus; code: string }> {
+): Promise<AssignAthleteAccessCodeResult> {
   const trimmed = (code ?? "").trim();
   if (!/^\d{4}$/.test(trimmed)) {
-    return { status: "unavailable", code: trimmed };
+    return { status: "unavailable", code: trimmed, source: "local" };
   }
 
   let profile = await loadProfileRemote(targetUid);
@@ -1162,11 +1168,6 @@ export async function assignAthleteAccessCode(
     };
   }
 
-  const status = await ensureAthleteCode(targetUid, trimmed, profile.accessCode ?? null);
-  if (status !== "ok") {
-    return { status, code: trimmed };
-  }
-
   const normalized: Profile = {
     ...profile,
     accessCode: trimmed,
@@ -1174,8 +1175,31 @@ export async function assignAthleteAccessCode(
     oneRm: profile.oneRm ?? {},
     equipment: profile.equipment ?? defaultEquipment(),
   };
-  await saveProfile(normalized);
-  return { status: "ok", code: trimmed };
+
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    saveProfileLocal(normalized);
+    return { status: "ok", code: trimmed, source: "local" };
+  }
+
+  const status = await ensureAthleteCode(targetUid, trimmed, profile.accessCode ?? null);
+  if (status === "taken") {
+    return { status, code: trimmed, source: "remote" };
+  }
+  if (status !== "ok") {
+    saveProfileLocal(normalized);
+    return { status: "ok", code: trimmed, source: "local" };
+  }
+
+  try {
+    await saveProfile(normalized);
+    return { status: "ok", code: trimmed, source: "remote" };
+  } catch (err) {
+    console.warn("Failed to sync access code to Firestore, saved locally instead.", err);
+    saveProfileLocal(normalized);
+    return { status: "ok", code: trimmed, source: "local" };
+  }
 }
 
 export async function regenerateAthleteCode(targetUid: string): Promise<string> {

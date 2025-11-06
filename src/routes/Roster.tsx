@@ -79,6 +79,7 @@ export default function Roster() {
     setBusyUid(row.uid);
     try {
       let nextCode: string | null = null;
+      let source: "remote" | "local" = "remote";
 
       if (trimmed) {
         const result = await assignAthleteAccessCode(row.uid, trimmed);
@@ -97,6 +98,7 @@ export default function Roster() {
           return;
         }
         nextCode = result.code;
+        source = result.source;
       } else {
         nextCode = await regenerateAthleteCode(row.uid);
       }
@@ -117,7 +119,13 @@ export default function Roster() {
           prev ? { ...prev, accessCode: nextCode ?? null } : prev
         );
       }
-      setFlash({ kind: "success", text: `Code ${nextCode} assigned.` });
+      setFlash({
+        kind: "success",
+        text:
+          source === "local"
+            ? `Code ${nextCode} assigned locally. Remote sync will apply once permissions are available.`
+            : `Code ${nextCode} assigned.`,
+      });
     } catch (e: any) {
       const message =
         e?.message ?? "Could not set a new code. Try again in a moment.";
@@ -307,8 +315,12 @@ export default function Roster() {
     });
   }, [detailProfile, detailSessions]);
 
-  const isCoachRow = (row: RosterEntry) =>
-    (row.roles ?? []).includes("coach") || (row.roles ?? []).includes("admin");
+  const isCoachRow = (row: RosterEntry) => {
+    const roles = (row.roles ?? []).map((value) =>
+      typeof value === "string" ? value.toLowerCase() : ""
+    );
+    return roles.includes("coach") || roles.includes("admin");
+  };
 
   const coachRows = useMemo(
     () => rows.filter(isCoachRow),
