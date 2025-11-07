@@ -9,28 +9,36 @@ import {
   type Unit,
   type Team,
 } from "../lib/db";
+import OnboardingWizard from "../components/OnboardingWizard";
 
 export default function ProfilePage() {
   const [p, setP] = useState<ProfileModel | null>(null);
   const [uid, setUid] = useState<string>("");
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
       const u = await ensureAnon();
       setUid(u);
       const existing = await loadProfileRemote(u);
-      setP(
-        existing || {
-          uid: u,
-          firstName: "",
-          lastName: "",
-          unit: "lb",
-          accessCode: null,
-          tm: {},
-          oneRm: {},
-          equipment: defaultEquipment(),
-        }
-      );
+      const profile = existing || {
+        uid: u,
+        firstName: "",
+        lastName: "",
+        unit: "lb",
+        accessCode: null,
+        tm: {},
+        oneRm: {},
+        equipment: defaultEquipment(),
+      };
+      setP(profile);
+      
+      // Show onboarding if user has no TM set (first-time user)
+      const hasSkippedOnboarding = localStorage.getItem("pl-onboarding-skipped");
+      const hasTM = profile.tm && Object.keys(profile.tm).length > 0;
+      if (!hasTM && !hasSkippedOnboarding) {
+        setShowOnboarding(true);
+      }
     })();
   }, []);
 
@@ -42,12 +50,29 @@ export default function ProfilePage() {
     await saveProfile(p);
     alert("Saved.");
   };
+  
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    localStorage.setItem("pl-onboarding-skipped", "true");
+  };
 
   if (!p) return null;
 
   return (
     <div className="container py-6 space-y-4">
+      {showOnboarding && (
+        <OnboardingWizard onComplete={handleOnboardingComplete} unit={p.unit} />
+      )}
+      
       <h1>Profile</h1>
+      
+      <button
+        onClick={() => setShowOnboarding(true)}
+        className="text-sm text-brand-600 hover:text-brand-700 underline"
+      >
+        📖 Show Tutorial Again
+      </button>
+      
       <div className="card space-y-4">
         <div className="text-sm text-gray-600">
           UID: <code>{uid}</code>
@@ -92,17 +117,28 @@ export default function ProfilePage() {
 
           <div>
             <div className="text-sm font-medium mb-1">Team</div>
-            <select
-              className="border rounded-xl px-3 py-2"
-              value={p.team || ""}
-              onChange={(e) => update({ team: e.target.value as Team })}
-            >
-              <option value="">Select team</option>
-              {TEAM_DEFINITIONS.map((definition) => (
-                <option key={definition.id} value={definition.id}>
-                  {definition.label}
-                </option>
-              ))}
+            <select
+
+              className="border rounded-xl px-3 py-2"
+
+              value={p.team || ""}
+
+              onChange={(e) => update({ team: e.target.value as Team })}
+
+            >
+
+              <option value="">Select team</option>
+
+              {TEAM_DEFINITIONS.map((definition) => (
+
+                <option key={definition.id} value={definition.id}>
+
+                  {definition.label}
+
+                </option>
+
+              ))}
+
             </select>
           </div>
         </div>

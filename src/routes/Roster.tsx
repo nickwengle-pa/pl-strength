@@ -14,6 +14,9 @@ import {
   saveProfile,
   fb,
   subscribeToRoleChanges,
+  updateAthleteWeek,
+  calculateTMSuggestions,
+  advanceCycle,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -88,12 +91,16 @@ export default function Roster() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [tmDraft, setTmDraft] = useState<Record<LiftKey, string>>(() => emptyTmDraft());
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
+  const [cycleAdvancing, setCycleAdvancing] = useState(false);
+  const [tmSuggestions, setTmSuggestions] = useState<Record<string, number> | null>(null);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
   const [coachLevelFilter, setCoachLevelFilter] = useState<"varsity" | "juniorHigh" | "both">("both");
   const [adminCoachFilter, setAdminCoachFilter] = useState<Team | "all">("all");
   const [adminAthleteFilter, setAdminAthleteFilter] = useState<Team | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
 
   useEffect(() => {
@@ -405,6 +412,21 @@ export default function Roster() {
 
   const filteredAthleteRows = useMemo(() => {
     let rows = athleteRows;
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      rows = rows.filter((row) => {
+        const fullName = `${row.firstName || ""} ${row.lastName || ""}`.toLowerCase();
+        return fullName.includes(query) || row.uid.toLowerCase().includes(query);
+      });
+    }
+    
+    // Apply team filter (for admins or when explicitly set)
+    if (teamFilter !== "all") {
+      rows = rows.filter((row) => row.team === teamFilter);
+    }
+    
     if (!isAdminUser && coachTeamFilter) {
       // For coaches: filter by sport/program, then optionally by level
       const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
@@ -426,7 +448,7 @@ export default function Roster() {
       rows = rows.filter((row) => row.team === adminAthleteFilter);
     }
     return rows;
-  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter]);
+  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -487,6 +509,14 @@ export default function Roster() {
           });
         }
         setDetailSessions(sessions);
+        
+        // Calculate TM suggestions if on Week 4
+        if (resolvedProfile.currentWeek === 4) {
+          const suggestions = await calculateTMSuggestions(selectedUid);
+          if (active) setTmSuggestions(suggestions);
+        } else {
+          setTmSuggestions(null);
+        }
       } catch (err: any) {
         if (!active) return;
         setDetailError(err?.message ?? "Could not load athlete data.");
@@ -643,15 +673,65 @@ export default function Roster() {
       </div>
 
       <div className="card">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-lg font-semibold">Athletes</h3>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <h3 className="text-lg font-semibold">Athletes</h3>
             <p className="text-xs text-gray-500">
               Click a row to review recent sessions and TM numbers.
             </p>
+          </div>
+
+          {/* Search and Filter Controls */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+            {/* Search Box */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search athletes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 pl-10 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Team Filter */}
+            {isAdminUser && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 font-medium">Team:</label>
+                <select
+                  value={teamFilter}
+                  onChange={(e) => setTeamFilter(e.target.value as Team | "all")}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                >
+                  <option value="all">All Teams</option>
+                  {TEAM_DEFINITIONS.map((def) => (
+                    <option key={def.id} value={def.id}>
+                      {def.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Level Filter for Coaches */}
             {!isAdminUser && coachTeam && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">Level:</span>
+                <span className="text-xs text-gray-600 font-medium">Level:</span>
                 <div className="inline-flex rounded-lg border border-gray-200 p-1 gap-1">
                   <button
                     onClick={() => setCoachLevelFilter("varsity")}
@@ -686,6 +766,8 @@ export default function Roster() {
                 </div>
               </div>
             )}
+
+            {/* Admin Athlete Filter */}
             {isAdminUser && (
               <label className="flex items-center gap-2 text-xs text-gray-600">
                 <span>Filter</span>
@@ -705,6 +787,15 @@ export default function Roster() {
             )}
           </div>
         </div>
+
+        {/* Results Count */}
+        {(searchQuery || teamFilter !== "all") && (
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-semibold">{filteredAthleteRows.length}</span> athlete{filteredAthleteRows.length !== 1 ? 's' : ''}
+            {searchQuery && <> matching "{searchQuery}"</>}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">
@@ -816,32 +907,136 @@ export default function Roster() {
 
           {!detailLoading && !detailError && detailProfile && (
             <>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="text-sm text-gray-600">Team</div>
-                  <div className="text-base font-semibold text-gray-900">
-                    {formatTeamLabel(detailProfile.team, "-")}
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <div className="text-sm text-gray-600">Team</div>
+                <div className="text-base font-semibold text-gray-900">
+                  {formatTeamLabel(detailProfile.team, "-")}
+                </div>
+                <div className="mt-2 text-sm text-gray-600">Unit</div>
+                <div className="text-base font-semibold text-gray-900">
+                  {detailProfile.unit}
+                </div>
+                <div className="mt-2 text-sm text-gray-600">Sign-in code</div>
+                <div className="font-mono text-base text-gray-900">
+                  {detailProfile.accessCode ?? "-"}
+                </div>
+              </div>
+
+              {/* Cycle Advancement */}
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 mt-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-indigo-900">
+                      Training Cycle
+                    </div>
+                    <div className="text-xs text-indigo-700 mt-1">
+                      Manage weekly progression and cycle advancement
+                    </div>
                   </div>
-                  <div className="mt-2 text-sm text-gray-600">Unit</div>
-                  <div className="text-base font-semibold text-gray-900">
-                    {detailProfile.unit}
-                  </div>
-                  <div className="mt-2 text-sm text-gray-600">Sign-in code</div>
-                  <div className="font-mono text-base text-gray-900">
-                    {detailProfile.accessCode ?? "-"}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-indigo-700 font-medium">Current Week:</span>
+                    {[1, 2, 3, 4].map((week) => (
+                      <button
+                        key={week}
+                        onClick={async () => {
+                          if (cycleAdvancing) return;
+                          setCycleAdvancing(true);
+                          try {
+                            await updateAthleteWeek(detailProfile.uid, week as 1 | 2 | 3 | 4);
+                            const updated = await loadProfileRemote(detailProfile.uid);
+                            if (updated) {
+                              setDetailProfile(updated);
+                              // Recalculate suggestions if moving to Week 4
+                              if (week === 4) {
+                                const suggestions = await calculateTMSuggestions(detailProfile.uid);
+                                setTmSuggestions(suggestions);
+                              } else {
+                                setTmSuggestions(null);
+                              }
+                            }
+                          } catch (err: any) {
+                            alert(err?.message ?? "Failed to update week");
+                          } finally {
+                            setCycleAdvancing(false);
+                          }
+                        }}
+                        disabled={cycleAdvancing}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                          (detailProfile.currentWeek ?? 1) === week
+                            ? "bg-indigo-600 text-white"
+                            : "bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100"
+                        } ${cycleAdvancing ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        Week {week}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 md:col-span-2">
-                  <div className="flex flex-col gap-1 mb-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm font-semibold text-gray-700">
-                      Lift Summary &amp; Quick Edit
+
+                {/* TM Increase Suggestions after Week 4 */}
+                {tmSuggestions && Object.keys(tmSuggestions).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-indigo-200">
+                    <div className="text-sm font-semibold text-indigo-900 mb-2">
+                      Suggested Training Max Increases
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Review recent logs and adjust training max numbers on the fly.
+                    <div className="grid gap-2 grid-cols-2 md:grid-cols-4 mb-3">
+                      {(["bench", "squat", "deadlift", "press"] as const).map((lift) => {
+                        const suggestion = tmSuggestions[lift];
+                        if (!suggestion) return null;
+                        const current = detailProfile.tm?.[lift] ?? 0;
+                        const newTM = current + suggestion;
+                        return (
+                          <div key={lift} className="bg-white rounded-lg border border-indigo-200 p-2">
+                            <div className="text-xs text-indigo-700 font-medium capitalize">
+                              {lift}
+                            </div>
+                            <div className="text-sm text-gray-900 mt-1">
+                              {current} → <span className="font-semibold text-green-600">{newTM}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">+{suggestion} {detailProfile.unit}</div>
+                          </div>
+                        );
+                      })}
                     </div>
+                    <button
+                      onClick={async () => {
+                        if (cycleAdvancing) return;
+                        if (!confirm(`Advance ${detailProfile.firstName} to Week 1 with new TMs?`)) return;
+                        setCycleAdvancing(true);
+                        try {
+                          await advanceCycle(detailProfile.uid, tmSuggestions);
+                          const updated = await loadProfileRemote(detailProfile.uid);
+                          if (updated) {
+                            setDetailProfile(updated);
+                            setTmSuggestions(null);
+                          }
+                          alert("Cycle advanced successfully!");
+                        } catch (err: any) {
+                          alert(err?.message ?? "Failed to advance cycle");
+                        } finally {
+                          setCycleAdvancing(false);
+                        }
+                      }}
+                      disabled={cycleAdvancing}
+                      className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cycleAdvancing ? "Advancing..." : "Start Next Cycle"}
+                    </button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs sm:text-sm">
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mt-4">
+                <div className="flex flex-col gap-1 mb-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm font-semibold text-gray-700">
+                    Lift Summary &amp; Quick Edit
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Review recent logs and adjust training max numbers on the fly.
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs sm:text-sm">
                       <thead className="text-gray-600">
                         <tr>
                           <th className="p-2 text-left">Lift</th>
@@ -929,7 +1124,6 @@ export default function Roster() {
                       </tbody>
                     </table>
                   </div>
-                </div>
               </div>
 
               <div className="space-y-2">

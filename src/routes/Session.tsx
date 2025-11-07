@@ -376,102 +376,105 @@ export default function Session() {
     const isAMRAPSet = currentSet?.phase === 'work' && currentSetIndex === allSets.length - 1 && week !== 4;
     
     return (
-      <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col">
+      <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/20">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 flex-shrink-0">
           <div>
-            <div className="text-sm opacity-80">Week {week}</div>
-            <div className="text-xl font-bold">{LIFT_LABELS[lift]}</div>
+            <div className="text-xs opacity-80">Week {week}</div>
+            <div className="text-lg font-bold">{LIFT_LABELS[lift]}</div>
           </div>
           <button
             onClick={() => setMobileMode(false)}
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl font-semibold"
+            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-semibold text-sm"
           >
             Exit
           </button>
         </div>
 
-        {/* Set Counter */}
-        <div className="px-6 py-4 text-center">
-          <div className="text-sm opacity-80 uppercase tracking-wide">
-            {currentSet?.phase === 'warm' ? 'Warm-up' : 'Work Set'}
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* Set Counter */}
+          <div className="px-4 py-3 text-center">
+            <div className="text-xs opacity-80 uppercase tracking-wide">
+              {currentSet?.phase === 'warm' ? 'Warm-up' : 'Work Set'}
+            </div>
+            <div className="text-5xl font-bold my-1">
+              {currentSetIndex + 1} / {allSets.length}
+            </div>
           </div>
-          <div className="text-6xl font-bold my-2">
-            {currentSetIndex + 1} / {allSets.length}
-          </div>
-        </div>
 
-        {/* Current Set Info */}
-        {currentSet && (
-          <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8">
-            <div className="text-center space-y-4">
-              <div className="text-9xl font-black">
-                {currentSet.weight}
+          {/* Current Set Info */}
+          {currentSet && (
+            <div className="px-4 py-2 space-y-4">
+              <div className="text-center space-y-3">
+                <div className="text-8xl font-black leading-none">
+                  {currentSet.weight}
+                </div>
+                <div className="text-2xl opacity-90">{unit}</div>
+                <div className="text-xl mt-2">
+                  {currentSet.phase === 'warm' 
+                    ? `${warmRepLabels[currentSet.index]} reps`
+                    : `${workRepLabels[week][currentSet.index]}`
+                  }
+                </div>
+                <div className="text-base opacity-70">
+                  {Math.round(currentSet.pct * 100)}% of TM
+                </div>
+                {isAMRAPSet && (
+                  <div className="mt-4 mx-4 px-4 py-2 bg-yellow-400/20 rounded-xl border-2 border-yellow-300">
+                    <div className="text-xl font-bold text-yellow-200">AMRAP SET!</div>
+                    <div className="text-xs mt-1">Leave 1-2 reps in the tank</div>
+                  </div>
+                )}
               </div>
-              <div className="text-3xl opacity-90">{unit}</div>
-              <div className="text-2xl mt-4">
-                {currentSet.phase === 'warm' 
-                  ? `${warmRepLabels[currentSet.index]} reps`
-                  : `${workRepLabels[week][currentSet.index]}`
-                }
-              </div>
-              <div className="text-lg opacity-70">
-                {Math.round(currentSet.pct * 100)}% of TM
-              </div>
-              {isAMRAPSet && (
-                <div className="mt-6 px-6 py-3 bg-yellow-400/20 rounded-2xl border-2 border-yellow-300">
-                  <div className="text-2xl font-bold text-yellow-200">AMRAP SET!</div>
-                  <div className="text-sm mt-1">Leave 1-2 reps in the tank</div>
+
+              {/* Rest Timer */}
+              {timerActive && (
+                <div className="text-center space-y-2 py-4">
+                  <div className="text-xs uppercase tracking-wide opacity-80">Rest Timer</div>
+                  <div className="text-6xl font-bold text-yellow-300">
+                    {formatTime(restTimer)}
+                  </div>
+                  <button
+                    onClick={() => setTimerActive(false)}
+                    className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm"
+                  >
+                    Cancel Timer
+                  </button>
                 </div>
               )}
             </div>
+          )}
+        </div>
 
-            {/* Rest Timer */}
-            {timerActive && (
-              <div className="text-center space-y-3">
-                <div className="text-sm uppercase tracking-wide opacity-80">Rest Timer</div>
-                <div className="text-7xl font-bold text-yellow-300">
-                  {formatTime(restTimer)}
-                </div>
-                <button
-                  onClick={() => setTimerActive(false)}
-                  className="px-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl"
-                >
-                  Cancel Timer
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="px-6 py-6 space-y-3">
+        {/* Fixed Action Buttons at Bottom */}
+        <div className="px-4 py-4 space-y-2 bg-gradient-to-t from-black/20 to-transparent flex-shrink-0 border-t border-white/10">
           {!timerActive && currentSet && (
             <>
               {/* Rest Timer Shortcuts */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => startRestTimer(60)}
-                  className="py-4 bg-blue-500/30 hover:bg-blue-500/40 rounded-2xl font-semibold text-lg"
+                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
                 >
                   1:00
                 </button>
                 <button
                   onClick={() => startRestTimer(120)}
-                  className="py-4 bg-blue-500/30 hover:bg-blue-500/40 rounded-2xl font-semibold text-lg"
+                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
                 >
                   2:00
                 </button>
                 <button
                   onClick={() => startRestTimer(180)}
-                  className="py-4 bg-blue-500/30 hover:bg-blue-500/40 rounded-2xl font-semibold text-lg"
+                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
                 >
                   3:00
                 </button>
               </div>
 
               {/* Mark Success/Fail */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => {
                     if (currentSet.phase === 'warm') {
@@ -481,12 +484,14 @@ export default function Session() {
                     }
                     if (!isLastSet) {
                       setCurrentSetIndex(prev => prev + 1);
-                      if (currentSet.phase === 'work') {
-                        startRestTimer(150); // Auto-start 2:30 rest
+                      // Only auto-start timer if NEXT set is also a work set (not transitioning from warm-up)
+                      const nextSet = allSets[currentSetIndex + 1];
+                      if (currentSet.phase === 'work' && nextSet?.phase === 'work') {
+                        startRestTimer(150); // Auto-start 2:30 rest between work sets
                       }
                     }
                   }}
-                  className="py-6 bg-green-500 hover:bg-green-600 rounded-2xl font-bold text-2xl shadow-lg"
+                  className="py-5 bg-green-500 hover:bg-green-600 rounded-xl font-bold text-xl shadow-lg"
                 >
                   ✓ Done
                 </button>
@@ -506,25 +511,25 @@ export default function Session() {
                       }
                     }
                   }}
-                  className="py-6 bg-red-500 hover:bg-red-600 rounded-2xl font-bold text-2xl shadow-lg"
+                  className="py-5 bg-red-500 hover:bg-red-600 rounded-xl font-bold text-xl shadow-lg"
                 >
                   ✗ Failed
                 </button>
               </div>
 
               {/* Navigation */}
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
                   disabled={currentSetIndex === 0}
-                  className="py-3 bg-white/10 hover:bg-white/20 rounded-xl disabled:opacity-30"
+                  className="py-2 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-30 text-sm"
                 >
                   ← Previous
                 </button>
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.min(allSets.length - 1, prev + 1))}
                   disabled={isLastSet}
-                  className="py-3 bg-white/10 hover:bg-white/20 rounded-xl disabled:opacity-30"
+                  className="py-2 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-30 text-sm"
                 >
                   Next →
                 </button>
@@ -539,7 +544,7 @@ export default function Session() {
                       setMobileMode(false);
                     }
                   }}
-                  className="w-full py-6 bg-yellow-500 hover:bg-yellow-600 rounded-2xl font-bold text-2xl shadow-lg mt-4"
+                  className="w-full py-5 bg-yellow-500 hover:bg-yellow-600 rounded-xl font-bold text-xl shadow-lg"
                 >
                   Log AMRAP & Finish
                 </button>

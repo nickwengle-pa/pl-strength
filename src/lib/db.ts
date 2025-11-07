@@ -358,6 +358,7 @@ export type Profile = {
   oneRm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
   accessCode?: string | null;
   equipment?: EquipmentSettings;
+  currentWeek?: 1 | 2 | 3 | 4;
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
@@ -774,7 +775,7 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     return;
   }
   const ref = profRef(database, p.uid);
-  const payload = {
+  const payload: Record<string, any> = {
     firstName: normalizedProfile.firstName || "",
     lastName: normalizedProfile.lastName || "",
     unit: normalizedProfile.unit || "lb",
@@ -784,12 +785,91 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     accessCode: normalizedProfile.accessCode ?? null,
     equipment: normalizedEquipment,
   };
+  if (normalizedProfile.currentWeek) {
+    payload.currentWeek = normalizedProfile.currentWeek;
+  }
   const snap = await getDoc(ref);
   if (snap.exists()) await updateDoc(ref, payload);
   else await setDoc(ref, payload);
   if (!options?.skipLocal) {
     saveProfileLocal(normalizedProfile);
   }
+}
+
+// Update athlete's current week
+export async function updateAthleteWeek(uid: string, week: 1 | 2 | 3 | 4): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) throw new Error("Firebase not available");
+  
+  const ref = profRef(database, uid);
+  await updateDoc(ref, { currentWeek: week });
+}
+
+// Calculate TM increase suggestions based on Week 4 AMRAP performance
+export async function calculateTMSuggestions(uid: string): Promise<{
+  bench?: number;
+  squat?: number;
+  deadlift?: number;
+  press?: number;
+}> {
+  const profile = await loadProfileRemote(uid);
+  if (!profile || !profile.tm) return {};
+  
+  const sessions = await fetchAthleteSessions(uid);
+  const week4Sessions = sessions.filter(s => s.week === 4);
+  
+  const suggestions: Record<string, number> = {};
+  
+  (['bench', 'squat', 'deadlift', 'press'] as const).forEach(lift => {
+    const currentTM = profile.tm?.[lift];
+    if (!currentTM) return;
+    
+    // Find most recent Week 4 session for this lift
+    const recentWeek4 = week4Sessions
+      .filter(s => s.lift === lift)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+    
+    if (!recentWeek4) return;
+    
+    // Week 4 is deload - check if they're ready to progress
+    // Standard progression: +5 lb or +2.5 kg for upper, +10 lb or +5 kg for lower
+    const unit = profile.unit || 'lb';
+    const isLower = lift === 'squat' || lift === 'deadlift';
+    
+    if (unit === 'lb') {
+      suggestions[lift] = currentTM + (isLower ? 10 : 5);
+    } else {
+      suggestions[lift] = currentTM + (isLower ? 5 : 2.5);
+    }
+  });
+  
+  return suggestions;
+}
+
+// Advance entire cycle - move to Week 1 and optionally increase TMs
+export async function advanceCycle(uid: string, tmIncreases?: {
+  bench?: number;
+  squat?: number;
+  deadlift?: number;
+  press?: number;
+}): Promise<void> {
+  const profile = await loadProfileRemote(uid);
+  if (!profile) throw new Error("Profile not found");
+  
+  const updatedProfile: Profile = {
+    ...profile,
+    currentWeek: 1,
+  };
+  
+  if (tmIncreases) {
+    updatedProfile.tm = {
+      ...profile.tm,
+      ...tmIncreases,
+    };
+  }
+  
+  await saveProfile(updatedProfile, { skipLocal: true });
 }
 
 export const normalizePasscodeDigits = (code: string): string =>

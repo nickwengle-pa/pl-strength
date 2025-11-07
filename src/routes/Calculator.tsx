@@ -8,6 +8,7 @@ import {
   type BarOption,
   type EquipmentSettings,
   type Profile,
+  type Team,
   type Unit,
 } from "../lib/db";
 import { loadProfile as loadProfileLocal } from "../lib/storage";
@@ -125,10 +126,10 @@ type PlateVisualProps = {
 function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisualProps) {
   const hasTarget = typeof targetWeight === "number" && targetWeight > 0;
   const maxPlate = plates.length ? Math.max(...plates) : 0;
-  const minHeight = 52;
-  const maxHeight = 120;
-  const minWidth = 12;
-  const maxWidth = 32;
+  const minHeight = 60;
+  const maxHeight = 140;
+  const minWidth = 14;
+  const maxWidth = 28;
 
   const scaleHeight = (weight: number): number => {
     if (!maxPlate) return minHeight;
@@ -151,39 +152,86 @@ function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisualProps
   }));
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-slate-900 p-5 text-white shadow-inner">
-      <div className="absolute left-8 right-8 top-1/2 h-5 -translate-y-1/2 rounded-full bg-slate-700" />
-      <div className="relative flex items-end gap-6">
-        <div className="self-center flex h-14 w-20 flex-col items-center justify-center rounded-lg bg-slate-300 text-xs font-semibold text-slate-900 shadow-md">
-          {barWeight > 0 ? `${formatNumber(barWeight)} ${unit}` : "Bar"}
+    <div className="relative overflow-x-auto rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 p-6 text-white shadow-2xl">
+      {/* Center bar */}
+      <div className="absolute left-4 right-4 top-1/2 h-3 -translate-y-1/2">
+        <div className="h-full w-full rounded-full bg-gradient-to-b from-slate-500 to-slate-600 shadow-lg" style={{
+          boxShadow: "0 2px 8px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.3)"
+        }} />
+      </div>
+      
+      <div className="relative flex items-center justify-center gap-2">
+        {/* Left end cap */}
+        <div className="flex-shrink-0">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="relative flex items-center">
+              {/* Sleeve end */}
+              <div className="h-16 w-2 rounded-l-lg bg-gradient-to-r from-slate-700 to-slate-600" style={{
+                boxShadow: "inset 2px 0 4px rgba(0,0,0,0.3)"
+              }} />
+              {/* Bar label box */}
+              <div className="h-20 w-24 flex flex-col items-center justify-center rounded-lg bg-gradient-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-900 shadow-lg border-2 border-slate-400" style={{
+                boxShadow: "0 4px 6px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.5)"
+              }}>
+                <div className="text-[10px] text-slate-600 uppercase tracking-wide">Bar</div>
+                <div className="text-sm">{barWeight > 0 ? `${formatNumber(barWeight)}` : "—"}</div>
+                <div className="text-[10px] text-slate-600">{unit}</div>
+              </div>
+              {/* Collar */}
+              <div className="h-16 w-3 bg-gradient-to-r from-slate-600 to-slate-500 border-l border-slate-700" style={{
+                boxShadow: "inset -2px 0 4px rgba(0,0,0,0.4), 2px 0 6px rgba(0,0,0,0.3)"
+              }} />
+            </div>
+          </div>
         </div>
-        <div className="self-center h-14 w-3 rounded-r-md bg-slate-500 shadow-inner" />
-        <div className="flex flex-1 items-end">
-          <div className="flex items-end gap-3">
+
+        {/* Plates */}
+        <div className="flex items-center justify-start">
+          <div className="flex items-center gap-1.5">
             {plateData.length ? (
               plateData.map((plate) => (
-                <div key={plate.key} className="flex flex-col items-center gap-1">
+                <div key={plate.key} className="flex flex-col items-center gap-1.5">
                   <div
-                    className="rounded-md border border-slate-900"
+                    className="rounded-lg border-2 border-slate-900 relative"
                     style={{
                       height: `${plate.height}px`,
                       width: `${plate.width}px`,
-                      backgroundColor: plate.color,
-                      boxShadow: "inset 0 0 6px rgba(15, 23, 42, 0.45)",
+                      background: `linear-gradient(135deg, ${plate.color} 0%, ${plate.color}dd 100%)`,
+                      boxShadow: `
+                        inset 0 2px 4px rgba(255,255,255,0.3),
+                        inset 0 -2px 6px rgba(0,0,0,0.4),
+                        0 4px 8px rgba(0,0,0,0.5)
+                      `,
                     }}
-                  />
-                  <span className="text-[11px] font-semibold text-gray-200">
+                  >
+                    {/* Inner hole */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-900 border border-slate-700" style={{
+                      width: `${Math.min(plate.width - 8, 16)}px`,
+                      height: `${Math.min(plate.width - 8, 16)}px`,
+                      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.8)"
+                    }} />
+                  </div>
+                  <span className="text-[11px] font-bold text-gray-100 bg-slate-800/50 px-1.5 py-0.5 rounded">
                     {formatNumber(plate.weight)}
                   </span>
                 </div>
               ))
             ) : (
-              <div className="text-xs text-gray-300">
-                {hasTarget ? "Only the bar is needed." : "Add a target weight to calculate plates."}
+              <div className="text-sm text-gray-400 italic pl-2">
+                {hasTarget ? "Bar only" : "Enter target weight"}
               </div>
             )}
           </div>
         </div>
+
+        {/* Right collar (visible when plates exist) */}
+        {plateData.length > 0 && (
+          <div className="flex-shrink-0">
+            <div className="h-16 w-3 bg-gradient-to-l from-slate-600 to-slate-500 border-r border-slate-700 rounded-r" style={{
+              boxShadow: "inset 2px 0 4px rgba(0,0,0,0.4), -2px 0 6px rgba(0,0,0,0.3)"
+            }} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -240,7 +288,7 @@ export default function Calculator() {
                 uid: targetUid,
                 firstName: activeAthlete?.firstName ?? "",
                 lastName: activeAthlete?.lastName ?? "",
-                team: activeAthlete?.team ?? undefined,
+                team: (activeAthlete?.team as Team | undefined) ?? undefined,
                 unit: (activeAthlete?.unit as Unit) || "lb",
                 tm: {},
                 oneRm: {},
@@ -267,7 +315,7 @@ export default function Calculator() {
             uid: targetUid,
             firstName: activeAthlete?.firstName ?? "",
             lastName: activeAthlete?.lastName ?? "",
-            team: activeAthlete?.team ?? undefined,
+            team: (activeAthlete?.team as Team | undefined) ?? undefined,
             unit: fallbackUnit,
             tm: {},
             oneRm: {},

@@ -1,5 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
+import OnboardingWizard from "../components/OnboardingWizard";
 
 const PAGE_LINKS = [
   { to: "/summary", label: "Quick Summary" },
@@ -88,9 +91,111 @@ const ABBREVIATIONS = [
   },
 ];
 
+type AthleteActivity = {
+  uid: string;
+  name: string;
+  recentSessions: SessionRecord[];
+  lastWorkout?: number;
+  weekCount: number;
+  prCount: number;
+};
+
 export default function Home() {
+  const { isCoach, loading: coachLoading } = useActiveAthlete();
+  const [athleteActivity, setAthleteActivity] = useState<AthleteActivity[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  // Load profile and check if onboarding should show (for athletes)
+  useEffect(() => {
+    (async () => {
+      try {
+        const uid = await ensureAnon();
+        const p = await loadProfileRemote(uid);
+        setProfile(p);
+        
+        // Show onboarding if athlete has no TM set (first-time user)
+        if (!isCoach && p) {
+          const hasSkippedOnboarding = localStorage.getItem("pl-onboarding-skipped");
+          const hasTM = p.tm && Object.keys(p.tm).length > 0;
+          if (!hasTM && !hasSkippedOnboarding) {
+            setShowOnboarding(true);
+          }
+        }
+      } catch (err) {
+        console.debug('Could not load profile', err);
+      }
+    })();
+  }, [isCoach]);
+
+  // Load athlete activity for coaches
+  useEffect(() => {
+    if (!isCoach) return;
+
+    (async () => {
+      setLoadingActivity(true);
+      try {
+        const roster = await listRoster();
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        
+        const activities = await Promise.all(
+          roster
+            .filter((r: RosterEntry) => r.roles?.includes('athlete'))
+            .map(async (athlete: RosterEntry) => {
+              try {
+                const sessions = await fetchAthleteSessions(athlete.uid);
+                const recentSessions = sessions.filter(s => (s.createdAt || 0) >= oneWeekAgo);
+                const prCount = sessions.filter(s => s.pr).length;
+                const lastWorkout = sessions.length > 0 ? Math.max(...sessions.map(s => s.createdAt || 0)) : undefined;
+                
+                return {
+                  uid: athlete.uid,
+                  name: [athlete.firstName, athlete.lastName].filter(Boolean).join(' ') || athlete.uid,
+                  recentSessions,
+                  lastWorkout,
+                  weekCount: recentSessions.length,
+                  prCount,
+                };
+              } catch (err) {
+                console.debug('Could not load sessions for', athlete.uid);
+                return {
+                  uid: athlete.uid,
+                  name: [athlete.firstName, athlete.lastName].filter(Boolean).join(' ') || athlete.uid,
+                  recentSessions: [],
+                  weekCount: 0,
+                  prCount: 0,
+                };
+              }
+            })
+        );
+
+        setAthleteActivity(activities);
+      } catch (err) {
+        console.debug('Could not load team activity', err);
+      } finally {
+        setLoadingActivity(false);
+      }
+    })();
+  }, [isCoach]);
+
+  const activeAthletes = athleteActivity.filter(a => a.weekCount > 0).length;
+  const totalWorkouts = athleteActivity.reduce((sum, a) => sum + a.weekCount, 0);
+  const recentPRs = athleteActivity.flatMap(a => 
+    a.recentSessions.filter(s => s.pr).map(s => ({ athlete: a.name, session: s }))
+  ).slice(0, 5);
+  
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    localStorage.setItem("pl-onboarding-skipped", "true");
+  };
+
   return (
     <div className="pb-12">
+      {showOnboarding && profile && (
+        <OnboardingWizard onComplete={handleOnboardingComplete} unit={profile.unit} />
+      )}
+      
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white shadow-lg">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]" />
         <div className="container relative px-4 py-4 md:py-6">
@@ -117,6 +222,185 @@ export default function Home() {
       </section>
 
       <div className="container mt-8 space-y-10">
+        {/* Team Dashboard for Coaches */}
+        {isCoach && (
+          <div className="rounded-3xl border-2 border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-brand-800">Team Dashboard</h2>
+                <p className="text-sm text-brand-600 mt-1">Weekly activity and performance</p>
+              </div>
+              <Link
+                to="/roster"
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition"
+              >
+                View Roster →
+              </Link>
+            </div>
+
+            {loadingActivity ? (
+              <div className="text-center py-8 text-gray-600">
+                Loading team activity...
+              </div>
+            ) : (
+              <>
+                {/* Stats Cards */}
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  <div className="card text-center bg-white/80">
+                    <div className="text-sm text-gray-600 mb-1">Active This Week</div>
+                    <div className="text-4xl font-bold text-green-600">
+                      {activeAthletes}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      of {athleteActivity.length} athletes
+                    </div>
+                  </div>
+                  <div className="card text-center bg-white/80">
+                    <div className="text-sm text-gray-600 mb-1">Total Workouts</div>
+                    <div className="text-4xl font-bold text-blue-600">
+                      {totalWorkouts}
+                    </div>
+                    <div className="text-xs text-gray-500">last 7 days</div>
+                  </div>
+                  <div className="card text-center bg-white/80">
+                    <div className="text-sm text-gray-600 mb-1">Recent PRs</div>
+                    <div className="text-4xl font-bold text-purple-600">
+                      {recentPRs.length}
+                    </div>
+                    <div className="text-xs text-gray-500">this week</div>
+                  </div>
+                </div>
+
+                {/* Recent PRs */}
+                {recentPRs.length > 0 && (
+                  <div className="card bg-white/80 mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">🏆 Recent PRs</h3>
+                    <div className="space-y-2">
+                      {recentPRs.map((pr, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between border rounded-xl px-4 py-2 bg-green-50 border-green-200"
+                        >
+                          <div>
+                            <div className="font-semibold text-gray-900">{pr.athlete}</div>
+                            <div className="text-sm text-gray-600">
+                              {pr.session.lift} • Week {pr.session.week} • {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
+                            </div>
+                          </div>
+                          <div className="text-sm font-semibold text-green-700">
+                            Est 1RM: {Math.round(pr.session.est1rm || 0)} {pr.session.unit}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Athlete Activity */}
+                <div className="card bg-white/80">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">Athlete Activity</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b">
+                        <tr className="text-left">
+                          <th className="pb-2">Athlete</th>
+                          <th className="pb-2">Workouts</th>
+                          <th className="pb-2">Last Session</th>
+                          <th className="pb-2">Total PRs</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {athleteActivity
+                          .sort((a, b) => (b.lastWorkout || 0) - (a.lastWorkout || 0))
+                          .slice(0, 10)
+                          .map((athlete) => (
+                            <tr key={athlete.uid} className="border-b last:border-0">
+                              <td className="py-2 font-medium">{athlete.name}</td>
+                              <td className="py-2">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {athlete.weekCount} this week
+                                </span>
+                              </td>
+                              <td className="py-2 text-gray-600">
+                                {athlete.lastWorkout 
+                                  ? new Date(athlete.lastWorkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                  : '—'
+                                }
+                              </td>
+                              <td className="py-2">
+                                {athlete.prCount > 0 ? (
+                                  <span className="text-purple-600 font-semibold">{athlete.prCount} PRs</span>
+                                ) : (
+                                  <span className="text-gray-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                    {athleteActivity.length === 0 && (
+                      <div className="text-center py-8 text-gray-600">
+                        No athletes found. Add athletes from the roster to see activity.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Welcome Card for Athletes (non-coaches) */}
+        {!isCoach && profile && (
+          <div className="rounded-3xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-blue-800">
+                  Welcome{profile.firstName ? `, ${profile.firstName}` : ''}! 👋
+                </h2>
+                <p className="text-sm text-blue-600 mt-1">Quick links to get you started</p>
+              </div>
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition"
+              >
+                📖 Tutorial
+              </button>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-3">
+              <Link
+                to="/summary"
+                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
+              >
+                <div className="text-3xl mb-2">📝</div>
+                <div className="font-semibold text-gray-900">Today's Workout</div>
+                <div className="text-xs text-gray-600 mt-1">See what to do today</div>
+              </Link>
+              
+              <Link
+                to="/calculator"
+                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
+              >
+                <div className="text-3xl mb-2">🧮</div>
+                <div className="font-semibold text-gray-900">Calculator</div>
+                <div className="text-xs text-gray-600 mt-1">Calculate your Training Max</div>
+              </Link>
+              
+              <Link
+                to="/profile"
+                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
+              >
+                <div className="text-3xl mb-2">⚙️</div>
+                <div className="font-semibold text-gray-900">Profile</div>
+                <div className="text-xs text-gray-600 mt-1">Set your TM & preferences</div>
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           {FEATURE_LINKS.map((feature) => (
             <Link
