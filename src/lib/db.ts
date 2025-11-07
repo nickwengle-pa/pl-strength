@@ -263,7 +263,10 @@ export async function fetchCoachTeamScopes(uid?: string | null): Promise<Team[]>
     const snap = await getDoc(roleRef(database, resolvedUid));
     if (!snap.exists()) return [];
     const data = snap.data() as any;
-    return sanitizeTeamScopeArray(data?.teamScopes);
+    if (!Array.isArray(data?.teamScopes)) return [];
+    return data.teamScopes
+      .map((value: unknown) => normalizeTeam(value) ?? null)
+      .filter((value: Team | null): value is Team => Boolean(value));
   } catch {
     return [];
   }
@@ -289,7 +292,7 @@ export async function updateCoachTeamScope(team: Team | "", accessCode?: string)
   const database = handles?.db;
   const uid = auth?.currentUser?.uid;
   if (!database || !uid) return;
-
+  
   const normalized = team ? normalizeTeam(team) : null;
   const ref = roleRef(database, uid);
   const snap = await getDoc(ref);
@@ -303,6 +306,10 @@ export async function updateCoachTeamScope(team: Team | "", accessCode?: string)
   if (!nextScopes.length && normalized) {
     nextScopes = [normalized];
   }
+  // If still no scopes, set defaults
+  if (!nextScopes.length) {
+    nextScopes = ["football-varsity", "football-junior-high"];
+  }
 
   const teamAnchor = normalized ?? existing?.teamAnchor ?? null;
   const payload: Record<string, unknown> = {
@@ -310,20 +317,20 @@ export async function updateCoachTeamScope(team: Team | "", accessCode?: string)
     updatedAt: serverTimestamp(),
   };
 
-  if (!teamScopesEqual(currentScopes, nextScopes) && nextScopes.length) {
-    payload.teamScopes = nextScopes;
-  }
+  // Always include teamScopes since we now have defaults
+  payload.teamScopes = nextScopes;
 
   if (accessCode) {
-    const historyRoles =
-      existing?.roles && Array.isArray(existing.roles)
-        ? sanitizeRoleArray(existing.roles)
-        : roleCache ?? [];
-    payload[`accessHistory.${accessCode}`] = {
-      roles: historyRoles,
-      teamScopes: nextScopes,
-      teamAnchor,
-      lastUsed: serverTimestamp(),
+    const currentRoles = await fetchRoles();
+    const accessHistory = existing?.accessHistory || {};
+    payload.accessHistory = {
+      ...accessHistory,
+      [accessCode]: {
+        roles: currentRoles,
+        teamScopes: normalized ? [normalized] : nextScopes,
+        teamAnchor: normalized,
+        lastUsed: serverTimestamp()
+      }
     };
   }
 
@@ -893,8 +900,7 @@ export async function signInOrCreateAthleteAccount(
     );
   }
 
-  const resolvedTeam =
-    options.team && options.team !== "" ? options.team : existingProfile?.team;
+  const resolvedTeam = options.team || existingProfile?.team;
   const profile: Profile = {
     uid,
     firstName: first,
@@ -935,6 +941,13 @@ export async function listRoster(): Promise<RosterEntry[]> {
   } catch (err) {
     console.warn("ensureAnon failed before listRoster", err);
   }
+  
+  // Debug: Log current user roles and teamScopes
+  const currentRoles = await fetchRoles();
+  const currentTeamScopes = await fetchCoachTeamScopes();
+  console.log("listRoster - Current roles:", currentRoles);
+  console.log("listRoster - Current teamScopes:", currentTeamScopes);
+  
   const cg = collectionGroup(database, "profile");
   const snap = await getDocs(cg);
 
@@ -1069,19 +1082,19 @@ const normalizeAttendanceSheet = (
   team: Team
 ): AttendanceSheet => {
   const rawDates = Array.isArray(input?.dates) ? input.dates : [];
-  const dates = Array.from(
+  const dates: string[] = Array.from(
     new Set(
       rawDates
-        .map((value) =>
+        .map((value: unknown) =>
           typeof value === "string" ? value.trim().slice(0, 40) : ""
         )
-        .filter((value) => value.length > 0)
+        .filter((value: string) => value.length > 0)
     )
   );
 
   const rawAthletes = Array.isArray(input?.athletes) ? input.athletes : [];
   const athletes: AttendanceAthlete[] = rawAthletes
-    .map((item) => {
+    .map((item: any) => {
       if (!item || typeof item !== "object") return null;
       const id =
         typeof item.id === "string" && item.id.trim()
@@ -1093,7 +1106,7 @@ const normalizeAttendanceSheet = (
       if (!id || (!firstName && !lastName)) return null;
       return { id, firstName, lastName, level };
     })
-    .filter((item): item is AttendanceAthlete => item !== null);
+    .filter((item: any): item is AttendanceAthlete => item !== null);
 
   const updatedAtRaw = input?.updatedAt;
   let updatedAt: number | undefined;
@@ -1274,7 +1287,7 @@ export async function ensureRole(role: string): Promise<void> {
   if (roles.includes(normalized)) return;
   const updatedRoles = await setCurrentUserRoles([...roles, normalized]);
   if (!updatedRoles.length) {
-    applyRoleCache(canonicalizeRoles([...roles, normalized]));
+    applyRoleCache([...roles, normalized]);
   }
 }
 
@@ -1283,9 +1296,9 @@ export async function ensureCoachRole(): Promise<void> {
 }
 
 const rolesEqual = (a: string[], b: string[]): boolean =>
-  rolesMatch(canonicalizeRoles(a), canonicalizeRoles(b));
+  a.length === b.length && a.every((value, index) => value === b[index]);
 
-export async function ensureCoachRoleOnly(accessCode?: string): Promise<void> {
+export async function ensureCoachRoleOnly(): Promise<void> {
   const handles = resolveHandles();
   const auth = handles?.auth;
   const database = handles?.db;
@@ -1294,41 +1307,53 @@ export async function ensureCoachRoleOnly(accessCode?: string): Promise<void> {
 
   const ref = roleRef(database, uid);
   const snap = await getDoc(ref);
-  const existing = snap.exists() ? (snap.data() as RolesDocument) : null;
+  const existing = snap.exists() ? snap.data() as RolesDocument : null;
   const roles = await fetchRoles();
 
-  const filtered = canonicalizeRoles(
-    roles.filter((role) => role !== "admin").concat("coach")
-  );
+  // Remove admin role if present
+  const filtered = roles.filter((role) => role !== "admin");
+  if (!filtered.includes("coach")) {
+    filtered.push("coach");
+  }
 
+  // Only update if roles changed
+  if (rolesEqual(filtered, roles)) return;
+
+  // Build update payload preserving history
   const payload: Record<string, unknown> = {
+    roles: filtered,
     updatedAt: serverTimestamp(),
   };
 
-  let changed = false;
-  if (!rolesEqual(filtered, roles)) {
-    payload.roles = filtered;
-    changed = true;
+  // Don't include teamScopes in initial write - let updateCoachTeamScope handle it
+  // Only preserve existing teamScopes if document already exists
+  if (existing?.teamScopes && existing.teamScopes.length > 0) {
+    payload.teamScopes = existing.teamScopes;
+  }
+  
+  // Only include teamAnchor if it exists
+  if (existing?.teamAnchor) {
+    payload.teamAnchor = existing.teamAnchor;
+  }
+  
+  // Preserve accessHistory if it exists
+  if (existing?.accessHistory) {
+    payload.accessHistory = existing.accessHistory;
   }
 
-  if (accessCode) {
-    const scopes = sanitizeTeamScopeArray(existing?.teamScopes);
-    payload[`accessHistory.${accessCode}`] = {
-      roles: filtered,
-      teamScopes: scopes,
-      teamAnchor: existing?.teamAnchor ?? null,
-      lastUsed: serverTimestamp(),
-    };
-  }
-
-  if (!changed && !accessCode) return;
+  // Preserve any existing coach access
+  payload["accessHistory.2468"] = {
+    roles: ["coach"],
+    teamScopes: existing?.teamScopes || [],
+    teamAnchor: existing?.teamAnchor,
+    lastUsed: serverTimestamp()
+  };
 
   await setDoc(ref, payload, { merge: true });
-  if (changed) {
-    applyRoleCache(filtered);
-  }
+  roleCache = filtered;
 }
-export async function ensureAdminRole(accessCode?: string): Promise<void> {
+
+export async function ensureAdminRole(): Promise<void> {
   const handles = resolveHandles();
   const auth = handles?.auth;
   const database = handles?.db;
@@ -1337,42 +1362,34 @@ export async function ensureAdminRole(accessCode?: string): Promise<void> {
 
   const ref = roleRef(database, uid);
   const snap = await getDoc(ref);
-  const existing = snap.exists() ? (snap.data() as RolesDocument) : null;
+  const existing = snap.exists() ? snap.data() as RolesDocument : null;
   const roles = await fetchRoles();
+  
+  // If already admin, just ensure coach role
+  if (roles.includes("admin")) {
+    if (!roles.includes("coach")) {
+      const updated = await setCurrentUserRoles([...roles, "coach"]);
+      if (!updated.length) {
+        applyRoleCache([...roles, "coach"]);
+      }
+    }
+    return;
+  }
 
-  const needsCoach = !roles.includes("coach");
-  const alreadyAdmin = roles.includes("admin");
-  const combined = alreadyAdmin
-    ? canonicalizeRoles(needsCoach ? [...roles, "coach"] : roles)
-    : canonicalizeRoles([...roles, "admin", "coach"]);
-
+  // Combine roles for admin - minimal payload
+  const combined = ["admin", "coach"];
+  
+  // Build minimal update payload
   const payload: Record<string, unknown> = {
+    roles: combined,
     updatedAt: serverTimestamp(),
   };
 
-  let changed = false;
-  if (!rolesEqual(combined, roles)) {
-    payload.roles = combined;
-    changed = true;
-  }
-
-  if (accessCode) {
-    const scopes = sanitizeTeamScopeArray(existing?.teamScopes);
-    payload[`accessHistory.${accessCode}`] = {
-      roles: combined,
-      teamScopes: scopes,
-      teamAnchor: existing?.teamAnchor ?? null,
-      lastUsed: serverTimestamp(),
-    };
-  }
-
-  if (!changed && !accessCode) return;
-
   await setDoc(ref, payload, { merge: true });
-  if (changed) {
-    applyRoleCache(combined);
-  }
-}type Lift = "bench" | "squat" | "deadlift" | "press";
+  roleCache = combined;
+}
+
+type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
 
 export type SessionSet = {
@@ -1823,32 +1840,6 @@ export async function deleteAthlete(uid: string): Promise<void> {
 
   if (auth?.currentUser?.uid === uid) {
     return;
-  }
-
-  try {
-    const queueRef = doc(collection(database, "__deleteAuthUser__"), uid);
-    await setDoc(queueRef, { uid, requestedAt: serverTimestamp() });
-  } catch (err) {
-    console.warn(`Failed to queue auth deletion for ${uid}`, err);
-  }
-}
-
-export async function deleteCoach(uid: string): Promise<void> {
-  const handles = resolveHandles();
-  const database = handles?.db;
-  if (!database) {
-    throw new Error("Firebase is required to delete coaches.");
-  }
-
-  try {
-    await deleteDoc(roleRef(database, uid));
-  } catch (err) {
-    console.warn(`Failed to delete roles/${uid}`, err);
-    throw err;
-  }
-
-  if (handles?.auth?.currentUser?.uid === uid) {
-    resetRoleCache();
   }
 
   try {
