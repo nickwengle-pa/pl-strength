@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 const PAGE_LINKS = [
   { to: "/summary", label: "Quick Summary" },
+  { to: "/progress", label: "Progress" },
   { to: "/calculator", label: "Calculator" },
   { to: "/sheets", label: "Sheets" },
   { to: "/program-outline", label: "Program" },
@@ -21,6 +22,13 @@ const FEATURE_LINKS = [
     message: "Simple plan for today. Big buttons. No fluff.",
     badge: "QS",
     accent: "from-amber-400/90 to-orange-500/90",
+  },
+  {
+    to: "/progress",
+    label: "Progress Tracking",
+    message: "Charts, PRs, and stats. See your gains over time.",
+    badge: "PR",
+    accent: "from-purple-400/90 to-purple-600/90",
   },
   {
     to: "/calculator",

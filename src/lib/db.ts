@@ -942,11 +942,6 @@ export async function listRoster(): Promise<RosterEntry[]> {
     console.warn("ensureAnon failed before listRoster", err);
   }
   
-  // Debug: Log current user roles and teamScopes
-  const currentRoles = await fetchRoles();
-  const currentTeamScopes = await fetchCoachTeamScopes();
-  console.log("listRoster - Current roles:", currentRoles);
-  console.log("listRoster - Current teamScopes:", currentTeamScopes);
   
   const cg = collectionGroup(database, "profile");
   const snap = await getDocs(cg);
@@ -1350,7 +1345,7 @@ export async function ensureCoachRoleOnly(): Promise<void> {
   };
 
   await setDoc(ref, payload, { merge: true });
-  roleCache = filtered;
+  applyRoleCache(filtered);
 }
 
 export async function ensureAdminRole(): Promise<void> {
@@ -1386,7 +1381,7 @@ export async function ensureAdminRole(): Promise<void> {
   };
 
   await setDoc(ref, payload, { merge: true });
-  roleCache = combined;
+  applyRoleCache(combined);
 }
 
 type Lift = "bench" | "squat" | "deadlift" | "press";

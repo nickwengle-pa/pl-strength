@@ -90,14 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearLinkError: () => setLinkError(null),
       signOut: async () => {
         if (!fb.auth) return;
+        // Clear role cache BEFORE signing out
+        resetRoleCache();
         await firebaseSignOut(fb.auth);
         if (typeof window !== "undefined") {
           window.localStorage.removeItem("pl-strength-display-name");
+          window.localStorage.removeItem("pl-strength-team");
+          window.localStorage.removeItem("pl-strength-team-scopes");
           window.dispatchEvent(
             new CustomEvent<string | null>("pl-display-name-change", { detail: null })
           );
         }
-        resetRoleCache();
       },
     }),
     [user, initializing, signingInWithLink, linkError]

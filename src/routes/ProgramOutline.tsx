@@ -456,10 +456,10 @@ export default function ProgramOutline() {
     return (
       <div className="container py-6">
         <div className="card space-y-2 text-sm text-gray-600">
-          <h1 className="text-lg font-semibold text-gray-800">Coach Access Required</h1>
+          <h1 className="text-lg font-semibold text-gray-800">Coach/Admin Access Required</h1>
           <p>
-            The program outline is available to coaches only. Sign in with a coach account or contact an admin for
-            access.
+            The program outline is available to coaches and admins only. Sign in with a coach account to view the
+            current program.
           </p>
         </div>
       </div>
@@ -494,6 +494,11 @@ export default function ProgramOutline() {
             >
               {editMode ? "Done editing" : "Edit outline"}
             </button>
+          )}
+          {coach && !admin && (
+            <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+              View only - Admin can edit
+            </span>
           )}
 
           <span className="text-sm font-medium text-gray-700">Cycles</span>

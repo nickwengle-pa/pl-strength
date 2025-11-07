@@ -7,6 +7,7 @@ import Session from "./routes/Session";
 import Roster from "./routes/Roster";
 import Calculator from "./routes/Calculator";
 import Summary from "./routes/Summary";
+import Progress from "./routes/Progress";
 import Sheets from "./routes/Sheets";
 import Admin from "./routes/Admin";
 import Profile from "./routes/Profile";
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/session" element={<Session />} />
             <Route path="/summary" element={<Summary />} />
+            <Route path="/progress" element={<Progress />} />
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/sheets" element={<Sheets />} />
             <Route path="/program-outline" element={<ProgramOutline />} />
