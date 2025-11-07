@@ -260,61 +260,6 @@ export default function Roster() {
   };
 
   useEffect(() => {
-    if (!selectedUid) {
-      setDetailProfile(null);
-      setDetailSessions([]);
-      setDetailError(null);
-      setTmDraft(emptyTmDraft());
-      return;
-    }
-    let active = true;
-    setDetailLoading(true);
-      setDetailError(null);
-    (async () => {
-      try {
-        const [profile, sessions] = await Promise.all([
-          loadProfileRemote(selectedUid),
-          fetchAthleteSessions(selectedUid, 12),
-        ]);
-        if (!active) return;
-        const resolvedProfile: Profile = profile
-          ? profile
-          : {
-              uid: selectedUid,
-              firstName: selectedRow?.firstName ?? "",
-              lastName: selectedRow?.lastName ?? "",
-              unit: selectedRow?.unit ?? "lb",
-              team: selectedRow?.team,
-              accessCode: selectedRow?.accessCode ?? null,
-              tm: undefined,
-              equipment: defaultEquipment(),
-            };
-        setDetailProfile(resolvedProfile);
-        if (isCoach) {
-          setActiveAthlete({
-            uid: resolvedProfile.uid,
-            firstName: resolvedProfile.firstName ?? undefined,
-            lastName: resolvedProfile.lastName ?? undefined,
-            team: resolvedProfile.team ?? null,
-            unit: resolvedProfile.unit,
-          });
-        }
-        setDetailSessions(sessions);
-      } catch (e: any) {
-        if (!active) return;
-        setDetailError(e?.message ?? "Could not load athlete data.");
-        setDetailProfile(null);
-        setDetailSessions([]);
-      } finally {
-        if (active) setDetailLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [selectedUid, selectedRow]);
-
-  useEffect(() => {
     if (!detailProfile) {
       setTmDraft(emptyTmDraft());
       return;
@@ -488,6 +433,61 @@ export default function Roster() {
       setDetailLoading(false);
     }
   }, [filteredAthleteRows, selectedUid]);
+
+  useEffect(() => {
+    if (!selectedUid) {
+      setDetailProfile(null);
+      setDetailSessions([]);
+      setDetailError(null);
+      setTmDraft(emptyTmDraft());
+      return;
+    }
+    let active = true;
+    setDetailLoading(true);
+    setDetailError(null);
+    (async () => {
+      try {
+        const [profile, sessions] = await Promise.all([
+          loadProfileRemote(selectedUid),
+          fetchAthleteSessions(selectedUid, 12),
+        ]);
+        if (!active) return;
+        const resolvedProfile: Profile = profile
+          ? profile
+          : {
+              uid: selectedUid,
+              firstName: selectedRow?.firstName ?? "",
+              lastName: selectedRow?.lastName ?? "",
+              unit: selectedRow?.unit ?? "lb",
+              team: selectedRow?.team,
+              accessCode: selectedRow?.accessCode ?? null,
+              tm: undefined,
+              equipment: defaultEquipment(),
+            };
+        setDetailProfile(resolvedProfile);
+        if (isCoach) {
+          setActiveAthlete({
+            uid: resolvedProfile.uid,
+            firstName: resolvedProfile.firstName ?? undefined,
+            lastName: resolvedProfile.lastName ?? undefined,
+            team: resolvedProfile.team ?? null,
+            unit: resolvedProfile.unit,
+          });
+        }
+        setDetailSessions(sessions);
+      } catch (err: any) {
+        if (!active) return;
+        setDetailError(err?.message ?? "Could not load athlete data.");
+        setDetailProfile(null);
+        setDetailSessions([]);
+      } finally {
+        if (active) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [filteredAthleteRows, isCoach, selectedRow, selectedUid, setActiveAthlete]);
 
   if (err) {
     return (
