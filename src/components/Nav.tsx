@@ -313,8 +313,15 @@ export default function Nav() {
                   {label}
                 </NavLink>
               ))}
-              {coach && (
-                <span className="badge badge-muted text-xs md:text-sm">Coach</span>
+              {admin && (
+                <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs md:text-sm font-semibold text-purple-700">
+                  Admin
+                </span>
+              )}
+              {coach && !admin && (
+                <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-3 py-1 text-xs md:text-sm font-semibold text-brand-700">
+                  Coach
+                </span>
               )}
               {friendlyName && (
                 <span className="badge badge-muted text-xs md:text-sm">
@@ -354,8 +361,13 @@ export default function Nav() {
                     {label}
                   </NavLink>
                 ))}
-                {coach && (
-                  <span className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700">
+                {admin && (
+                  <span className="flex items-center justify-between rounded-xl border-2 border-purple-300 bg-purple-100 px-4 py-2 text-base font-semibold text-purple-700">
+                    Admin mode
+                  </span>
+                )}
+                {coach && !admin && (
+                  <span className="flex items-center justify-between rounded-xl border-2 border-brand-300 bg-brand-100 px-4 py-2 text-base font-semibold text-brand-700">
                     Coach mode
                   </span>
                 )}

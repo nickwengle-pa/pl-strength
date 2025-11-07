@@ -11,7 +11,7 @@ const PAGE_LINKS = [
   { to: "/attendance", label: "Attendance" },
   { to: "/session", label: "Session" },
   { to: "/profile", label: "Profile" },
-  { to: "/admin", label: "Admin" },
+  { to: "/admin", label: "Admin", hideOnMobile: true },
 ];
 
 const FEATURE_LINKS = [
@@ -96,7 +96,9 @@ export default function Home() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25"
+                  className={`inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25 ${
+                    link.hideOnMobile ? "hidden md:inline-flex" : ""
+                  }`}
                 >
                   {link.label}
                 </Link>
