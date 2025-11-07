@@ -11,11 +11,13 @@ import {
   ensureAdminRole,
   ensureCoachRole,
   fb,
+  fetchCoachTeamScopes,
   getStoredTeamSelection,
   loadProfileRemote,
   normalizePasscodeDigits,
   saveProfile,
   setStoredTeamSelection,
+  setStoredTeamScopes,
   signInOrCreateAthleteAccount,
   updateCoachTeamScope,
   type Team,
@@ -367,11 +369,29 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     });
   }
 
+  let allowedTeams: Team[] = [];
   try {
     await updateCoachTeamScope(team);
   } catch (err) {
     console.warn("Failed to update coach team scope", err);
   }
+
+  try {
+    allowedTeams = await fetchCoachTeamScopes(userUid);
+  } catch (err) {
+    console.warn("Failed to fetch coach team scopes", err);
+  }
+
+  if ((!allowedTeams || allowedTeams.length === 0) && team) {
+    allowedTeams = [team];
+  }
+
+  setStoredTeamScopes(allowedTeams);
+  const resolvedActiveTeam =
+    team && allowedTeams.includes(team as Team)
+      ? (team as Team)
+      : allowedTeams[0] ?? team ?? "";
+  setStoredTeamSelection(resolvedActiveTeam ?? "");
 
   try {
     await persistProfile(userUid, safeFirst, safeLast, team);

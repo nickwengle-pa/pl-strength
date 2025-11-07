@@ -223,6 +223,54 @@ export function resolveTeamScopes(team?: Team | string | null): Team[] {
   return scopes.length ? scopes : DEFAULT_TEAM_SCOPE;
 }
 
+const TEAM_SCOPES_STORAGE_KEY = "pl-strength-team-scopes";
+
+export function getStoredTeamScopes(): Team[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(TEAM_SCOPES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((value) => normalizeTeam(value) ?? null)
+      .filter((value): value is Team => Boolean(value));
+  } catch {
+    return [];
+  }
+}
+
+export function setStoredTeamScopes(scopes: Team[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TEAM_SCOPES_STORAGE_KEY, JSON.stringify(scopes));
+  } catch {
+    // ignore storage errors
+  }
+  window.dispatchEvent(
+    new CustomEvent<Team[]>("pl-team-scopes-change", { detail: scopes })
+  );
+}
+
+export async function fetchCoachTeamScopes(uid?: string | null): Promise<Team[]> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const resolvedUid = uid ?? auth?.currentUser?.uid ?? null;
+  if (!database || !resolvedUid) return [];
+  try {
+    const snap = await getDoc(roleRef(database, resolvedUid));
+    if (!snap.exists()) return [];
+    const data = snap.data() as any;
+    if (!Array.isArray(data?.teamScopes)) return [];
+    return data.teamScopes
+      .map((value: unknown) => normalizeTeam(value) ?? null)
+      .filter((value: Team | null): value is Team => Boolean(value));
+  } catch {
+    return [];
+  }
+}
+
 export async function updateCoachTeamScope(team: Team | ""): Promise<void> {
   const handles = resolveHandles();
   const auth = handles?.auth;
@@ -230,13 +278,20 @@ export async function updateCoachTeamScope(team: Team | ""): Promise<void> {
   const uid = auth?.currentUser?.uid;
   if (!database || !uid) return;
   const normalized = team ? normalizeTeam(team) : undefined;
-  const scopes = resolveTeamScopes(normalized);
   const payload: Record<string, unknown> = {
-    teamScopes: scopes,
     teamAnchor: normalized ?? null,
     updatedAt: serverTimestamp(),
   };
-  await setDoc(roleRef(database, uid), payload, { merge: true });
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+  const hasScopes =
+    snap.exists() &&
+    Array.isArray(snap.data()?.teamScopes) &&
+    (snap.data()?.teamScopes as unknown[]).length > 0;
+  if (!hasScopes && normalized) {
+    payload.teamScopes = [normalized];
+  }
+  await setDoc(ref, payload, { merge: true });
 }
 export type BarOption = {
   id: string;

@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { hasFirebase, isCoach, isAdmin } from "../lib/db";
+import {
+  formatTeamLabel,
+  getStoredTeamSelection,
+  getStoredTeamScopes,
+  hasFirebase,
+  isCoach,
+  isAdmin,
+  setStoredTeamSelection,
+  type Team,
+} from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
@@ -15,6 +24,8 @@ export default function Nav() {
   const [admin, setAdmin] = useState(false);
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [teamSelection, setTeamSelection] = useState<Team | "">("");
+  const [teamScopes, setTeamScopes] = useState<Team[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -104,6 +115,45 @@ export default function Nav() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const readScopes = () => {
+      setTeamSelection(getStoredTeamSelection());
+      setTeamScopes(getStoredTeamScopes());
+    };
+    readScopes();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        setTeamSelection(getStoredTeamSelection());
+      }
+      if (event.key === "pl-strength-team-scopes") {
+        setTeamScopes(getStoredTeamScopes());
+      }
+    };
+    const handleTeamChange = () => setTeamSelection(getStoredTeamSelection());
+    const handleScopeChange = (event: Event) => {
+      const detail = (event as CustomEvent<Team[]>).detail;
+      if (Array.isArray(detail)) {
+        setTeamScopes(detail);
+      } else {
+        setTeamScopes(getStoredTeamScopes());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleTeamChange as EventListener);
+    window.addEventListener(
+      "pl-team-scopes-change",
+      handleScopeChange as EventListener
+    );
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleTeamChange as EventListener);
+      window.removeEventListener(
+        "pl-team-scopes-change",
+        handleScopeChange as EventListener
+      );
+    };
+  }, []);
+
   const statusLabel =
     status === "connected"
       ? "Connected to Firebase"
@@ -178,6 +228,36 @@ export default function Nav() {
     return active ? "nav-link nav-link-active" : "nav-link";
   };
 
+  const handleTeamScopeChange = (next: Team) => {
+    if (!next || next === teamSelection) return;
+    setTeamSelection(next);
+    setStoredTeamSelection(next);
+  };
+
+  const renderTeamPicker = (variant: "desktop" | "mobile") => {
+    if (!coach || teamScopes.length <= 1) return null;
+    const wrapperClass =
+      variant === "desktop"
+        ? "flex flex-col gap-1 text-[11px] text-gray-500"
+        : "flex flex-col gap-1 text-xs text-gray-500";
+    return (
+      <div className={wrapperClass}>
+        <span className="font-semibold uppercase tracking-wide">Team view</span>
+        <select
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none"
+          value={teamSelection || ""}
+          onChange={(event) => handleTeamScopeChange(event.target.value as Team)}
+        >
+          {teamScopes.map((teamId) => (
+            <option key={teamId} value={teamId}>
+              {formatTeamLabel(teamId)}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   const closeMenu = () => setMenuOpen(false);
 
   return (
@@ -223,6 +303,7 @@ export default function Nav() {
                   {label}
                 </NavLink>
               ))}
+              {renderTeamPicker("desktop")}
               {coach && (
                 <span className="badge badge-muted text-xs md:text-sm">Coach</span>
               )}
@@ -264,6 +345,7 @@ export default function Nav() {
                     {label}
                   </NavLink>
                 ))}
+                {renderTeamPicker("mobile")}
                 {coach && (
                   <span className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700">
                     Coach mode

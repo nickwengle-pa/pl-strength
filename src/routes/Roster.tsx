@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  TEAM_DEFINITIONS,
   assignAthleteAccessCode,
   deleteAthlete,
   defaultEquipment,
@@ -89,6 +90,8 @@ export default function Roster() {
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
+  const [adminCoachFilter, setAdminCoachFilter] = useState<Team | "all">("all");
+  const [adminAthleteFilter, setAdminAthleteFilter] = useState<Team | "all">("all");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
 
   useEffect(() => {
@@ -367,14 +370,26 @@ export default function Roster() {
   const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
 
   const filteredCoachRows = useMemo(() => {
-    if (isAdminUser || !coachTeamFilter) return coachRows;
-    return coachRows.filter((row) => row.team === coachTeamFilter);
-  }, [coachRows, coachTeamFilter, isAdminUser]);
+    let rows = coachRows;
+    if (!isAdminUser && coachTeamFilter) {
+      rows = rows.filter((row) => row.team === coachTeamFilter);
+    }
+    if (isAdminUser && adminCoachFilter !== "all") {
+      rows = rows.filter((row) => row.team === adminCoachFilter);
+    }
+    return rows;
+  }, [coachRows, coachTeamFilter, isAdminUser, adminCoachFilter]);
 
   const filteredAthleteRows = useMemo(() => {
-    if (isAdminUser || !coachTeamFilter) return athleteRows;
-    return athleteRows.filter((row) => row.team === coachTeamFilter);
-  }, [athleteRows, coachTeamFilter, isAdminUser]);
+    let rows = athleteRows;
+    if (!isAdminUser && coachTeamFilter) {
+      rows = rows.filter((row) => row.team === coachTeamFilter);
+    }
+    if (isAdminUser && adminAthleteFilter !== "all") {
+      rows = rows.filter((row) => row.team === adminAthleteFilter);
+    }
+    return rows;
+  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -478,7 +493,26 @@ export default function Roster() {
       )}
 
       <div className="card">
-        <h3 className="text-lg font-semibold mb-3">Coaches</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h3 className="text-lg font-semibold">Coaches</h3>
+          {isAdminUser && (
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <span>Filter by team</span>
+              <select
+                className="field !text-xs"
+                value={adminCoachFilter}
+                onChange={(event) => setAdminCoachFilter(event.target.value as Team | "all")}
+              >
+                <option value="all">All teams</option>
+                {TEAM_DEFINITIONS.map((definition) => (
+                  <option key={definition.id} value={definition.id}>
+                    {definition.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">
@@ -525,7 +559,7 @@ export default function Roster() {
               {filteredCoachRows.length === 0 && (
                 <tr>
                   <td className="p-2 text-gray-500" colSpan={5}>
-                    No coaches yet.
+                    No coaches found for the selected team.
                   </td>
                 </tr>
               )}
@@ -537,9 +571,28 @@ export default function Roster() {
       <div className="card">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <h3 className="text-lg font-semibold">Athletes</h3>
-          <p className="text-xs text-gray-500">
-            Click a row to review recent sessions and TM numbers.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-gray-500">
+              Click a row to review recent sessions and TM numbers.
+            </p>
+            {isAdminUser && (
+              <label className="flex items-center gap-2 text-xs text-gray-600">
+                <span>Filter</span>
+                <select
+                  className="field !text-xs"
+                  value={adminAthleteFilter}
+                  onChange={(event) => setAdminAthleteFilter(event.target.value as Team | "all")}
+                >
+                  <option value="all">All teams</option>
+                  {TEAM_DEFINITIONS.map((definition) => (
+                    <option key={definition.id} value={definition.id}>
+                      {definition.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border rounded-xl overflow-hidden">
