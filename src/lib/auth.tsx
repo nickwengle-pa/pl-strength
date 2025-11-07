@@ -90,16 +90,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearLinkError: () => setLinkError(null),
       signOut: async () => {
         if (!fb.auth) return;
-        // Clear role cache BEFORE signing out
-        resetRoleCache();
-        await firebaseSignOut(fb.auth);
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("pl-strength-display-name");
-          window.localStorage.removeItem("pl-strength-team");
-          window.localStorage.removeItem("pl-strength-team-scopes");
-          window.dispatchEvent(
-            new CustomEvent<string | null>("pl-display-name-change", { detail: null })
-          );
+        try {
+          // Clear role cache BEFORE signing out
+          resetRoleCache();
+          
+          // Sign out from Firebase (this may trigger Firestore listener errors, which are expected)
+          await firebaseSignOut(fb.auth);
+          
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("pl-strength-display-name");
+            window.localStorage.removeItem("pl-strength-team");
+            window.localStorage.removeItem("pl-strength-team-scopes");
+            window.dispatchEvent(
+              new CustomEvent<string | null>("pl-display-name-change", { detail: null })
+            );
+          }
+        } catch (err) {
+          // Ignore Firestore listener termination errors during sign-out
+          // These are expected when active listeners are closed
+          console.debug("Sign-out completed with expected listener cleanup");
         }
       },
     }),

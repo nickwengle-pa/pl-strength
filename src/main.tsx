@@ -7,6 +7,18 @@ import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { DeviceProvider } from './lib/device';
 
+// Suppress expected Firestore listener termination errors during sign-out
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  // Filter out expected Firestore channel termination errors
+  const message = args[0]?.toString() || '';
+  if (message.includes('Firestore/Listen/channel') && message.includes('400')) {
+    // This is expected when signing out - Firestore listeners are being cleaned up
+    return;
+  }
+  originalConsoleError.apply(console, args);
+};
+
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <HashRouter>
