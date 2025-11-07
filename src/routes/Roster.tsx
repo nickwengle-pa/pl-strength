@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  TEAM_DEFINITIONS,
   assignAthleteAccessCode,
   deleteAthlete,
   defaultEquipment,
   fetchAthleteSessions,
   formatTeamLabel,
-  getTeamDefinition,
   getStoredTeamSelection,
   isAdmin,
   listRoster,
@@ -91,7 +89,6 @@ export default function Roster() {
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
-  const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
 
   useEffect(() => {
@@ -367,54 +364,17 @@ export default function Roster() {
     () => rows.filter((row) => !isCoachRow(row)),
     [rows]
   );
-  const allowedTeamDefs = useMemo(() => {
-    if (isAdminUser) {
-      return TEAM_DEFINITIONS;
-    }
-    if (coachTeam) {
-      const definition = getTeamDefinition(coachTeam);
-      if (definition) {
-        return TEAM_DEFINITIONS.filter(
-          (candidate) =>
-            candidate.sport === definition.sport &&
-            candidate.program === definition.program
-        );
-      }
-    }
-    return TEAM_DEFINITIONS.filter(
-      (candidate) => candidate.sport === "football" && candidate.program === "coed"
-    );
-  }, [coachTeam, isAdminUser]);
+  const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
 
-  const allowedTeamIds = useMemo(
-    () => allowedTeamDefs.map((definition) => definition.id as Team),
-    [allowedTeamDefs]
-  );
-
-  useEffect(() => {
-    setTeamFilter("all");
-  }, [coachTeam, isAdminUser]);
-
-  useEffect(() => {
-    if (teamFilter !== "all" && !allowedTeamIds.includes(teamFilter)) {
-      setTeamFilter("all");
-    }
-  }, [allowedTeamIds, teamFilter]);
-
-  const allowedTeamSet = useMemo(() => new Set(allowedTeamIds), [allowedTeamIds]);
+  const filteredCoachRows = useMemo(() => {
+    if (isAdminUser || !coachTeamFilter) return coachRows;
+    return coachRows.filter((row) => row.team === coachTeamFilter);
+  }, [coachRows, coachTeamFilter, isAdminUser]);
 
   const filteredAthleteRows = useMemo(() => {
-    let scoped = athleteRows;
-    if (!isAdminUser) {
-      scoped = scoped.filter(
-        (row) => row.team && allowedTeamSet.has(row.team as Team)
-      );
-    }
-    if (teamFilter !== "all") {
-      scoped = scoped.filter((row) => row.team === teamFilter);
-    }
-    return scoped;
-  }, [athleteRows, allowedTeamSet, isAdminUser, teamFilter]);
+    if (isAdminUser || !coachTeamFilter) return athleteRows;
+    return athleteRows.filter((row) => row.team === coachTeamFilter);
+  }, [athleteRows, coachTeamFilter, isAdminUser]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -531,7 +491,7 @@ export default function Roster() {
               </tr>
             </thead>
             <tbody>
-              {coachRows.map((r) => {
+              {filteredCoachRows.map((r) => {
                 const rolesList = normalizeRoles(r.roles);
                 const admin = rolesList.includes("admin");
                 return (
@@ -562,7 +522,7 @@ export default function Roster() {
                   </tr>
                 );
               })}
-              {coachRows.length === 0 && (
+              {filteredCoachRows.length === 0 && (
                 <tr>
                   <td className="p-2 text-gray-500" colSpan={5}>
                     No coaches yet.
@@ -581,37 +541,6 @@ export default function Roster() {
             Click a row to review recent sessions and TM numbers.
           </p>
         </div>
-        {!isAdminUser && (
-          <div className="flex flex-wrap gap-2 pb-4">
-            <button
-              type="button"
-              className={[
-                "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
-                teamFilter === "all"
-                  ? "border-brand-200 bg-brand-50 text-brand-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-brand-200 hover:text-brand-700",
-              ].join(" ")}
-              onClick={() => setTeamFilter("all")}
-            >
-              All
-            </button>
-            {allowedTeamDefs.map((definition) => (
-              <button
-                key={definition.id}
-                type="button"
-                className={[
-                  "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
-                  teamFilter === definition.id
-                    ? "border-brand-200 bg-brand-50 text-brand-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-brand-200 hover:text-brand-700",
-                ].join(" ")}
-                onClick={() => setTeamFilter(definition.id as Team)}
-              >
-                {definition.shortLabel || definition.label}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">

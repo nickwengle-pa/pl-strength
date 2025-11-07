@@ -1,23 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import {
-  TEAM_DEFINITIONS,
-  formatTeamLabel,
-  getStoredTeamSelection,
-  resolveTeamScopes,
-  setStoredTeamSelection,
-  updateCoachTeamScope,
-  hasFirebase,
-  isCoach,
-  isAdmin,
-  type Team,
-} from "../lib/db";
+import { hasFirebase, isCoach, isAdmin } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
 type Status = "checking" | "connected" | "offline";
-
-const ALL_TEAM_IDS: Team[] = TEAM_DEFINITIONS.map((definition) => definition.id as Team);
 
 export default function Nav() {
   const { user, signOut } = useAuth();
@@ -28,10 +15,6 @@ export default function Nav() {
   const [admin, setAdmin] = useState(false);
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [teamSelection, setTeamSelection] = useState<Team | "">("");
-  const [teamOptions, setTeamOptions] = useState<Team[]>([]);
-  const [teamUpdating, setTeamUpdating] = useState(false);
-  const [teamError, setTeamError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -121,64 +104,6 @@ export default function Nav() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!(coach || admin)) {
-      setTeamSelection("");
-      setTeamOptions([]);
-      return;
-    }
-    const computeOptions = (anchor: Team | "") =>
-      admin ? ALL_TEAM_IDS : resolveTeamScopes(anchor || undefined);
-    const stored = getStoredTeamSelection();
-    setTeamSelection(stored);
-    setTeamOptions(computeOptions(stored));
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "pl-strength-team") {
-        const normalized = getStoredTeamSelection();
-        setTeamSelection(normalized);
-        setTeamOptions(computeOptions(normalized));
-      }
-    };
-
-    const handleCustom = (event: Event) => {
-      const detail = (event as CustomEvent<Team | null>).detail;
-      const value = (detail ?? getStoredTeamSelection()) as Team | "";
-      setTeamSelection(value);
-      setTeamOptions(computeOptions(value));
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("pl-team-change", handleCustom as EventListener);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("pl-team-change", handleCustom as EventListener);
-    };
-  }, [coach, admin]);
-
-  const handleTeamScopeChange = async (next: Team) => {
-    if (!next || next === teamSelection) return;
-    setTeamUpdating(true);
-    setTeamError(null);
-    const previous = teamSelection;
-    setTeamSelection(next);
-    setStoredTeamSelection(next);
-    try {
-      await updateCoachTeamScope(next);
-      if (!admin) {
-        setTeamOptions(resolveTeamScopes(next));
-      }
-    } catch (err) {
-      console.warn("Failed to update coach team scope", err);
-      setTeamError("Could not sync team scope. Try again.");
-      setTeamSelection(previous);
-      setStoredTeamSelection(previous);
-      setTeamOptions(resolveTeamScopes(previous || undefined));
-    } finally {
-      setTeamUpdating(false);
-    }
-  };
-
   const statusLabel =
     status === "connected"
       ? "Connected to Firebase"
@@ -192,38 +117,6 @@ export default function Nav() {
       : status === "checking"
       ? "badge badge-warning"
       : "badge badge-muted";
-
-  const showTeamPicker = (coach || admin) && teamOptions.length > 0;
-
-  const renderTeamPicker = (variant: "desktop" | "mobile") => {
-    if (!showTeamPicker) return null;
-    const wrapperClass =
-      variant === "desktop"
-        ? "flex flex-col gap-1 text-[11px] text-gray-500"
-        : "flex flex-col gap-1 text-xs text-gray-500";
-    return (
-      <div className={wrapperClass}>
-        <span className="font-semibold uppercase tracking-wide">Team scope</span>
-        <select
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none"
-          value={teamSelection || ""}
-          onChange={(event) => handleTeamScopeChange(event.target.value as Team)}
-          disabled={teamUpdating}
-        >
-          {!teamSelection && <option value="">Select team</option>}
-          {teamOptions.map((teamId) => (
-            <option key={teamId} value={teamId}>
-              {formatTeamLabel(teamId)}
-            </option>
-          ))}
-        </select>
-        {teamUpdating && (
-          <span className="text-[10px] text-gray-500">Updating team access…</span>
-        )}
-        {teamError && <span className="text-[10px] text-rose-600">{teamError}</span>}
-      </div>
-    );
-  };
 
   const renderStatusIndicator = () => {
     if (status === "connected") {
@@ -330,7 +223,6 @@ export default function Nav() {
                   {label}
                 </NavLink>
               ))}
-              {renderTeamPicker("desktop")}
               {coach && (
                 <span className="badge badge-muted text-xs md:text-sm">Coach</span>
               )}
@@ -372,7 +264,6 @@ export default function Nav() {
                     {label}
                   </NavLink>
                 ))}
-                {renderTeamPicker("mobile")}
                 {coach && (
                   <span className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700">
                     Coach mode
