@@ -7,6 +7,7 @@ import {
   hasFirebase,
   isCoach,
   isAdmin,
+  subscribeToRoleChanges,
   setStoredTeamSelection,
   type Team,
 } from "../lib/db";
@@ -116,6 +117,15 @@ export default function Nav() {
   }, [user]);
 
   useEffect(() => {
+    const unsubscribe = subscribeToRoleChanges((roles) => {
+      const nextAdmin = roles.includes("admin");
+      setAdmin(nextAdmin);
+      setCoach(nextAdmin || roles.includes("coach"));
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     const readScopes = () => {
       setTeamSelection(getStoredTeamSelection());
       setTeamScopes(getStoredTeamScopes());
@@ -190,14 +200,14 @@ export default function Nav() {
   ];
 
   const coachLinks = [
-    { to: "/roster", label: "Roster" },
     { to: "/attendance", label: "Attendance" },
+    { to: "/program-outline", label: "Program Outline" },
+    { to: "/roster", label: "Roster" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },
-    { to: "/program-outline", label: "Program Outline" },
-    { to: "/exercises", label: "Exercises" },
     { to: "/summary", label: "Summary" },
+    { to: "/exercises", label: "Exercises" },
     { to: "/profile", label: "Profile" },
   ];
 

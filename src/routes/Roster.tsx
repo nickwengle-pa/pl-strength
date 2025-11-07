@@ -13,6 +13,7 @@ import {
   regenerateAthleteCode,
   saveProfile,
   fb,
+  subscribeToRoleChanges,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -120,6 +121,13 @@ export default function Roster() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRoleChanges((roles) => {
+      setIsAdminUser(roles.includes("admin"));
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, useRef } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Nav from "./components/Nav";
 import ActiveAthleteBanner from "./components/ActiveAthleteBanner";
 import Home from "./routes/Home";
@@ -19,6 +19,19 @@ import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const authStateRef = useRef<"signed-in" | "signed-out" | null>(null);
+
+  useEffect(() => {
+    if (initializing || signingInWithLink) return;
+    const nextState = user ? "signed-in" : "signed-out";
+    if (authStateRef.current === nextState) return;
+    authStateRef.current = nextState;
+    if (location.pathname !== "/") {
+      navigate("/", { replace: true });
+    }
+  }, [user, initializing, signingInWithLink, location.pathname, navigate]);
 
   if (initializing || signingInWithLink) {
     return (

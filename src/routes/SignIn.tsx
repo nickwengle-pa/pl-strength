@@ -9,9 +9,11 @@ import {
   TEAM_DEFINITIONS,
   buildAthleteEmail,
   ensureAdminRole,
-  ensureCoachRole,
+  ensureAnon,
+  ensureCoachRoleOnly,
   fb,
   fetchCoachTeamScopes,
+  refreshRoles,
   getStoredTeamSelection,
   loadProfileRemote,
   normalizePasscodeDigits,
@@ -22,6 +24,8 @@ import {
   updateCoachTeamScope,
   type Team,
 } from "../lib/db";
+import { doc as roleRef, getDoc } from "firebase/firestore";
+import type { RolesDocument } from "../lib/db";
 
 type Mode = "athlete" | "coach";
 
@@ -54,6 +58,21 @@ const TEAM_OPTIONS: Array<{ label: string; value: Team | "" }> = [
     value: definition.id,
   })),
 ];
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForRoleSync = async (uid: string, expectAdmin: boolean) => {
+  const maxAttempts = expectAdmin ? 6 : 4;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const roles = await refreshRoles(uid);
+    const hasRole = expectAdmin ? roles.includes("admin") : roles.includes("coach");
+    if (hasRole) {
+      return roles;
+    }
+    await delay(150 * (attempt + 1));
+  }
+  throw new Error(expectAdmin ? "admin-sync-failed" : "coach-sync-failed");
+};
 
 const updateDisplayNameCache = (name: string | null) => {
   if (typeof window === "undefined") return;
@@ -355,35 +374,69 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   }
 
   try {
+    await ensureAnon();
+  } catch (err) {
+    console.warn("Failed to confirm Firebase auth state", err);
+  }
+
+  try {
     if (isAdminOverride) {
       await ensureAdminRole();
     } else {
-      await ensureCoachRole();
+      await ensureCoachRoleOnly();
     }
+    await waitForRoleSync(userUid, isAdminOverride);
   } catch (err: any) {
     console.warn("Failed to ensure coach/admin role", err);
     setMessage({
       kind: "error",
-      text:
-        "Signed in, but we could not update coach/admin permissions in Firestore. Ask an admin to confirm Firebase configuration.",
+      text: isAdminOverride
+        ? "Signed in, but we could not confirm admin access. Try the admin code again or contact support."
+        : "Signed in, but we could not update coach permissions in Firestore. Ask an admin to confirm Firebase configuration.",
     });
   }
 
   let allowedTeams: Team[] = [];
+
+  // First check if this access code has previous team scopes
   try {
-    await updateCoachTeamScope(team);
+    const database = fb.db;
+    if (!database) throw new Error("Firebase not available");
+    const ref = roleRef(database, userUid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data() as RolesDocument;
+      const history = data.accessHistory?.[entered];
+      if (history?.teamScopes?.length > 0) {
+        allowedTeams = history.teamScopes as Team[];
+        // If current team is valid, add it if not present
+        if (team && !allowedTeams.includes(team as Team)) {
+          allowedTeams = [...allowedTeams, team as Team];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to check previous team scopes", err);
+  }
+
+  // If no history, use current team
+  if (allowedTeams.length === 0 && team) {
+    allowedTeams = [team as Team];
+  }
+
+  try {
+    await updateCoachTeamScope(team, entered);
   } catch (err) {
     console.warn("Failed to update coach team scope", err);
   }
 
   try {
-    allowedTeams = await fetchCoachTeamScopes(userUid);
+    const freshTeamScopes = await fetchCoachTeamScopes(userUid);
+    if (freshTeamScopes.length > 0) {
+      allowedTeams = freshTeamScopes;
+    }
   } catch (err) {
     console.warn("Failed to fetch coach team scopes", err);
-  }
-
-  if ((!allowedTeams || allowedTeams.length === 0) && team) {
-    allowedTeams = [team];
   }
 
   setStoredTeamScopes(allowedTeams);

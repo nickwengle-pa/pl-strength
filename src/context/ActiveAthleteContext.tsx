@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { ensureAnon, isCoach } from "../lib/db";
+import { ensureAnon, isCoach, subscribeToRoleChanges } from "../lib/db";
 
 type ActiveAthlete = {
   uid: string;
@@ -109,6 +109,17 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
       }
     }
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRoleChanges((roles) => {
+      const coachAccess = roles.includes("admin") || roles.includes("coach");
+      setIsCoachFlag(coachAccess);
+      if (!coachAccess) {
+        clearActiveAthlete();
+      }
+    });
+    return unsubscribe;
+  }, [clearActiveAthlete]);
 
   const notifyProfileChange = useCallback(() => {
     setVersion((prev) => prev + 1);

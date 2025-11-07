@@ -25,6 +25,7 @@ import {
   type DocumentReference,
   type DocumentSnapshot,
   type Firestore,
+  type Timestamp,
 } from "firebase/firestore";
 import { tryInitFirebase, type FirebaseHandles } from "./firebase";
 import { saveProfile as saveProfileLocal } from "./storage";
@@ -271,19 +272,38 @@ export async function fetchCoachTeamScopes(uid?: string | null): Promise<Team[]>
   }
 }
 
-export async function updateCoachTeamScope(team: Team | ""): Promise<void> {
+type AccessCodeHistory = {
+  roles: string[];
+  teamScopes: string[];
+  teamAnchor: string | null;
+  lastUsed: Timestamp;
+};
+
+export type RolesDocument = {
+  roles: string[];
+  teamScopes: string[];
+  teamAnchor: string | null;
+  accessHistory: Record<string, AccessCodeHistory>;
+};
+
+export async function updateCoachTeamScope(team: Team | "", accessCode?: string): Promise<void> {
   const handles = resolveHandles();
   const auth = handles?.auth;
   const database = handles?.db;
   const uid = auth?.currentUser?.uid;
   if (!database || !uid) return;
+  
   const normalized = team ? normalizeTeam(team) : undefined;
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+
+  // Build base update
   const payload: Record<string, unknown> = {
     teamAnchor: normalized ?? null,
     updatedAt: serverTimestamp(),
   };
-  const ref = roleRef(database, uid);
-  const snap = await getDoc(ref);
+
+  // Handle scopes
   const hasScopes =
     snap.exists() &&
     Array.isArray(snap.data()?.teamScopes) &&
@@ -291,6 +311,18 @@ export async function updateCoachTeamScope(team: Team | ""): Promise<void> {
   if (!hasScopes && normalized) {
     payload.teamScopes = [normalized];
   }
+
+  // Update access history if we have an access code
+  if (accessCode) {
+    const currentRoles = await fetchRoles();
+    payload[`accessHistory.${accessCode}`] = {
+      roles: currentRoles,
+      teamScopes: normalized ? [normalized] : [],
+      teamAnchor: normalized,
+      lastUsed: serverTimestamp()
+    };
+  }
+
   await setDoc(ref, payload, { merge: true });
 }
 export type BarOption = {
@@ -448,6 +480,44 @@ let ensurePromise: Promise<string> | null = null;
 let roleCache: string[] | null = null;
 let rolePromise: Promise<string[]> | null = null;
 
+type RoleListener = (roles: string[]) => void;
+
+const roleListeners = new Set<RoleListener>();
+
+const emitRoleChange = (roles: string[]) => {
+  roleListeners.forEach((listener) => {
+    try {
+      listener([...roles]);
+    } catch (err) {
+      console.warn("Role listener failed", err);
+    }
+  });
+};
+
+const applyRoleCache = (roles: string[]) => {
+  roleCache = roles;
+  emitRoleChange(roles);
+};
+
+const clearRoleCache = () => {
+  roleCache = null;
+  emitRoleChange([]);
+};
+
+export function subscribeToRoleChanges(listener: RoleListener): () => void {
+  roleListeners.add(listener);
+  if (roleCache) {
+    try {
+      listener([...roleCache]);
+    } catch (err) {
+      console.warn("Role listener failed", err);
+    }
+  }
+  return () => {
+    roleListeners.delete(listener);
+  };
+}
+
 export async function ensureAnon(): Promise<string> {
   const handles = resolveHandles();
   const auth = handles?.auth;
@@ -514,15 +584,15 @@ async function fetchRoles(): Promise<string[]> {
   const database = handles?.db;
   const uid = auth?.currentUser?.uid;
   if (!database || !uid) {
-    roleCache = [];
-    return roleCache;
+    applyRoleCache([]);
+    return [];
   }
 
   rolePromise = (async () => {
     try {
       const snap = await getDoc(roleRef(database, uid));
       const roles = snap.exists() ? normalizeRoles(snap.data()) : [];
-      roleCache = roles;
+      applyRoleCache(roles);
       return roles;
     } finally {
       rolePromise = null;
@@ -530,6 +600,25 @@ async function fetchRoles(): Promise<string[]> {
   })();
 
   return rolePromise;
+}
+
+export async function refreshRoles(targetUid?: string): Promise<string[]> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = targetUid ?? auth?.currentUser?.uid;
+  if (!database || !uid) {
+    applyRoleCache([]);
+    return [];
+  }
+  try {
+    const snap = await getDoc(roleRef(database, uid));
+    const roles = snap.exists() ? normalizeRoles(snap.data()) : [];
+    applyRoleCache(roles);
+    return roles;
+  } finally {
+    rolePromise = null;
+  }
 }
 
 async function setCurrentUserRoles(nextRoles: string[]): Promise<string[]> {
@@ -549,7 +638,7 @@ async function setCurrentUserRoles(nextRoles: string[]): Promise<string[]> {
   };
 
   await setDoc(roleRef(database, uid), payload, { merge: true });
-  roleCache = roles;
+  applyRoleCache(roles);
   return roles;
 }
 
@@ -1027,6 +1116,87 @@ export async function saveAttendanceSheet(
   });
 }
 
+export type AccessHistory = {
+  code: string;
+  roles: string[];
+  teamScopes: string[];
+  teamAnchor: string | null;
+  lastUsed: Timestamp;
+};
+
+type AccessHistoryRecord = Record<string, {
+  roles: string[];
+  teamScopes: string[];
+  teamAnchor: string | null;
+  lastUsed: Timestamp;
+}>;
+
+export async function getAccessHistory(): Promise<AccessHistory[]> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return [];
+
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return [];
+
+  const data = snap.data() as RolesDocument;
+  if (!data.accessHistory) return [];
+
+  const history = data.accessHistory as AccessHistoryRecord;
+  return Object.entries(history).map(([code, record]) => ({
+    code,
+    roles: record.roles,
+    teamScopes: record.teamScopes,
+    teamAnchor: record.teamAnchor,
+    lastUsed: record.lastUsed
+  }));
+}
+
+export async function clearAccessHistory(): Promise<void> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return;
+
+  const ref = roleRef(database, uid);
+  await updateDoc(ref, {
+    accessHistory: {},
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function clearAccessHistory(): Promise<void> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return;
+
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  await updateDoc(ref, {
+    accessHistory: [],
+    updatedAt: serverTimestamp()
+  });
+}
+
+  return Object.entries(data.accessHistory)
+    .map(([code, history]) => ({
+      code,
+      roles: history.roles,
+      teamScopes: history.teamScopes,
+      teamAnchor: history.teamAnchor,
+      lastUsed: history.lastUsed
+    }))
+    .sort((a, b) => b.lastUsed.toMillis() - a.lastUsed.toMillis());
+}
+
 export async function getCurrentRoles(): Promise<string[]> {
   return await fetchRoles();
 }
@@ -1042,7 +1212,7 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 export function resetRoleCache() {
-  roleCache = null;
+  clearRoleCache();
   rolePromise = null;
 }
 
@@ -1051,25 +1221,116 @@ export async function ensureRole(role: string): Promise<void> {
   const roles = await fetchRoles();
   if (roles.includes(normalized)) return;
   const updatedRoles = await setCurrentUserRoles([...roles, normalized]);
-  roleCache = updatedRoles.length ? updatedRoles : [...roles, normalized];
+  if (!updatedRoles.length) {
+    applyRoleCache([...roles, normalized]);
+  }
 }
 
 export async function ensureCoachRole(): Promise<void> {
   await ensureRole("coach");
 }
 
-export async function ensureAdminRole(): Promise<void> {
+const rolesEqual = (a: string[], b: string[]): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+export async function ensureCoachRoleOnly(): Promise<void> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return;
+
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? snap.data() as RolesDocument : null;
   const roles = await fetchRoles();
+
+  // Remove admin role if present
+  const filtered = roles.filter((role) => role !== "admin");
+  if (!filtered.includes("coach")) {
+    filtered.push("coach");
+  }
+
+  // Only update if roles changed
+  if (rolesEqual(filtered, roles)) return;
+
+  // Build update payload preserving history
+  const payload: Record<string, unknown> = {
+    roles: filtered,
+    teamScopes: existing?.teamScopes || [],
+    teamAnchor: existing?.teamAnchor || null,
+    updatedAt: serverTimestamp(),
+  };
+
+  // Preserve any existing coach access
+  payload["accessHistory.2468"] = {
+    roles: ["coach"],
+    teamScopes: existing?.teamScopes || [],
+    teamAnchor: existing?.teamAnchor,
+    lastUsed: serverTimestamp()
+  };
+
+  await setDoc(ref, payload, { merge: true });
+  roleCache = filtered;
+}
+
+export async function ensureAdminRole(): Promise<void> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return;
+
+  const ref = roleRef(database, uid);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? snap.data() as RolesDocument : null;
+  const roles = await fetchRoles();
+  
+  // If already admin, just ensure coach role
   if (roles.includes("admin")) {
     if (!roles.includes("coach")) {
       const updated = await setCurrentUserRoles([...roles, "coach"]);
-      roleCache = updated.length ? updated : [...roles, "coach"];
+      if (!updated.length) {
+        applyRoleCache([...roles, "coach"]);
+      }
     }
     return;
   }
+
+  // Combine roles for admin
   const combined = Array.from(new Set([...roles, "admin", "coach"]));
-  const updated = await setCurrentUserRoles(combined);
-  roleCache = updated.length ? updated : combined;
+  
+  // Build update payload preserving history
+  const payload: Record<string, unknown> = {
+    roles: combined,
+    teamScopes: existing?.teamScopes || [],
+    teamAnchor: existing?.teamAnchor || null,
+    updatedAt: serverTimestamp(),
+  };
+
+  // Preserve any existing coach access under standard code
+  if (roles.includes("coach") && existing) {
+    payload["accessHistory"] = {
+      ...(existing.accessHistory || {}),
+      "2468": {
+        roles: ["coach"],
+        teamScopes: existing.teamScopes || [],
+        teamAnchor: existing.teamAnchor,
+        lastUsed: serverTimestamp()
+      }
+    };
+  }
+
+  // Add admin access code history
+  payload["accessHistory.1357"] = {
+    roles: combined,
+    teamScopes: existing?.teamScopes || [],
+    teamAnchor: existing?.teamAnchor,
+    lastUsed: serverTimestamp()
+  };
+
+  await setDoc(ref, payload, { merge: true });
+  roleCache = combined;
 }
 
 type Lift = "bench" | "squat" | "deadlift" | "press";

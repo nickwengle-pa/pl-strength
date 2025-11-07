@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ensureAnon, isCoach, isAdmin } from "../lib/db";
+import { ensureAnon, isCoach, isAdmin, subscribeToRoleChanges } from "../lib/db";
 
 const MAX_CYCLES = 5;
 
@@ -404,6 +404,15 @@ export default function ProgramOutline() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRoleChanges((roles) => {
+      const adminFlag = roles.includes("admin");
+      setAdmin(adminFlag);
+      setCoach(adminFlag || roles.includes("coach"));
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
