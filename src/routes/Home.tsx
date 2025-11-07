@@ -1,6 +1,19 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+const PAGE_LINKS = [
+  { to: "/summary", label: "Quick Summary" },
+  { to: "/calculator", label: "Calculator" },
+  { to: "/sheets", label: "Sheets" },
+  { to: "/program-outline", label: "Program" },
+  { to: "/exercises", label: "Exercises" },
+  { to: "/roster", label: "Roster" },
+  { to: "/attendance", label: "Attendance" },
+  { to: "/session", label: "Session" },
+  { to: "/profile", label: "Profile" },
+  { to: "/admin", label: "Admin" },
+];
+
 const FEATURE_LINKS = [
   {
     to: "/summary",
@@ -72,61 +85,28 @@ export default function Home() {
     <div className="pb-12">
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white shadow-lg">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]" />
-        <div className="absolute -right-24 top-1/2 hidden h-72 w-72 -translate-y-1/2 rounded-full bg-white/10 blur-3xl lg:block" />
-        <div className="container relative px-4 py-6 md:py-10">
-          <div className="flex flex-col gap-3 md:gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-2 md:space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] md:px-3 md:py-1 md:text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
-                Let's Train
-              </span>
-              <h1 className="text-2xl font-semibold md:text-4xl">
-                Your launchpad for every lift
-              </h1>
-              <p className="max-w-2xl text-xs text-white/80 md:text-base">
-                Pick a tab to get moving. Each tool is quick, clear, and built
-                for teams working with younger lifters.
-              </p>
+        <div className="container relative px-4 py-4 md:py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold">PL Strength</h1>
+              <p className="text-xs md:text-sm text-white/80 mt-1">Quick access to all tools</p>
             </div>
-            <div className="hidden md:flex flex-col items-start gap-2 text-sm text-white/80 md:items-end">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 font-semibold uppercase tracking-wide text-white">
-                Ready when you are
-              </span>
-              <span className="text-base text-white/80">
-                Calculator, sheets, roster, and a quick plan - all within two taps.
-              </span>
+            <div className="flex flex-wrap gap-2">
+              {PAGE_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25"
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
-          </div>
-          {/* Compact mobile version - single feature highlight */}
-          <div className="mt-4 md:hidden">
-            <div className="rounded-xl bg-white/12 px-3 py-2 shadow-sm backdrop-blur-sm">
-              <div className="text-[10px] uppercase tracking-wide text-white/70">
-                Quick Access
-              </div>
-              <div className="mt-1 text-sm font-medium text-white">
-                Calculator, sheets, roster & more below
-              </div>
-            </div>
-          </div>
-          {/* Desktop grid - hidden on mobile */}
-          <div className="mt-6 hidden md:grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURE_LINKS.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-2xl bg-white/12 px-4 py-3 shadow-sm backdrop-blur-sm transition hover:bg-white/16"
-              >
-                <div className="text-[11px] uppercase tracking-wide text-white/70">
-                  {item.badge} - {item.label}
-                </div>
-                <div className="mt-1 text-lg font-semibold text-white">
-                  {item.message}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
 
-      <div className="container mt-6 md:-mt-12 space-y-10">
+      <div className="container mt-8 space-y-10">
         <div className="grid gap-6 lg:grid-cols-2">
           {FEATURE_LINKS.map((feature) => (
             <Link
