@@ -1,6 +1,6 @@
 {
   "functions": {
-    "source": "functions",
+    "source": "firebase-functions",
     "serviceAccount": "compute-engine-default@pl-strengthl.iam.gserviceaccount.com"
   }
 }
