@@ -544,6 +544,73 @@ export async function ensureAnon(): Promise<string> {
 const roleRef = (database: Firestore, uid: string) =>
   doc(database, "roles", uid);
 
+const sanitizeRoleArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((role) => (typeof role === "string" ? role.trim().toLowerCase() : ""))
+    .filter(Boolean);
+};
+
+const roleArraysEqual = (a: string[], b: string[]): boolean => {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((value, index) => value === sortedB[index]);
+};
+
+const sanitizeTeamScopeArray = (value: unknown): Team[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => normalizeTeam(entry) ?? null)
+    .filter((entry): entry is Team => Boolean(entry));
+};
+
+const deriveFallbackTeamScopes = (data: any): Team[] => {
+  const anchor = normalizeTeam(
+    data?.teamAnchor ?? data?.team ?? data?.lastTeam ?? null
+  );
+  if (anchor) {
+    return resolveTeamScopes(anchor);
+  }
+  return DEFAULT_TEAM_SCOPE;
+};
+
+const maybeRepairLegacyRoleDoc = async (
+  database: Firestore,
+  uid: string,
+  normalizedRoles: string[],
+  data: any
+) => {
+  if (!database) return;
+  const storedRoles = sanitizeRoleArray(data?.roles);
+  const needsRoleRepair =
+    normalizedRoles.length > 0 && !roleArraysEqual(storedRoles, normalizedRoles);
+
+  const storedScopes = sanitizeTeamScopeArray(data?.teamScopes);
+  const needsTeamScopeRepair =
+    storedScopes.length === 0 &&
+    (normalizedRoles.includes("coach") || normalizedRoles.includes("admin"));
+
+  if (!needsRoleRepair && !needsTeamScopeRepair) return;
+
+  const payload: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (needsRoleRepair) {
+    payload.roles = normalizedRoles;
+  }
+  if (needsTeamScopeRepair) {
+    payload.teamScopes = deriveFallbackTeamScopes(data);
+  }
+
+  try {
+    await setDoc(roleRef(database, uid), payload, { merge: true });
+  } catch (err) {
+    console.warn("Failed to repair legacy role doc", err);
+  }
+};
+
 const normalizeRoles = (raw: any): string[] => {
   if (!raw) return [];
   const baseList: string[] = Array.isArray(raw.roles)
@@ -591,8 +658,12 @@ async function fetchRoles(): Promise<string[]> {
   rolePromise = (async () => {
     try {
       const snap = await getDoc(roleRef(database, uid));
-      const roles = snap.exists() ? normalizeRoles(snap.data()) : [];
+      const data = snap.data();
+      const roles = snap.exists() ? normalizeRoles(data) : [];
       applyRoleCache(roles);
+      if (snap.exists()) {
+        maybeRepairLegacyRoleDoc(database, uid, roles, data);
+      }
       return roles;
     } finally {
       rolePromise = null;
@@ -1167,34 +1238,6 @@ export async function clearAccessHistory(): Promise<void> {
     accessHistory: {},
     updatedAt: serverTimestamp()
   });
-}
-
-export async function clearAccessHistory(): Promise<void> {
-  const handles = resolveHandles();
-  const auth = handles?.auth;
-  const database = handles?.db;
-  const uid = auth?.currentUser?.uid;
-  if (!database || !uid) return;
-
-  const ref = roleRef(database, uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-
-  await updateDoc(ref, {
-    accessHistory: [],
-    updatedAt: serverTimestamp()
-  });
-}
-
-  return Object.entries(data.accessHistory)
-    .map(([code, history]) => ({
-      code,
-      roles: history.roles,
-      teamScopes: history.teamScopes,
-      teamAnchor: history.teamAnchor,
-      lastUsed: history.lastUsed
-    }))
-    .sort((a, b) => b.lastUsed.toMillis() - a.lastUsed.toMillis());
 }
 
 export async function getCurrentRoles(): Promise<string[]> {
