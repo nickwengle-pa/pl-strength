@@ -91,6 +91,7 @@ export default function Roster() {
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
+  const [coachLevelFilter, setCoachLevelFilter] = useState<"varsity" | "juniorHigh" | "both">("both");
   const [adminCoachFilter, setAdminCoachFilter] = useState<Team | "all">("all");
   const [adminAthleteFilter, setAdminAthleteFilter] = useState<Team | "all">("all");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
@@ -380,24 +381,52 @@ export default function Roster() {
   const filteredCoachRows = useMemo(() => {
     let rows = coachRows;
     if (!isAdminUser && coachTeamFilter) {
-      rows = rows.filter((row) => row.team === coachTeamFilter);
+      // For coaches: filter by sport/program, then optionally by level
+      const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
+      if (coachTeamDef) {
+        rows = rows.filter((row) => {
+          const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === row.team);
+          if (!rowTeamDef) return false;
+          // Must match sport and program
+          const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport && 
+                                      rowTeamDef.program === coachTeamDef.program;
+          if (!matchesSportProgram) return false;
+          // Apply level filter
+          if (coachLevelFilter === "both") return true;
+          return rowTeamDef.level === coachLevelFilter;
+        });
+      }
     }
     if (isAdminUser && adminCoachFilter !== "all") {
       rows = rows.filter((row) => row.team === adminCoachFilter);
     }
     return rows;
-  }, [coachRows, coachTeamFilter, isAdminUser, adminCoachFilter]);
+  }, [coachRows, coachTeamFilter, isAdminUser, adminCoachFilter, coachLevelFilter]);
 
   const filteredAthleteRows = useMemo(() => {
     let rows = athleteRows;
     if (!isAdminUser && coachTeamFilter) {
-      rows = rows.filter((row) => row.team === coachTeamFilter);
+      // For coaches: filter by sport/program, then optionally by level
+      const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
+      if (coachTeamDef) {
+        rows = rows.filter((row) => {
+          const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === row.team);
+          if (!rowTeamDef) return false;
+          // Must match sport and program
+          const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport && 
+                                      rowTeamDef.program === coachTeamDef.program;
+          if (!matchesSportProgram) return false;
+          // Apply level filter
+          if (coachLevelFilter === "both") return true;
+          return rowTeamDef.level === coachLevelFilter;
+        });
+      }
     }
     if (isAdminUser && adminAthleteFilter !== "all") {
       rows = rows.filter((row) => row.team === adminAthleteFilter);
     }
     return rows;
-  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter]);
+  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -503,6 +532,43 @@ export default function Roster() {
       <div className="card">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h3 className="text-lg font-semibold">Coaches</h3>
+          {!isAdminUser && coachTeam && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600">Level:</span>
+              <div className="inline-flex rounded-lg border border-gray-200 p-1 gap-1">
+                <button
+                  onClick={() => setCoachLevelFilter("varsity")}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    coachLevelFilter === "varsity"
+                      ? "bg-brand-500 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  Varsity
+                </button>
+                <button
+                  onClick={() => setCoachLevelFilter("juniorHigh")}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    coachLevelFilter === "juniorHigh"
+                      ? "bg-brand-500 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  Junior High
+                </button>
+                <button
+                  onClick={() => setCoachLevelFilter("both")}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    coachLevelFilter === "both"
+                      ? "bg-brand-500 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  Both
+                </button>
+              </div>
+            </div>
+          )}
           {isAdminUser && (
             <label className="flex items-center gap-2 text-xs text-gray-600">
               <span>Filter by team</span>
@@ -583,6 +649,43 @@ export default function Roster() {
             <p className="text-xs text-gray-500">
               Click a row to review recent sessions and TM numbers.
             </p>
+            {!isAdminUser && coachTeam && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600">Level:</span>
+                <div className="inline-flex rounded-lg border border-gray-200 p-1 gap-1">
+                  <button
+                    onClick={() => setCoachLevelFilter("varsity")}
+                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                      coachLevelFilter === "varsity"
+                        ? "bg-brand-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    Varsity
+                  </button>
+                  <button
+                    onClick={() => setCoachLevelFilter("juniorHigh")}
+                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                      coachLevelFilter === "juniorHigh"
+                        ? "bg-brand-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    Junior High
+                  </button>
+                  <button
+                    onClick={() => setCoachLevelFilter("both")}
+                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                      coachLevelFilter === "both"
+                        ? "bg-brand-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    Both
+                  </button>
+                </div>
+              </div>
+            )}
             {isAdminUser && (
               <label className="flex items-center gap-2 text-xs text-gray-600">
                 <span>Filter</span>

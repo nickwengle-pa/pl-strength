@@ -73,21 +73,21 @@ export default function Home() {
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white shadow-lg">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]" />
         <div className="absolute -right-24 top-1/2 hidden h-72 w-72 -translate-y-1/2 rounded-full bg-white/10 blur-3xl lg:block" />
-        <div className="container relative px-4 py-10">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
+        <div className="container relative px-4 py-6 md:py-10">
+          <div className="flex flex-col gap-3 md:gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2 md:space-y-4">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] md:px-3 md:py-1 md:text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
                 Let's Train
               </span>
-              <h1 className="text-3xl font-semibold md:text-4xl">
+              <h1 className="text-2xl font-semibold md:text-4xl">
                 Your launchpad for every lift
               </h1>
-              <p className="max-w-2xl text-sm text-white/80 md:text-base">
+              <p className="max-w-2xl text-xs text-white/80 md:text-base">
                 Pick a tab to get moving. Each tool is quick, clear, and built
                 for teams working with younger lifters.
               </p>
             </div>
-            <div className="flex flex-col items-start gap-2 text-sm text-white/80 md:items-end">
+            <div className="hidden md:flex flex-col items-start gap-2 text-sm text-white/80 md:items-end">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 font-semibold uppercase tracking-wide text-white">
                 Ready when you are
               </span>
@@ -96,7 +96,19 @@ export default function Home() {
               </span>
             </div>
           </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Compact mobile version - single feature highlight */}
+          <div className="mt-4 md:hidden">
+            <div className="rounded-xl bg-white/12 px-3 py-2 shadow-sm backdrop-blur-sm">
+              <div className="text-[10px] uppercase tracking-wide text-white/70">
+                Quick Access
+              </div>
+              <div className="mt-1 text-sm font-medium text-white">
+                Calculator, sheets, roster & more below
+              </div>
+            </div>
+          </div>
+          {/* Desktop grid - hidden on mobile */}
+          <div className="mt-6 hidden md:grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURE_LINKS.map((item) => (
               <div
                 key={item.label}
@@ -114,7 +126,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="container -mt-12 space-y-10">
+      <div className="container mt-6 md:-mt-12 space-y-10">
         <div className="grid gap-6 lg:grid-cols-2">
           {FEATURE_LINKS.map((feature) => (
             <Link

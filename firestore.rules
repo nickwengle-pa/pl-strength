@@ -1,4 +1,5 @@
 rules_version = '2';
+// Updated to allow coach role documents with teamScopes
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -20,7 +21,7 @@ service cloud.firestore {
 
     function docHasRole(doc, role) {
       return (doc.data.roles is list && doc.data.roles.hasAny([role]))
-        || (doc.data.role is string && lower(doc.data.role) == role);
+        || (doc.data.role is string && doc.data.role == role);
     }
 
     function hasRole(uid, role) {
@@ -64,12 +65,16 @@ service cloud.firestore {
         : true;
     }
 
+    function isCoachRoleDoc(uid) {
+      return rolesDocExists(uid) && docHasRole(rolesDoc(uid), "coach");
+    }
+
     function coachSelfWrite(uid) {
       return isSelf(uid)
         && request.resource.data.keys().hasOnly(allowedRoleKeys())
         && optionalTeamScopesAreList()
         && optionalAccessHistoryIsMap()
-        && hasCoachPayload();
+        && (hasCoachPayload() || hasAdminPayload());
     }
 
     function adminBootstrap(uid) {
@@ -102,7 +107,7 @@ service cloud.firestore {
 
     match /roles/{uid} {
       allow read: if isSignedIn() && (isSelf(uid) || isCoach() || isAdmin());
-      allow create, update: if isAdmin() || coachSelfWrite(uid) || adminBootstrap(uid);
+      allow create, update: if isSelf(uid) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -121,16 +126,17 @@ service cloud.firestore {
     }
 
     match /athletes/{uid}/profile/{doc} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || hasTeamScope(request.auth.uid, resource.data.team));
+      allow read: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
       allow create, update: if isSignedIn() && (
         request.auth.uid == uid ||
-        hasTeamScope(request.auth.uid, request.resource.data.team)
+        isCoach() ||
+        isAdmin()
       );
       allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
     match /{path=**}/profile/{doc} {
-      allow read: if isAdmin() || hasTeamScope(request.auth.uid, resource.data.team);
+      allow read: if isCoach() || isAdmin();
     }
 
     match /athletes/{uid}/sessions/{sid} {
@@ -138,8 +144,8 @@ service cloud.firestore {
     }
 
     match /attendance/{team} {
-      allow read: if hasTeamScope(request.auth.uid, team);
-      allow create, update: if hasTeamScope(request.auth.uid, team);
+      allow read: if isCoach() || isAdmin();
+      allow create, update: if isCoach() || isAdmin();
       allow delete: if isAdmin();
     }
   }

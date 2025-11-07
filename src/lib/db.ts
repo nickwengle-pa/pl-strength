@@ -1833,6 +1833,32 @@ export async function deleteAthlete(uid: string): Promise<void> {
   }
 }
 
+export async function deleteCoach(uid: string): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    throw new Error("Firebase is required to delete coaches.");
+  }
+
+  try {
+    await deleteDoc(roleRef(database, uid));
+  } catch (err) {
+    console.warn(`Failed to delete roles/${uid}`, err);
+    throw err;
+  }
+
+  if (handles?.auth?.currentUser?.uid === uid) {
+    resetRoleCache();
+  }
+
+  try {
+    const queueRef = doc(collection(database, "__deleteAuthUser__"), uid);
+    await setDoc(queueRef, { uid, requestedAt: serverTimestamp() });
+  } catch (err) {
+    console.warn(`Failed to queue auth deletion for ${uid}`, err);
+  }
+}
+
 export async function fetchAthleteSessions(
   uid: string,
   count = 12

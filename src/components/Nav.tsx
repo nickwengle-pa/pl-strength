@@ -313,7 +313,6 @@ export default function Nav() {
                   {label}
                 </NavLink>
               ))}
-              {renderTeamPicker("desktop")}
               {coach && (
                 <span className="badge badge-muted text-xs md:text-sm">Coach</span>
               )}
@@ -355,7 +354,6 @@ export default function Nav() {
                     {label}
                   </NavLink>
                 ))}
-                {renderTeamPicker("mobile")}
                 {coach && (
                   <span className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700">
                     Coach mode

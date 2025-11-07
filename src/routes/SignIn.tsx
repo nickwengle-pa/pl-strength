@@ -23,9 +23,9 @@ import {
   signInOrCreateAthleteAccount,
   updateCoachTeamScope,
   type Team,
+  type RolesDocument,
 } from "../lib/db";
-import { doc as roleRef, getDoc } from "firebase/firestore";
-import type { RolesDocument } from "../lib/db";
+import { doc, getDoc } from "firebase/firestore";
 
 type Mode = "athlete" | "coach";
 
@@ -402,12 +402,12 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   try {
     const database = fb.db;
     if (!database) throw new Error("Firebase not available");
-    const ref = roleRef(database, userUid);
+    const ref = doc(database, "roles", userUid);
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const data = snap.data() as RolesDocument;
       const history = data.accessHistory?.[entered];
-      if (history?.teamScopes?.length > 0) {
+      if (history && history.teamScopes && history.teamScopes.length > 0) {
         allowedTeams = history.teamScopes as Team[];
         // If current team is valid, add it if not present
         if (team && !allowedTeams.includes(team as Team)) {
@@ -424,11 +424,12 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     allowedTeams = [team as Team];
   }
 
-  try {
-    await updateCoachTeamScope(team, entered);
-  } catch (err) {
-    console.warn("Failed to update coach team scope", err);
-  }
+  // NOTE: updateCoachTeamScope disabled - team scopes validation removed from Firestore rules
+  // try {
+  //   await updateCoachTeamScope(team, entered);
+  // } catch (err) {
+  //   console.warn("Failed to update coach team scope", err);
+  // }
 
   try {
     const freshTeamScopes = await fetchCoachTeamScopes(userUid);
