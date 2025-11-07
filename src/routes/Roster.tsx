@@ -1,18 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  TEAM_DEFINITIONS,
   assignAthleteAccessCode,
   deleteAthlete,
+  defaultEquipment,
   fetchAthleteSessions,
+  formatTeamLabel,
+  getTeamDefinition,
+  getStoredTeamSelection,
+  isAdmin,
   listRoster,
   loadProfileRemote,
   regenerateAthleteCode,
   saveProfile,
-  defaultEquipment,
-  isAdmin,
   fb,
   type Profile,
   type RosterEntry,
   type SessionRecord,
+  type Team,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
@@ -85,11 +90,9 @@ export default function Roster() {
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
+  const [coachTeam, setCoachTeam] = useState<Team | null>(null);
+  const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
-  const selectedRow = useMemo(
-    () => rows.find((row) => row.uid === selectedUid) ?? null,
-    [rows, selectedUid]
-  );
 
   useEffect(() => {
     (async () => {
@@ -116,6 +119,28 @@ export default function Roster() {
     })();
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => {
+      const stored = getStoredTeamSelection();
+      setCoachTeam(stored || null);
+    };
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        const normalized = getStoredTeamSelection();
+        setCoachTeam(normalized || null);
+      }
+    };
+    const handleCustom = (_event: Event) => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
     };
   }, []);
 
@@ -397,6 +422,72 @@ export default function Roster() {
     () => rows.filter((row) => !isCoachRow(row)),
     [rows]
   );
+  const allowedTeamDefs = useMemo(() => {
+    if (isAdminUser) {
+      return TEAM_DEFINITIONS;
+    }
+    if (coachTeam) {
+      const definition = getTeamDefinition(coachTeam);
+      if (definition) {
+        return TEAM_DEFINITIONS.filter(
+          (candidate) =>
+            candidate.sport === definition.sport &&
+            candidate.program === definition.program
+        );
+      }
+    }
+    return TEAM_DEFINITIONS.filter(
+      (candidate) => candidate.sport === "football" && candidate.program === "coed"
+    );
+  }, [coachTeam, isAdminUser]);
+
+  const allowedTeamIds = useMemo(
+    () => allowedTeamDefs.map((definition) => definition.id as Team),
+    [allowedTeamDefs]
+  );
+
+  useEffect(() => {
+    setTeamFilter("all");
+  }, [coachTeam, isAdminUser]);
+
+  useEffect(() => {
+    if (teamFilter !== "all" && !allowedTeamIds.includes(teamFilter)) {
+      setTeamFilter("all");
+    }
+  }, [allowedTeamIds, teamFilter]);
+
+  const allowedTeamSet = useMemo(() => new Set(allowedTeamIds), [allowedTeamIds]);
+
+  const filteredAthleteRows = useMemo(() => {
+    let scoped = athleteRows;
+    if (!isAdminUser) {
+      scoped = scoped.filter(
+        (row) => row.team && allowedTeamSet.has(row.team as Team)
+      );
+    }
+    if (teamFilter !== "all") {
+      scoped = scoped.filter((row) => row.team === teamFilter);
+    }
+    return scoped;
+  }, [athleteRows, allowedTeamSet, isAdminUser, teamFilter]);
+
+  const selectedRow = useMemo(
+    () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
+    [filteredAthleteRows, selectedUid]
+  );
+
+  useEffect(() => {
+    if (
+      selectedUid &&
+      !filteredAthleteRows.some((row) => row.uid === selectedUid)
+    ) {
+      setSelectedUid(null);
+      setDetailProfile(null);
+      setDetailSessions([]);
+      setDetailError(null);
+      setDetailLoading(false);
+    }
+  }, [filteredAthleteRows, selectedUid]);
 
   if (err) {
     return (
@@ -453,7 +544,7 @@ export default function Roster() {
                     <td className="p-2">
                       <RoleBadges roles={r.roles} />
                     </td>
-                    <td className="p-2">{r.team || "-"}</td>
+                    <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
                     <td className="p-2">
                       {isAdminUser ? (
                         <button
@@ -490,6 +581,37 @@ export default function Roster() {
             Click a row to review recent sessions and TM numbers.
           </p>
         </div>
+        {!isAdminUser && (
+          <div className="flex flex-wrap gap-2 pb-4">
+            <button
+              type="button"
+              className={[
+                "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+                teamFilter === "all"
+                  ? "border-brand-200 bg-brand-50 text-brand-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-brand-200 hover:text-brand-700",
+              ].join(" ")}
+              onClick={() => setTeamFilter("all")}
+            >
+              All
+            </button>
+            {allowedTeamDefs.map((definition) => (
+              <button
+                key={definition.id}
+                type="button"
+                className={[
+                  "rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+                  teamFilter === definition.id
+                    ? "border-brand-200 bg-brand-50 text-brand-700"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-brand-200 hover:text-brand-700",
+                ].join(" ")}
+                onClick={() => setTeamFilter(definition.id as Team)}
+              >
+                {definition.shortLabel || definition.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">
@@ -503,7 +625,7 @@ export default function Roster() {
               </tr>
             </thead>
             <tbody>
-              {athleteRows.map((r, index) => {
+              {filteredAthleteRows.map((r, index) => {
                 const selected = selectedUid === r.uid;
                 const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
                 return (
@@ -527,7 +649,7 @@ export default function Roster() {
                   >
                     <td className="p-2">{r.firstName || "-"}</td>
                     <td className="p-2">{r.lastName || "-"}</td>
-                    <td className="p-2">{r.team || "-"}</td>
+                    <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
                     <td className="p-2">{r.unit || "-"}</td>
                     <td className="p-2 font-mono text-xs">{r.accessCode ?? "-"}</td>
                     <td className="p-2">
@@ -559,10 +681,10 @@ export default function Roster() {
                   </tr>
                 );
               })}
-              {athleteRows.length === 0 && (
+              {filteredAthleteRows.length === 0 && (
                 <tr>
                   <td className="p-2 text-gray-500" colSpan={6}>
-                    No athletes yet.
+                    No athletes found for the selected team.
                   </td>
                 </tr>
               )}
@@ -605,7 +727,7 @@ export default function Roster() {
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                   <div className="text-sm text-gray-600">Team</div>
                   <div className="text-base font-semibold text-gray-900">
-                    {detailProfile.team ?? "-"}
+                    {formatTeamLabel(detailProfile.team, "-")}
                   </div>
                   <div className="mt-2 text-sm text-gray-600">Unit</div>
                   <div className="text-base font-semibold text-gray-900">

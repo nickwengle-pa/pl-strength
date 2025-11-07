@@ -1,5 +1,6 @@
-import React from "react";
+﻿import React from "react";
 import { useLocation } from "react-router-dom";
+import { formatTeamLabel } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 const HIDDEN_PREFIXES = ["/exercises", "/program-outline"];
@@ -16,6 +17,9 @@ export default function ActiveAthleteBanner() {
   const name =
     [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") ||
     "Unnamed athlete";
+  const teamLabel = activeAthlete.team
+    ? formatTeamLabel(activeAthlete.team, undefined)
+    : null;
 
   return (
     <div className="border-b border-indigo-100 bg-indigo-50 text-indigo-900">
@@ -25,9 +29,9 @@ export default function ActiveAthleteBanner() {
             Active athlete
           </div>
           <div className="text-base font-semibold">{name}</div>
-          {(activeAthlete.team || activeAthlete.unit) && (
+          {(teamLabel || activeAthlete.unit) && (
             <div className="text-xs text-indigo-700">
-              {[activeAthlete.team, activeAthlete.unit].filter(Boolean).join(" • ")}
+              {[teamLabel, activeAthlete.unit].filter(Boolean).join(" \u2022 ")}
             </div>
           )}
         </div>
@@ -42,4 +46,3 @@ export default function ActiveAthleteBanner() {
     </div>
   );
 }
-

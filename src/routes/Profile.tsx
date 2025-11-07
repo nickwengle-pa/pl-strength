@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  TEAM_DEFINITIONS,
   defaultEquipment,
   ensureAnon,
   loadProfileRemote,
@@ -91,14 +92,17 @@ export default function ProfilePage() {
 
           <div>
             <div className="text-sm font-medium mb-1">Team</div>
-            <select
-              className="border rounded-xl px-3 py-2"
-              value={p.team || ""}
-              onChange={e => update({ team: e.target.value as Team })}
-            >
-              <option value="">—</option>
-              <option value="JH">JH</option>
-              <option value="Varsity">Varsity</option>
+            <select
+              className="border rounded-xl px-3 py-2"
+              value={p.team || ""}
+              onChange={(e) => update({ team: e.target.value as Team })}
+            >
+              <option value="">Select team</option>
+              {TEAM_DEFINITIONS.map((definition) => (
+                <option key={definition.id} value={definition.id}>
+                  {definition.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>

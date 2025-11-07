@@ -59,7 +59,185 @@ export const hasFirebase = (): boolean => !!resolveHandles();
 
 // ---- Profile model ----
 export type Unit = "lb" | "kg";
-export type Team = "JH" | "Varsity";
+export type Sport = "football" | "basketball";
+export type Program = "boys" | "girls" | "coed";
+export type Level = "varsity" | "juniorHigh";
+
+export type Team =
+  | "football-varsity"
+  | "football-junior-high"
+  | "girls-basketball-varsity"
+  | "girls-basketball-junior-high"
+  | "boys-basketball-varsity"
+  | "boys-basketball-junior-high";
+
+export type TeamDefinition = {
+  id: Team;
+  label: string;
+  shortLabel: string;
+  sport: Sport;
+  program: Program;
+  level: Level;
+  legacy?: string[];
+};
+
+export const TEAM_DEFINITIONS: TeamDefinition[] = [
+  {
+    id: "football-varsity",
+    label: "Football - Varsity",
+    shortLabel: "Football Varsity",
+    sport: "football",
+    program: "coed",
+    level: "varsity",
+    legacy: ["varsity", "football varsity", "fb varsity"],
+  },
+  {
+    id: "football-junior-high",
+    label: "Football - Junior High",
+    shortLabel: "Football JH",
+    sport: "football",
+    program: "coed",
+    level: "juniorHigh",
+    legacy: ["jh", "junior high", "football jh"],
+  },
+  {
+    id: "girls-basketball-varsity",
+    label: "Girls Basketball - Varsity",
+    shortLabel: "Girls BB Varsity",
+    sport: "basketball",
+    program: "girls",
+    level: "varsity",
+    legacy: ["girls basketball varsity", "girls bball varsity"],
+  },
+  {
+    id: "girls-basketball-junior-high",
+    label: "Girls Basketball - Junior High",
+    shortLabel: "Girls BB JH",
+    sport: "basketball",
+    program: "girls",
+    level: "juniorHigh",
+    legacy: ["girls basketball junior high", "girls bball jh"],
+  },
+  {
+    id: "boys-basketball-varsity",
+    label: "Boys Basketball - Varsity",
+    shortLabel: "Boys BB Varsity",
+    sport: "basketball",
+    program: "boys",
+    level: "varsity",
+    legacy: ["boys basketball varsity", "boys bball varsity"],
+  },
+  {
+    id: "boys-basketball-junior-high",
+    label: "Boys Basketball - Junior High",
+    shortLabel: "Boys BB JH",
+    sport: "basketball",
+    program: "boys",
+    level: "juniorHigh",
+    legacy: ["boys basketball junior high", "boys bball jh"],
+  },
+];
+
+const TEAM_LOOKUP: Record<string, Team> = TEAM_DEFINITIONS.reduce(
+  (acc, definition) => {
+    acc[definition.id.toLowerCase()] = definition.id;
+    definition.legacy?.forEach((alias) => {
+      acc[alias.toLowerCase()] = definition.id;
+    });
+    return acc;
+  },
+  {} as Record<string, Team>
+);
+
+export function normalizeTeam(value: unknown): Team | undefined {
+  if (typeof value !== "string") return undefined;
+  const key = value.trim().toLowerCase();
+  if (!key) return undefined;
+  return TEAM_LOOKUP[key];
+}
+
+export function getTeamDefinition(team?: Team | string | null): TeamDefinition | undefined {
+  if (!team) return undefined;
+  const key = typeof team === "string" ? normalizeTeam(team) : team;
+  if (!key) return undefined;
+  return TEAM_DEFINITIONS.find((definition) => definition.id === key);
+}
+
+export function formatTeamLabel(team?: Team | string | null, fallback = "Not set"): string {
+  if (!team) return fallback;
+  const definition = getTeamDefinition(team);
+  if (definition) {
+    return definition.label;
+  }
+  if (typeof team === "string" && team.trim()) {
+    return team;
+  }
+  return fallback;
+}
+
+export function getTeamGroup(team?: Team | string | null): TeamDefinition[] {
+  const definition = getTeamDefinition(team);
+  if (!definition) {
+    return TEAM_DEFINITIONS.filter(
+      (candidate) => candidate.sport === "football" && candidate.program === "coed"
+    );
+  }
+  return TEAM_DEFINITIONS.filter(
+    (candidate) =>
+      candidate.sport === definition.sport && candidate.program === definition.program
+  );
+}
+
+export function getTeamGroupIds(team?: Team | string | null): Team[] {
+  const group = getTeamGroup(team);
+  return (group.length ? group : TEAM_DEFINITIONS).map((definition) => definition.id);
+}
+
+const DEFAULT_TEAM_SCOPE: Team[] = getTeamGroupIds("football-varsity");
+
+export function getStoredTeamSelection(): Team | "" {
+  if (typeof window === "undefined") return "";
+  try {
+    const stored = window.localStorage.getItem("pl-strength-team");
+    const normalized = normalizeTeam(stored ?? undefined);
+    return normalized ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setStoredTeamSelection(team: Team | ""): void {
+  if (typeof window === "undefined") return;
+  if (team) {
+    window.localStorage.setItem("pl-strength-team", team);
+  } else {
+    window.localStorage.removeItem("pl-strength-team");
+  }
+  window.dispatchEvent(
+    new CustomEvent<Team | null>("pl-team-change", { detail: team || null })
+  );
+}
+
+export function resolveTeamScopes(team?: Team | string | null): Team[] {
+  const scopes = getTeamGroupIds(team);
+  return scopes.length ? scopes : DEFAULT_TEAM_SCOPE;
+}
+
+export async function updateCoachTeamScope(team: Team | ""): Promise<void> {
+  const handles = resolveHandles();
+  const auth = handles?.auth;
+  const database = handles?.db;
+  const uid = auth?.currentUser?.uid;
+  if (!database || !uid) return;
+  const normalized = team ? normalizeTeam(team) : undefined;
+  const scopes = resolveTeamScopes(normalized);
+  const payload: Record<string, unknown> = {
+    teamScopes: scopes,
+    teamAnchor: normalized ?? null,
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(roleRef(database, uid), payload, { merge: true });
+}
 export type BarOption = {
   id: string;
   label: string;
@@ -340,7 +518,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     firstName: data.firstName || "",
     lastName: data.lastName || "",
     unit: (data.unit || "lb") as Unit,
-    team: data.team as Team | undefined,
+    team: normalizeTeam(data.team),
     tm: data.tm || {},
     oneRm: data.oneRm || {},
     accessCode: data.accessCode ?? null,
@@ -554,7 +732,7 @@ export async function listRoster(): Promise<RosterEntry[]> {
         firstName: data.firstName,
         lastName: data.lastName,
         unit: data.unit as Unit,
-        team: data.team as Team,
+        team: normalizeTeam(data.team),
         accessCode: data.accessCode ?? null,
         roles,
       };
@@ -687,8 +865,7 @@ const normalizeAttendanceSheet = (
           : null;
       const firstName = sanitizeName((item as any).firstName);
       const lastName = sanitizeName((item as any).lastName);
-      const level =
-        (item as any).level === "Varsity" ? "Varsity" : "JH";
+      const level = normalizeTeam((item as any).level) ?? team;
       if (!id || (!firstName && !lastName)) return null;
       return { id, firstName, lastName, level };
     })
@@ -764,7 +941,7 @@ export async function saveAttendanceSheet(
       ...athlete,
       firstName: sanitizeName(athlete.firstName),
       lastName: sanitizeName(athlete.lastName),
-      level: athlete.level === "Varsity" ? "Varsity" : "JH",
+      level: normalizeTeam(athlete.level) ?? sheet.team,
     }))
     .filter((athlete) => athlete.id && (athlete.firstName || athlete.lastName));
 

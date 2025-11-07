@@ -4,6 +4,9 @@
   "engines": {
     "node": "20"
   },
+  "scripts": {
+    "migrate:teams": "node scripts/migrate-team-data.js"
+  },
   "main": "index.js",
   "license": "UNLICENSED",
   "dependencies": {

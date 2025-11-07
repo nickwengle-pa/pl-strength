@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  TEAM_DEFINITIONS,
+  formatTeamLabel,
+  getStoredTeamSelection,
+  getTeamDefinition,
   loadAttendanceSheet,
   saveAttendanceSheet,
   type AttendanceSheet,
@@ -7,7 +11,12 @@ import {
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
-const TEAMS: Team[] = ["Varsity", "JH"];
+const ALL_TEAMS: Team[] = TEAM_DEFINITIONS.map((definition) => definition.id as Team);
+const DEFAULT_FOOTBALL_TEAMS: Team[] = TEAM_DEFINITIONS.filter(
+  (definition) => definition.sport === "football" && definition.program === "coed"
+).map((definition) => definition.id as Team);
+const FALLBACK_TEAMS: Team[] =
+  DEFAULT_FOOTBALL_TEAMS.length > 0 ? DEFAULT_FOOTBALL_TEAMS : ALL_TEAMS;
 
 const createEmptySheet = (team: Team): AttendanceSheet => ({
   team,
@@ -48,10 +57,13 @@ const nextAvailableDate = (existing: string[]): string => {
 
 type TeamMap<T> = Record<Team, T>;
 
-const buildTeamMap = <T,>(builder: (team: Team) => T): TeamMap<T> => ({
-  Varsity: builder("Varsity"),
-  JH: builder("JH"),
-});
+const buildTeamMap = <T,>(builder: (team: Team) => T): TeamMap<T> =>
+  ALL_TEAMS.reduce((acc, team) => {
+    acc[team] = builder(team);
+    return acc;
+  }, {} as TeamMap<T>);
+
+const DEFAULT_TEAM: Team = FALLBACK_TEAMS[0] ?? ALL_TEAMS[0];
 
 export default function Attendance() {
   const { loading: authLoading, isCoach } = useActiveAthlete();
@@ -69,13 +81,63 @@ export default function Attendance() {
   const [teamErrors, setTeamErrors] = useState<TeamMap<string | null>>(() =>
     buildTeamMap(() => null)
   );
-  const [selectedTeam, setSelectedTeam] = useState<Team>("Varsity");
+  const [selectedTeam, setSelectedTeam] = useState<Team>(DEFAULT_TEAM);
   const [flash, setFlash] = useState<string | null>(null);
   const [formDraft, setFormDraft] = useState<{
     firstName: string;
     lastName: string;
     level: Team;
-  }>({ firstName: "", lastName: "", level: "Varsity" });
+  }>({ firstName: "", lastName: "", level: DEFAULT_TEAM });
+  const [coachTeam, setCoachTeam] = useState<Team | null>(null);
+
+  const visibleTeamDefs = useMemo(() => {
+    if (coachTeam) {
+      const definition = getTeamDefinition(coachTeam);
+      if (definition) {
+        return TEAM_DEFINITIONS.filter(
+          (candidate) =>
+            candidate.sport === definition.sport &&
+            candidate.program === definition.program
+        );
+      }
+    }
+    return TEAM_DEFINITIONS.filter(
+      (candidate) => candidate.sport === "football" && candidate.program === "coed"
+    );
+  }, [coachTeam]);
+
+  const visibleTeams: Team[] = useMemo(() => {
+    const mapped = visibleTeamDefs.map((definition) => definition.id as Team);
+    return mapped.length > 0 ? mapped : FALLBACK_TEAMS;
+  }, [visibleTeamDefs]);
+
+  useEffect(() => {
+    if (!visibleTeams.includes(selectedTeam)) {
+      setSelectedTeam(visibleTeams[0]);
+    }
+  }, [visibleTeams, selectedTeam]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => {
+      const stored = getStoredTeamSelection();
+      setCoachTeam(stored || null);
+    };
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        const normalized = getStoredTeamSelection();
+        setCoachTeam(normalized || null);
+      }
+    };
+    const handleCustom = (_event: Event) => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,22 +149,34 @@ export default function Attendance() {
     setLoadError(null);
     (async () => {
       try {
+        const targets = visibleTeams.length > 0 ? visibleTeams : FALLBACK_TEAMS;
         const entries = await Promise.all(
-          TEAMS.map(async (team) => {
+          targets.map(async (team) => {
             const sheet = await loadAttendanceSheet(team);
             return [team, sheet] as const;
           })
         );
-        const nextSheets: TeamMap<AttendanceSheet> = {
-          Varsity: createEmptySheet("Varsity"),
-          JH: createEmptySheet("JH"),
-        };
-        entries.forEach(([team, sheet]) => {
-          nextSheets[team] = sheet;
+        setSheets((prev) => {
+          const next = { ...prev };
+          entries.forEach(([team, sheet]) => {
+            next[team] = sheet;
+          });
+          return next;
         });
-        setSheets(nextSheets);
-        setDirty(buildTeamMap(() => false));
-        setTeamErrors(buildTeamMap(() => null));
+        setDirty((prev) => {
+          const next = { ...prev };
+          targets.forEach((team) => {
+            next[team] = false;
+          });
+          return next;
+        });
+        setTeamErrors((prev) => {
+          const next = { ...prev };
+          targets.forEach((team) => {
+            next[team] = null;
+          });
+          return next;
+        });
       } catch (err: any) {
         const message = err?.message ?? "Could not load attendance sheets.";
         setLoadError(message);
@@ -110,7 +184,7 @@ export default function Attendance() {
         setLoading(false);
       }
     })();
-  }, [authLoading, isCoach]);
+  }, [authLoading, isCoach, visibleTeams]);
 
   useEffect(() => {
     setFormDraft((prev) => ({
@@ -284,7 +358,7 @@ export default function Attendance() {
         [team]: fresh,
       }));
       setDirty((prev) => ({ ...prev, [team]: false }));
-      setFlash(`Saved ${team} attendance.`);
+      setFlash(`Saved ${formatTeamLabel(team)} attendance.`);
     } catch (err: any) {
       const message =
         err?.message ?? "Could not save attendance. Try again shortly.";
@@ -322,11 +396,11 @@ export default function Attendance() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Attendance</h1>
             <p className="text-sm text-gray-600">
-              Track lift day attendance separately for Varsity and Junior High.
+              Track lift day attendance separately for each football team.
             </p>
           </div>
           <div className="flex gap-2">
-            {TEAMS.map((team) => (
+            {visibleTeams.map((team) => (
               <button
                 key={team}
                 type="button"
@@ -338,7 +412,7 @@ export default function Attendance() {
                     : "border border-gray-200 bg-white text-gray-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
                 ].join(" ")}
               >
-                {team}
+                {formatTeamLabel(team)}
               </button>
             ))}
           </div>
@@ -364,7 +438,7 @@ export default function Attendance() {
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">
-            {selectedTeam} attendance sheet
+            {formatTeamLabel(selectedTeam)} attendance sheet
           </h2>
           <div className="flex gap-2">
             <button
@@ -499,9 +573,9 @@ export default function Attendance() {
                 }))
               }
             >
-              {TEAMS.map((team) => (
+              {visibleTeams.map((team) => (
                 <option key={team} value={team}>
-                  {team}
+                  {formatTeamLabel(team)}
                 </option>
               ))}
             </select>
@@ -516,4 +590,3 @@ export default function Attendance() {
     </div>
   );
 }
-

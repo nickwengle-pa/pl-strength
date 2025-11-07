@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -6,14 +6,18 @@ import {
 } from "firebase/auth";
 import {
   AthleteAuthError,
+  TEAM_DEFINITIONS,
   buildAthleteEmail,
   ensureAdminRole,
   ensureCoachRole,
   fb,
+  getStoredTeamSelection,
   loadProfileRemote,
   normalizePasscodeDigits,
   saveProfile,
+  setStoredTeamSelection,
   signInOrCreateAthleteAccount,
+  updateCoachTeamScope,
   type Team,
 } from "../lib/db";
 
@@ -43,8 +47,10 @@ const buildCoachEmail = (firstName: string, lastName: string): string => {
 };
 const TEAM_OPTIONS: Array<{ label: string; value: Team | "" }> = [
   { label: "Select a team", value: "" },
-  { label: "Junior High", value: "JH" },
-  { label: "Varsity", value: "Varsity" },
+  ...TEAM_DEFINITIONS.map((definition) => ({
+    label: definition.label,
+    value: definition.id,
+  })),
 ];
 
 const updateDisplayNameCache = (name: string | null) => {
@@ -58,7 +64,6 @@ const updateDisplayNameCache = (name: string | null) => {
     new CustomEvent<string | null>("pl-display-name-change", { detail: name?.trim() ?? null })
   );
 };
-
 
 export default function SignIn() {
   const [mode, setMode] = useState<Mode | null>(null);
@@ -90,22 +95,17 @@ export default function SignIn() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("pl-strength-team");
-    if (stored === "JH" || stored === "Varsity") {
-      setTeam(stored as Team);
+    const stored = getStoredTeamSelection();
+    if (stored) {
+      setTeam(stored);
     }
   }, []);
 
   useEffect(() => {
-    if (mode === "athlete") {
-      const stored = window.localStorage.getItem("pl-strength-team");
-      if (stored === "JH" || stored === "Varsity") {
-        setTeam(stored as Team);
-      } else {
-        setTeam("");
-      }
-    } else {
+    if (mode === null) {
       setTeam("");
+    } else {
+      setTeam(getStoredTeamSelection());
     }
     setPasscode("");
   }, [mode]);
@@ -120,6 +120,7 @@ export default function SignIn() {
     resetSharedState();
     setFirstName("");
     setLastName("");
+    setTeam(getStoredTeamSelection());
     setMode(nextMode);
   };
 
@@ -153,11 +154,7 @@ export default function SignIn() {
       equipment: base?.equipment,
     });
 
-    if (resolvedTeam) {
-      window.localStorage.setItem("pl-strength-team", resolvedTeam);
-    } else {
-      window.localStorage.removeItem("pl-strength-team");
-    }
+    setStoredTeamSelection(resolvedTeam ?? "");
 
     updateDisplayNameCache(`${first} ${last}`);
   };
@@ -199,11 +196,7 @@ export default function SignIn() {
         team,
       });
 
-      if (profile.team) {
-        window.localStorage.setItem("pl-strength-team", profile.team);
-      } else {
-        window.localStorage.removeItem("pl-strength-team");
-      }
+      setStoredTeamSelection(profile.team ?? "");
       updateDisplayNameCache(`${profile.firstName} ${profile.lastName}`.trim());
       setMessage({
         kind: "success",
@@ -270,6 +263,10 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   const safeLast = sanitizeName(lastName);
   if (!safeFirst || !safeLast) {
     setMessage({ kind: "error", text: "Enter first and last name." });
+    return;
+  }
+  if (!team) {
+    setMessage({ kind: "error", text: "Select your team before signing in." });
     return;
   }
 
@@ -371,6 +368,12 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   }
 
   try {
+    await updateCoachTeamScope(team);
+  } catch (err) {
+    console.warn("Failed to update coach team scope", err);
+  }
+
+  try {
     await persistProfile(userUid, safeFirst, safeLast, team);
   } catch (err) {
     console.warn("Failed to persist coach profile", err);
@@ -434,7 +437,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                 onClick={backToChooser}
                 disabled={disabled}
               >
-                <span aria-hidden="true">←</span>
+                <span aria-hidden="true">?</span>
                 Choose a different login
               </button>
               <div className="text-right">
@@ -562,7 +565,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                 </div>
 
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  Team (optional)
+                  Team
                   <select
                     className="field"
                     value={team}
@@ -615,6 +618,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     </div>
   );
 }
+
 
 
 
