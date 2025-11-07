@@ -35,20 +35,49 @@ service cloud.firestore {
       return isSignedIn() && hasRole(request.auth.uid, "admin");
     }
 
+    function allowedRoleKeys() {
+      return ["roles", "teamScopes", "teamAnchor", "updatedAt", "accessHistory"];
+    }
+
+    function hasCoachPayload() {
+      return request.resource.data.roles is list
+        && request.resource.data.roles.size() == 1
+        && request.resource.data.roles.hasOnly(["coach"]);
+    }
+
+    function hasAdminPayload() {
+      return request.resource.data.roles is list
+        && request.resource.data.roles.size() == 2
+        && request.resource.data.roles.hasOnly(["admin", "coach"])
+        && request.resource.data.roles.hasAll(["admin", "coach"]);
+    }
+
+    function optionalTeamScopesAreList() {
+      return request.resource.data.keys().hasAny(["teamScopes"])
+        ? request.resource.data.teamScopes is list
+        : true;
+    }
+
+    function optionalAccessHistoryIsMap() {
+      return request.resource.data.keys().hasAny(["accessHistory"])
+        ? request.resource.data.accessHistory is map
+        : true;
+    }
+
     function coachSelfWrite(uid) {
       return isSelf(uid)
-        && request.resource.data.roles is list
-        && request.resource.data.roles.size() == 1
-        && request.resource.data.roles[0] == "coach"
-        && request.resource.data.keys().hasOnly(["roles", "teamScopes", "teamAnchor", "updatedAt"]);
+        && request.resource.data.keys().hasOnly(allowedRoleKeys())
+        && optionalTeamScopesAreList()
+        && optionalAccessHistoryIsMap()
+        && hasCoachPayload();
     }
 
     function adminBootstrap(uid) {
       return isSelf(uid)
-        && request.resource.data.roles is list
-        && request.resource.data.roles.size() == 2
-        && request.resource.data.roles.hasAll(["admin", "coach"])
-        && request.resource.data.keys().hasOnly(["roles", "teamScopes", "teamAnchor", "updatedAt"]);
+        && request.resource.data.keys().hasOnly(allowedRoleKeys())
+        && optionalTeamScopesAreList()
+        && optionalAccessHistoryIsMap()
+        && hasAdminPayload();
     }
 
     function defaultTeamScopes() {
@@ -56,19 +85,19 @@ service cloud.firestore {
     }
 
     function coachTeamScopes(uid) {
-      if (!rolesDocExists(uid)) return defaultTeamScopes();
-      let doc = rolesDoc(uid);
-      return (doc.data.teamScopes is list && doc.data.teamScopes.size() > 0)
-        ? doc.data.teamScopes
+      return rolesDocExists(uid) 
+        ? (rolesDoc(uid).data.teamScopes is list && rolesDoc(uid).data.teamScopes.size() > 0)
+          ? rolesDoc(uid).data.teamScopes
+          : defaultTeamScopes()
         : defaultTeamScopes();
     }
 
     function hasTeamScope(uid, teamId) {
-      if (!isSignedIn()) return false;
-      if (!teamId || teamId == "") return true;
-      if (isAdmin()) return true;
-      if (!hasRole(uid, "coach")) return false;
-      return coachTeamScopes(uid).hasAny([teamId]);
+      return !isSignedIn() ? false :
+             !teamId || teamId == "" ? true :
+             isAdmin() ? true :
+             !hasRole(uid, "coach") ? false :
+             coachTeamScopes(uid).hasAny([teamId]);
     }
 
     match /roles/{uid} {
