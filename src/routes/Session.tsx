@@ -600,7 +600,7 @@ export default function Session() {
                 <h3 className="text-2xl font-semibold text-gray-900">Let's Train - {liftLabel}</h3>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {tm && (
+                {tm ? (
                   <button
                     onClick={() => {
                       setCurrentSetIndex(0);
@@ -610,6 +610,11 @@ export default function Session() {
                   >
                     📱 Mobile Workout Mode
                   </button>
+                ) : (
+                  <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500">
+                    📱 Mobile Workout Mode
+                    <span className="text-xs">(Set TM first)</span>
+                  </div>
                 )}
                 {targetUid ? (
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
