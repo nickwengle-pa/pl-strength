@@ -202,21 +202,26 @@ export default function Home() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-xl md:text-2xl font-semibold">PL Strength</h1>
-              <p className="text-xs md:text-sm text-white/80 mt-1">Quick access to all tools</p>
+              <p className="text-xs md:text-sm text-white/80 mt-1">
+                {isCoach ? "Quick access to all tools" : "Your strength training companion"}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {PAGE_LINKS.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25 ${
-                    link.hideOnMobile ? "hidden md:inline-flex" : ""
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+            {/* Only show quick access links for coaches */}
+            {isCoach && (
+              <div className="flex flex-wrap gap-2">
+                {PAGE_LINKS.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25 ${
+                      link.hideOnMobile ? "hidden md:inline-flex" : ""
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
