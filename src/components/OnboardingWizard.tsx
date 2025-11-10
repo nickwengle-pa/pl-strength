@@ -30,9 +30,7 @@ export default function OnboardingWizard({ onComplete, unit }: OnboardingWizardP
   };
 
   const skipOnboarding = () => {
-    if (confirm("Skip the tutorial? You can always access the Guide page later for help.")) {
-      onComplete();
-    }
+    onComplete();
   };
 
   return (
