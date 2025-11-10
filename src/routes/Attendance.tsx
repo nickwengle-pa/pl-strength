@@ -6,6 +6,8 @@ import {
   getTeamDefinition,
   loadAttendanceSheet,
   saveAttendanceSheet,
+  fetchAthleteSessions,
+  listRoster,
   type AttendanceSheet,
   type Team,
 } from "../lib/db";
@@ -55,6 +57,36 @@ const nextAvailableDate = (existing: string[]): string => {
   return formatDateInput(today);
 };
 
+const formatLastWorkout = (timestamp?: number): { text: string; isRecent: boolean } => {
+  if (!timestamp) return { text: "—", isRecent: false };
+  
+  const now = Date.now();
+  const dayInMs = 24 * 60 * 60 * 1000;
+  const diff = now - timestamp;
+  
+  // Today
+  if (diff < dayInMs) {
+    return { text: "Today", isRecent: true };
+  }
+  
+  // Yesterday
+  if (diff < 2 * dayInMs) {
+    return { text: "Yesterday", isRecent: true };
+  }
+  
+  // Within last 7 days
+  if (diff < 7 * dayInMs) {
+    const daysAgo = Math.floor(diff / dayInMs);
+    return { text: `${daysAgo}d ago`, isRecent: true };
+  }
+  
+  // Older - show date
+  const date = new Date(timestamp);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return { text: `${month}/${day}`, isRecent: false };
+};
+
 type TeamMap<T> = Record<Team, T>;
 
 const buildTeamMap = <T,>(builder: (team: Team) => T): TeamMap<T> =>
@@ -89,6 +121,7 @@ export default function Attendance() {
     level: Team;
   }>({ firstName: "", lastName: "", level: DEFAULT_TEAM });
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
+  const [lastWorkoutDates, setLastWorkoutDates] = useState<Record<string, number>>({});
 
   const visibleTeamDefs = useMemo(() => {
     if (coachTeam) {
@@ -182,6 +215,41 @@ export default function Attendance() {
         setLoadError(message);
       } finally {
         setLoading(false);
+      }
+    })();
+  }, [authLoading, isCoach, visibleTeams]);
+
+  // Load last workout dates for all athletes
+  useEffect(() => {
+    if (authLoading || !isCoach) return;
+    
+    (async () => {
+      try {
+        const roster = await listRoster();
+        const workoutDates: Record<string, number> = {};
+        
+        // Fetch last session for each athlete
+        await Promise.all(
+          roster.map(async (athlete) => {
+            try {
+              const sessions = await fetchAthleteSessions(athlete.uid);
+              if (sessions.length > 0) {
+                // Get most recent session date
+                const lastSession = sessions.reduce((latest, session) => 
+                  (session.createdAt || 0) > (latest.createdAt || 0) ? session : latest
+                );
+                workoutDates[athlete.uid] = lastSession.createdAt || 0;
+              }
+            } catch (err) {
+              // Silently skip athletes we can't load
+              console.debug(`Could not load sessions for ${athlete.uid}`);
+            }
+          })
+        );
+        
+        setLastWorkoutDates(workoutDates);
+      } catch (err) {
+        console.debug('Could not load workout dates', err);
       }
     })();
   }, [authLoading, isCoach, visibleTeams]);
@@ -347,6 +415,109 @@ export default function Attendance() {
     handleSetError(level, null);
   };
 
+  const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+        
+        // Skip header if it looks like a header row
+        const startIndex = lines[0]?.toLowerCase().match(/first|last|name|level|team/) ? 1 : 0;
+        
+        const athletesByLevel: Record<Team, Array<{ id: string; firstName: string; lastName: string; level: Team }>> = {} as any;
+        const errors: string[] = [];
+        
+        for (let i = startIndex; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          // Support both comma and tab separated
+          const parts = line.includes('\t') 
+            ? line.split('\t').map(p => p.trim())
+            : line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+          
+          if (parts.length < 2) {
+            errors.push(`Line ${i + 1}: Need at least first and last name`);
+            continue;
+          }
+          
+          const [firstName, lastName, levelStr] = parts;
+          
+          if (!firstName || !lastName) {
+            errors.push(`Line ${i + 1}: Missing name`);
+            continue;
+          }
+          
+          // Determine level
+          let level: Team = selectedTeam;
+          if (levelStr) {
+            const normalized = levelStr.toLowerCase().trim();
+            const matchedTeam = visibleTeams.find(t => 
+              t.toLowerCase() === normalized || 
+              formatTeamLabel(t).toLowerCase() === normalized
+            );
+            if (matchedTeam) {
+              level = matchedTeam;
+            }
+          }
+          
+          const id = createId();
+          if (!athletesByLevel[level]) athletesByLevel[level] = [];
+          athletesByLevel[level].push({ id, firstName, lastName, level });
+        }
+        
+        const totalCount = Object.values(athletesByLevel).reduce((sum, arr) => sum + arr.length, 0);
+        
+        if (totalCount === 0) {
+          setFlash(errors.length > 0 ? errors.join('; ') : 'No valid athletes found in CSV');
+          event.target.value = '';
+          return;
+        }
+        
+        // Add athletes to sheets
+        Object.entries(athletesByLevel).forEach(([levelKey, athletes]) => {
+          const level = levelKey as Team;
+          updateSheet(level, (current) => {
+            const nextAthletes = [...current.athletes, ...athletes];
+            const nextRecords = { ...current.records };
+            
+            athletes.forEach(athlete => {
+              const row: Record<string, boolean> = {};
+              current.dates.forEach((date) => {
+                row[date] = false;
+              });
+              nextRecords[athlete.id] = row;
+            });
+            
+            return { ...current, athletes: nextAthletes, records: nextRecords };
+          });
+        });
+        
+        const summary = Object.entries(athletesByLevel)
+          .map(([level, athletes]) => `${athletes.length} to ${formatTeamLabel(level as Team)}`)
+          .join(', ');
+        
+        setFlash(`Imported ${totalCount} athletes: ${summary}${errors.length > 0 ? `. ${errors.length} errors` : ''}`);
+        
+      } catch (err: any) {
+        setFlash(`CSV import error: ${err.message}`);
+      }
+      
+      event.target.value = '';
+    };
+    
+    reader.onerror = () => {
+      setFlash('Failed to read file');
+      event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+  };
+
   const handleSave = async (team: Team) => {
     setSaving((prev) => ({ ...prev, [team]: true }));
     handleSetError(team, null);
@@ -467,6 +638,9 @@ export default function Attendance() {
                 <th className="w-48 px-3 py-2 text-left font-medium text-gray-700">
                   Athlete
                 </th>
+                <th className="w-32 px-3 py-2 text-left text-xs font-semibold text-gray-600">
+                  Last Workout
+                </th>
                 {selectedSheet.dates.map((date, index) => (
                   <th key={date} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">
                     <div className="flex flex-col items-center gap-1">
@@ -496,7 +670,7 @@ export default function Attendance() {
               {visibleAthletes.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={selectedSheet.dates.length + 2}
+                    colSpan={selectedSheet.dates.length + 3}
                     className="px-3 py-5 text-center text-sm text-gray-500"
                   >
                     No athletes added yet. Use the form below to add someone.
@@ -507,6 +681,16 @@ export default function Attendance() {
                   <tr key={athlete.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-sm font-medium text-gray-800">
                       {[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {(() => {
+                        const { text, isRecent } = formatLastWorkout(lastWorkoutDates[athlete.id]);
+                        return (
+                          <span className={isRecent ? "font-semibold text-green-600" : "text-gray-500"}>
+                            {text}
+                          </span>
+                        );
+                      })()}
                     </td>
                     {selectedSheet.dates.map((date) => (
                       <td key={date} className="px-2 py-2 text-center">
@@ -586,6 +770,42 @@ export default function Attendance() {
             </button>
           </div>
         </form>
+        
+        {/* CSV Import Section */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-blue-900">Import from CSV/Excel</h3>
+          <p className="text-xs text-blue-700">
+            Upload a CSV file with columns: <strong>FirstName, LastName</strong> (optional: Level/Team)
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="btn btn-secondary cursor-pointer">
+              📄 Choose CSV File
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleCSVImport}
+                className="hidden"
+              />
+            </label>
+            <span className="text-xs text-blue-600">
+              Supports comma or tab-separated values
+            </span>
+          </div>
+          <details className="text-xs text-blue-700">
+            <summary className="cursor-pointer font-medium">Example CSV format</summary>
+            <pre className="mt-2 bg-white p-2 rounded border border-blue-200 text-[10px] overflow-x-auto">
+FirstName,LastName,Level
+John,Smith,varsity-football-coed
+Jane,Doe,jh-football-coed
+Mike,Johnson
+            </pre>
+            <p className="mt-1 text-[10px]">
+              • First row can be a header (will be auto-detected)<br />
+              • Level/Team is optional (uses selected team if not provided)<br />
+              • Supports Excel CSV exports
+            </p>
+          </details>
+        </div>
       </div>
     </div>
   );
