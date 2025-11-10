@@ -377,15 +377,6 @@ export default function Home() {
             
             <div className="grid md:grid-cols-3 gap-3">
               <Link
-                to="/session"
-                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
-              >
-                <div className="text-3xl mb-2">💪</div>
-                <div className="font-semibold text-gray-900">Today's Workout</div>
-                <div className="text-xs text-gray-600 mt-1">Log your training session</div>
-              </Link>
-              
-              <Link
                 to="/calculator"
                 className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
               >
@@ -401,6 +392,15 @@ export default function Home() {
                 <div className="text-3xl mb-2">⚙️</div>
                 <div className="font-semibold text-gray-900">Profile</div>
                 <div className="text-xs text-gray-600 mt-1">Set your TM & preferences</div>
+              </Link>
+              
+              <Link
+                to="/session"
+                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
+              >
+                <div className="text-3xl mb-2">💪</div>
+                <div className="font-semibold text-gray-900">Today's Workout</div>
+                <div className="text-xs text-gray-600 mt-1">Log your training session</div>
               </Link>
             </div>
           </div>
