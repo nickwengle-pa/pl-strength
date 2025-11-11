@@ -125,7 +125,7 @@ export default function Exercises() {
 
   const handleAddExercise = () => {
     const trimmedName = newName.trim();
-    const trimmedUrl = newUrl.trim();
+    let trimmedUrl = newUrl.trim();
     
     if (!trimmedName) {
       alert("Please enter an exercise name");
@@ -137,9 +137,22 @@ export default function Exercises() {
       return;
     }
     
+    // Add https:// if missing
+    if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+      trimmedUrl = "https://" + trimmedUrl;
+    }
+    
     // Check if URL is a valid YouTube URL
     if (!trimmedUrl.includes("youtube.com") && !trimmedUrl.includes("youtu.be")) {
       alert("Please enter a valid YouTube URL");
+      return;
+    }
+    
+    // Validate URL format
+    try {
+      new URL(trimmedUrl);
+    } catch {
+      alert("Please enter a valid URL");
       return;
     }
     
