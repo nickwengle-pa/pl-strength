@@ -362,7 +362,7 @@ export type Profile = {
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
-  lb: [55, 45, 35, 25, 10, 5, 2.5, 1.25],
+  lb: [45, 35, 25, 10, 5, 2.5, 1.25],
   kg: [25, 20, 15, 10, 5, 2.5, 1.25, 0.5],
 };
 
