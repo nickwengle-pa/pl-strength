@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
+import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
 import OnboardingWizard from "../components/OnboardingWizard";
 
 const PAGE_LINKS = [
@@ -359,20 +359,47 @@ export default function Home() {
 
         {/* Welcome Card for Athletes (non-coaches) */}
         {!isCoach && profile && (
-          <div className="rounded-3xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-xl">
+          <div className="card border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-blue-800">
                   Welcome{profile.firstName ? `, ${profile.firstName}` : ''}! 👋
                 </h2>
                 <p className="text-sm text-blue-600 mt-1">Quick links to get you started</p>
               </div>
-              <button
-                onClick={() => setShowOnboarding(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition"
-              >
-                📖 Tutorial
-              </button>
+              
+              <div className="flex items-center gap-3">
+                {/* Week Selector */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-blue-800">Week:</label>
+                  <select
+                    className="field !text-sm !py-1 bg-white border-blue-300"
+                    value={profile.currentWeek ?? 1}
+                    onChange={async (e) => {
+                      const newWeek = Number(e.target.value) as 1 | 2 | 3 | 4;
+                      const updated = { ...profile, currentWeek: newWeek };
+                      setProfile(updated);
+                      try {
+                        await saveProfile(updated);
+                      } catch (err) {
+                        console.error("Failed to save week", err);
+                      }
+                    }}
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                  </select>
+                </div>
+                
+                <button
+                  onClick={() => setShowOnboarding(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition"
+                >
+                  📖 Tutorial
+                </button>
+              </div>
             </div>
             
             <div className="grid md:grid-cols-3 gap-3">
@@ -411,7 +438,7 @@ export default function Home() {
             <Link
               key={feature.label}
               to={feature.to}
-              className="group relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
+              className="card group relative overflow-hidden bg-white transition hover:-translate-y-1 hover:shadow-xl"
             >
               <div
                 className={`absolute -right-16 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full blur-3xl opacity-60 transition-opacity duration-200 group-hover:opacity-90 ${feature.accent}`}
@@ -434,7 +461,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="rounded-3xl border border-gray-100 bg-white/95 p-8 shadow-xl ring-1 ring-gray-100/80">
+        <div className="card bg-white/95 shadow-xl ring-1 ring-gray-100/80">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">

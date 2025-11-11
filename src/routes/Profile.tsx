@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [p, setP] = useState<ProfileModel | null>(null);
   const [uid, setUid] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [lastSaved, setLastSaved] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const save = async () => {
     if (!p) return;
     await saveProfile(p);
+    setLastSaved(Date.now());
     alert("Saved.");
   };
   
@@ -153,9 +155,16 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={save}>
-          Save
-        </button>
+        <div className="flex items-center gap-3">
+          {lastSaved && (
+            <span className="text-sm text-gray-600">
+              Last saved: {new Date(lastSaved).toLocaleTimeString()}
+            </span>
+          )}
+          <button className="btn btn-primary" onClick={save}>
+            Save
+          </button>
+        </div>
       </div>
     </div>
   );

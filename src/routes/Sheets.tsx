@@ -93,14 +93,43 @@ const resolveProfile = async (targetUid?: string): Promise<Profile | null> => {
   }
 };
 
+const SHEETS_PREFS_KEY = "pl-strength.sheets.prefs";
+
+type SheetsPrefs = {
+  selectedCycle?: number;
+  selectedWeek?: Week;
+  showFullTable?: boolean;
+};
+
+function loadSheetsPrefs(): SheetsPrefs {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(SHEETS_PREFS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.warn("Failed to load sheets prefs", err);
+  }
+  return {};
+}
+
+function saveSheetsPrefs(prefs: SheetsPrefs) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SHEETS_PREFS_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    console.warn("Failed to save sheets prefs", err);
+  }
+}
+
 export default function Sheets() {
+  const savedPrefs = loadSheetsPrefs();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cycleCount, setCycleCount] = useState<number>(3);
-  const [selectedCycle, setSelectedCycle] = useState<number>(1);
-  const [selectedWeek, setSelectedWeek] = useState<Week>(1);
+  const [selectedCycle, setSelectedCycle] = useState<number>(savedPrefs.selectedCycle ?? 1);
+  const [selectedWeek, setSelectedWeek] = useState<Week>(savedPrefs.selectedWeek ?? 1);
   const [roundStep, setRoundStep] = useState<number>(5);
   const [roundStepText, setRoundStepText] = useState<string>("5");
-  const [showFullTable, setShowFullTable] = useState<boolean>(true);
+  const [showFullTable, setShowFullTable] = useState<boolean>(savedPrefs.showFullTable ?? true);
 
   const { activeAthlete, isCoach, loading: coachLoading } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
@@ -124,7 +153,7 @@ export default function Sheets() {
           firstName: activeAthlete.firstName ?? "",
           lastName: activeAthlete.lastName ?? "",
           unit: (activeAthlete.unit as Unit) || "lb",
-          team: activeAthlete.team ?? undefined,
+          team: (activeAthlete.team as any) ?? undefined,
           tm: {},
           oneRm: {},
           accessCode: null,
@@ -147,6 +176,15 @@ export default function Sheets() {
       setSelectedCycle(cycleCount || 1);
     }
   }, [cycleCount, selectedCycle]);
+
+  // Save preferences when they change
+  useEffect(() => {
+    saveSheetsPrefs({
+      selectedCycle,
+      selectedWeek,
+      showFullTable,
+    });
+  }, [selectedCycle, selectedWeek, showFullTable]);
 
 
   const planData = useMemo<PlanCycle[]>(() => {

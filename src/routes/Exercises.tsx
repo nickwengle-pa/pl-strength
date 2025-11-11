@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ensureAnon, isAdmin, subscribeToRoleChanges } from "../lib/db";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 type Exercise = {
   name: string;
@@ -90,6 +91,7 @@ export default function Exercises() {
   const [exercises, setExercises] = useState<Exercise[]>(() => loadStoredExercises());
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ index: number; name: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -167,10 +169,10 @@ export default function Exercises() {
     setNewUrl("");
   };
 
-  const handleDeleteExercise = (index: number) => {
-    if (confirm(`Delete "${exercises[index].name}"?`)) {
-      setExercises(prev => prev.filter((_, i) => i !== index));
-    }
+  const handleDeleteExercise = () => {
+    if (deleteConfirm === null) return;
+    setExercises(prev => prev.filter((_, i) => i !== deleteConfirm.index));
+    setDeleteConfirm(null);
   };
 
   if (loading) {
@@ -255,7 +257,7 @@ export default function Exercises() {
                   <button
                     type="button"
                     className="text-red-600 hover:text-red-700 text-xs font-medium"
-                    onClick={() => handleDeleteExercise(index)}
+                    onClick={() => setDeleteConfirm({ index, name: exercise.name })}
                   >
                     Delete
                   </button>
@@ -283,6 +285,17 @@ export default function Exercises() {
           );
         })}
       </div>
+
+      <ConfirmModal
+        isOpen={deleteConfirm !== null}
+        title="Delete Exercise"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteExercise}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

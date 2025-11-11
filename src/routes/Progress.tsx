@@ -3,10 +3,12 @@ import {
   ensureAnon,
   loadProfileRemote,
   recentSessions,
+  saveSession,
   type SessionRecord,
   type Profile,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { estimate1RM } from "../lib/tm";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 
@@ -16,6 +18,11 @@ export default function Progress() {
   const [selectedLift, setSelectedLift] = useState<Lift>("bench");
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showQuickPR, setShowQuickPR] = useState(false);
+  const [prWeight, setPrWeight] = useState<string>("");
+  const [prReps, setPrReps] = useState<string>("");
+  const [prNote, setPrNote] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   const { activeAthlete, isCoach, loading: coachLoading } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
@@ -69,6 +76,59 @@ export default function Progress() {
     ? sessions.reduce((sum, s) => sum + (s.amrap?.reps || 0), 0) / sessions.length 
     : 0;
 
+  const handleSaveQuickPR = async () => {
+    const weight = Number(prWeight);
+    const reps = Number(prReps);
+    
+    if (!weight || weight <= 0) {
+      alert("Please enter a valid weight");
+      return;
+    }
+    if (!reps || reps <= 0) {
+      alert("Please enter a valid number of reps");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const est1rm = estimate1RM(weight, reps);
+      
+      const record: SessionRecord = {
+        lift: selectedLift,
+        week: profile?.currentWeek || 1,
+        unit,
+        tm: currentTM,
+        est1rm,
+        pr: true,
+        warmups: [],
+        work: [],
+        amrap: {
+          weight,
+          reps,
+        },
+        note: prNote.trim() || "Quick PR Entry",
+        createdAt: Date.now(),
+      };
+      
+      await saveSession(record, targetUid || uid);
+      
+      // Refresh sessions
+      const data = await recentSessions(selectedLift, 50, targetUid || uid);
+      setSessions(data.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
+      
+      // Reset form
+      setPrWeight("");
+      setPrReps("");
+      setPrNote("");
+      setShowQuickPR(false);
+    } catch (err) {
+      console.error("Failed to save PR", err);
+      alert("Failed to save PR. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (coachLoading) {
     return (
       <div className="container py-6">
@@ -79,11 +139,19 @@ export default function Progress() {
 
   return (
     <div className="container py-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1>Progress Tracking</h1>
-        {targetUid && (
-          <div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>
-        )}
+        <div className="flex items-center gap-3">
+          {targetUid && (
+            <div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>
+          )}
+          <button
+            onClick={() => setShowQuickPR(true)}
+            className="btn btn-sm bg-green-600 hover:bg-green-700 text-white"
+          >
+            ⚡ Log Quick PR
+          </button>
+        </div>
       </div>
 
       {isCoach && !targetUid ? (
@@ -233,6 +301,96 @@ export default function Progress() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Quick PR Entry Modal */}
+      {showQuickPR && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowQuickPR(false)}
+        >
+          <div 
+            className="card max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rounded-t-2xl border-b-2 border-green-200 bg-green-50 px-6 py-4 -mx-6 -mt-6 mb-4">
+              <h2 className="text-lg font-bold text-green-900">⚡ Log Quick PR</h2>
+              <p className="text-sm text-green-700 mt-1">Record a personal record for {cap(selectedLift)}</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Weight ({unit})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="field w-full"
+                  placeholder="e.g., 225"
+                  value={prWeight}
+                  onChange={(e) => setPrWeight(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reps
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="field w-full"
+                  placeholder="e.g., 5"
+                  value={prReps}
+                  onChange={(e) => setPrReps(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note (optional)
+                </label>
+                <input
+                  type="text"
+                  className="field w-full"
+                  placeholder="e.g., Felt strong today"
+                  value={prNote}
+                  onChange={(e) => setPrNote(e.target.value)}
+                />
+              </div>
+              
+              {prWeight && prReps && (
+                <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                  Est. 1RM: <span className="font-semibold text-gray-900">
+                    {estimate1RM(Number(prWeight), Number(prReps)).toFixed(1)} {unit}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 justify-end mt-6">
+              <button
+                type="button"
+                onClick={() => setShowQuickPR(false)}
+                className="px-4 py-2 rounded-xl border border-gray-300 hover:bg-gray-100 font-semibold transition"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickPR}
+                disabled={saving}
+                className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save PR"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

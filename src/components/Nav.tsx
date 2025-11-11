@@ -212,7 +212,7 @@ export default function Nav() {
   ];
 
   const baseLinks = coach ? coachLinks : athleteLinks;
-  const links = admin ? [...baseLinks, { to: "/admin", label: "Admin" }] : baseLinks;
+  const links = (admin || coach) ? [...baseLinks, { to: "/admin", label: admin ? "Admin" : "Team" }] : baseLinks;
 
   const isMobile = device.isMobile || (device.isTouch && !device.isDesktop);
 

@@ -14,6 +14,7 @@ import {
 import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { estimate1RM, roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { PageLoadingSkeleton } from "../components/LoadingSkeleton";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 const lifts: Lift[] = ["bench", "squat", "deadlift", "press"];
@@ -113,7 +114,7 @@ function parseNumeric(value: string): number | "" {
   const trimmed = value.trim();
   if (!trimmed) return "";
   const num = Number(trimmed);
-  return Number.isFinite(num) ? num : "";
+  return Number.isFinite(num) && num >= 0 ? num : "";
 }
 
 type PlateVisualProps = {
@@ -676,11 +677,7 @@ export default function Calculator() {
   }
 
   if (coachLoading) {
-    return (
-      <div className="container py-6">
-        <div className="card text-sm text-gray-600">Loading coach tools...</div>
-      </div>
-    );
+    return <PageLoadingSkeleton rows={2} />;
   }
 
   return (

@@ -23,6 +23,7 @@ import {
   type Team,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { StatCardSkeleton } from "../components/LoadingSkeleton";
 
 const LIFT_KEYS = ["bench", "squat", "deadlift", "press"] as const;
 type LiftKey = (typeof LIFT_KEYS)[number];
@@ -101,7 +102,18 @@ export default function Roster() {
   const [adminAthleteFilter, setAdminAthleteFilter] = useState<Team | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
+  const [sortField, setSortField] = useState<"firstName" | "lastName" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
+
+  const handleSort = (field: "firstName" | "lastName") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -447,8 +459,29 @@ export default function Roster() {
     if (isAdminUser && adminAthleteFilter !== "all") {
       rows = rows.filter((row) => row.team === adminAthleteFilter);
     }
+    
+    // Apply sorting
+    if (sortField) {
+      rows = [...rows].sort((a, b) => {
+        let aVal = "";
+        let bVal = "";
+        
+        if (sortField === "firstName") {
+          aVal = (a.firstName || "").toLowerCase();
+          bVal = (b.firstName || "").toLowerCase();
+        } else if (sortField === "lastName") {
+          aVal = (a.lastName || "").toLowerCase();
+          bVal = (b.lastName || "").toLowerCase();
+        }
+        
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    
     return rows;
-  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter]);
+  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter, sortField, sortDirection]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -800,8 +833,28 @@ export default function Roster() {
           <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">
               <tr>
-                <th className="p-2 text-left">First</th>
-                <th className="p-2 text-left">Last</th>
+                <th 
+                  className="p-2 text-left cursor-pointer hover:bg-gray-100 transition select-none"
+                  onClick={() => handleSort("firstName")}
+                >
+                  <div className="flex items-center gap-1">
+                    First
+                    {sortField === "firstName" && (
+                      <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="p-2 text-left cursor-pointer hover:bg-gray-100 transition select-none"
+                  onClick={() => handleSort("lastName")}
+                >
+                  <div className="flex items-center gap-1">
+                    Last
+                    {sortField === "lastName" && (
+                      <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
+                    )}
+                  </div>
+                </th>
                 <th className="p-2 text-left">Team</th>
                 <th className="p-2 text-left">Unit</th>
                 <th className="p-2 text-left">Code</th>
@@ -896,7 +949,10 @@ export default function Roster() {
           </div>
 
           {detailLoading && (
-            <div className="text-sm text-gray-500">Loading latest numbers…</div>
+            <div className="space-y-3">
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+            </div>
           )}
 
           {detailError && !detailLoading && (
