@@ -197,6 +197,7 @@ export default function Nav() {
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/exercises", label: "Exercises" },
+    { to: "/profile", label: "Profile" },
   ];
 
   const coachLinks = [

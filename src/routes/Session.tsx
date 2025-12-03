@@ -8,9 +8,11 @@ import {
 import { loadProfile as loadProfileLocal } from "../lib/storage";
 import {
   loadProfileRemote,
+  saveProfile,
   saveSession,
   bestEst1RM,
   recentSessions,
+  type Profile,
 } from "../lib/db";
 import CoachTips from "../components/CoachTips";
 import TrendMini from "../components/TrendMini";
@@ -19,6 +21,8 @@ import { useActiveAthlete } from "../context/ActiveAthleteContext";
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
 type Unit = "lb" | "kg";
+
+const ALL_LIFTS: Lift[] = ["bench", "squat", "deadlift", "press"];
 
 type SetOutcome = { status: "" | "S" | "F"; actualReps: string };
 
@@ -69,6 +73,10 @@ export default function Session() {
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [liftConfirmed, setLiftConfirmed] = useState(false);
+  const [showWeekAdvancePrompt, setShowWeekAdvancePrompt] = useState(false);
+  const [liftsLoggedThisWeek, setLiftsLoggedThisWeek] = useState<Set<Lift>>(new Set());
 
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
@@ -89,14 +97,20 @@ export default function Session() {
   useEffect(() => {
     (async () => {
       if (targetUid) {
-        const profile = await loadProfileRemote(targetUid);
-        if (profile) {
-          const nextUnit = (profile.unit || "lb") as Unit;
+        const p = await loadProfileRemote(targetUid);
+        if (p) {
+          setProfile(p);
+          const nextUnit = (p.unit || "lb") as Unit;
           setUnit(nextUnit);
           setStep(nextUnit === "lb" ? 5 : 2.5);
-          const tmForLift = profile.tm?.[lift] ?? null;
+          const tmForLift = p.tm?.[lift] ?? null;
           setTm(tmForLift ?? null);
+          // Load saved week from profile
+          if (p.currentWeek && !liftConfirmed) {
+            setWeek(p.currentWeek);
+          }
         } else {
+          setProfile(null);
           setUnit("lb");
           setStep(5);
           setTm(null);
@@ -104,14 +118,20 @@ export default function Session() {
       } else {
         const remote = await loadProfileRemote();
         const local = loadProfileLocal();
-        const profile = remote || local;
-        if (profile) {
-          const nextUnit = (profile.unit || "lb") as Unit;
+        const p = remote || local;
+        if (p) {
+          setProfile(p);
+          const nextUnit = (p.unit || "lb") as Unit;
           setUnit(nextUnit);
           setStep(nextUnit === "lb" ? 5 : 2.5);
-          const tmForLift = profile.tm?.[lift] ?? null;
+          const tmForLift = p.tm?.[lift] ?? null;
           setTm(tmForLift ?? null);
+          // Load saved week from profile
+          if (p.currentWeek && !liftConfirmed) {
+            setWeek(p.currentWeek);
+          }
         } else {
+          setProfile(null);
           setTm(null);
         }
       }
@@ -287,11 +307,25 @@ export default function Session() {
       const rows = await recentSessions(lift, 12, targetUid);
       setHistory(rows.reverse());
       notifyProfileChange();
-      alert(
-        pr
-          ? `Saved. PR! New estimated 1RM ${est1rm} ${unit}`
-          : `Saved. Estimated 1RM ${est1rm} ${unit}`
-      );
+      
+      // Track this lift as logged for current week
+      const updatedLifts = new Set(liftsLoggedThisWeek);
+      updatedLifts.add(lift);
+      setLiftsLoggedThisWeek(updatedLifts);
+      
+      // Check if all 4 main lifts are now logged for this week
+      const allLiftsLogged = ALL_LIFTS.every((l: Lift) => updatedLifts.has(l));
+      
+      if (allLiftsLogged && week < 4) {
+        // Show week advance prompt instead of just alert
+        setShowWeekAdvancePrompt(true);
+      } else {
+        alert(
+          pr
+            ? `Saved. PR! New estimated 1RM ${est1rm} ${unit}`
+            : `Saved. Estimated 1RM ${est1rm} ${unit}`
+        );
+      }
     } catch (err) {
       console.warn("Failed to save session", err);
       alert("Unable to save session right now. Please try again.");
@@ -299,6 +333,27 @@ export default function Session() {
       setSaving(false);
     }
   }
+
+  // Handle week change and save to profile
+  const handleWeekChange = async (newWeek: Week) => {
+    setWeek(newWeek);
+    setLiftConfirmed(true);
+    // Reset lifts logged when changing weeks
+    setLiftsLoggedThisWeek(new Set());
+    // Save to profile
+    if (profile) {
+      const updatedProfile = { ...profile, currentWeek: newWeek };
+      await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
+      setProfile(updatedProfile);
+    }
+  };
+
+  // Advance to next week (1->2->3->4->1)
+  const advanceWeek = async () => {
+    const nextWeek: Week = week === 4 ? 1 : ((week + 1) as Week);
+    await handleWeekChange(nextWeek);
+    setShowWeekAdvancePrompt(false);
+  };
 
   const estSeries = history
     .map((row) => row.est1rm)
@@ -558,6 +613,79 @@ export default function Session() {
 
   return (
     <div className="container py-6 space-y-8">
+      {/* Week Advance Prompt Modal */}
+      {showWeekAdvancePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="text-center space-y-2">
+              <div className="text-4xl">🎉</div>
+              <h3 className="text-xl font-bold text-gray-900">Week {week} Complete!</h3>
+              <p className="text-sm text-gray-600">
+                You've logged all 4 main lifts for this week. Nice work!
+              </p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center">
+              <p className="text-sm font-medium text-emerald-800">
+                Ready to advance to Week {week === 3 ? "4 (Deload)" : week + 1}?
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowWeekAdvancePrompt(false)}
+                className="px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                Not Yet
+              </button>
+              <button
+                onClick={advanceWeek}
+                className="px-4 py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 shadow-lg"
+              >
+                Yes, Advance →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prominent Week Selector Tabs */}
+      <div className="rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 p-1 shadow-lg">
+        <div className="grid grid-cols-4 gap-1">
+          {([1, 2, 3, 4] as Week[]).map((w) => {
+            const isActive = week === w;
+            const weekTheme = WEEK_THEMES[w];
+            const weekColors: Record<Week, string> = {
+              1: "from-blue-500 to-blue-600",
+              2: "from-emerald-500 to-emerald-600",
+              3: "from-amber-500 to-amber-600",
+              4: "from-purple-500 to-purple-600",
+            };
+            return (
+              <button
+                key={w}
+                onClick={() => handleWeekChange(w)}
+                className={`relative rounded-xl px-2 py-3 text-center transition-all ${
+                  isActive
+                    ? `bg-gradient-to-br ${weekColors[w]} text-white shadow-lg scale-[1.02]`
+                    : "bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                <div className="text-xs font-medium uppercase tracking-wide opacity-80">
+                  {w === 4 ? "Deload" : `Week ${w}`}
+                </div>
+                <div className={`text-lg font-bold ${isActive ? "" : "text-gray-100"}`}>
+                  {w === 4 ? "40/50/60" : w === 1 ? "65/75/85" : w === 2 ? "70/80/90" : "75/85/95"}
+                </div>
+                {isActive && (
+                  <div className="mt-1 text-[10px] font-medium opacity-90 truncate">
+                    {weekTheme.name}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-lg ring-1 ring-gray-100/80 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
@@ -638,9 +766,12 @@ export default function Session() {
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                   <span className="text-xs uppercase tracking-wide text-gray-500">Lift</span>
                   <select
-                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                     value={lift}
-                    onChange={(event) => setLift(event.target.value as Lift)}
+                    onChange={(event) => {
+                      setLift(event.target.value as Lift);
+                      setLiftConfirmed(true);
+                    }}
                   >
                     <option value="bench">Bench Press</option>
                     <option value="squat">Back Squat</option>
@@ -652,14 +783,14 @@ export default function Session() {
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                   <span className="text-xs uppercase tracking-wide text-gray-500">Week</span>
                   <select
-                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                     value={week}
-                    onChange={(event) => setWeek(Number(event.target.value) as Week)}
+                    onChange={(event) => handleWeekChange(Number(event.target.value) as Week)}
                   >
-                    <option value={1}>Week 1 - 65/75/85</option>
-                    <option value={2}>Week 2 - 70/80/90</option>
-                    <option value={3}>Week 3 - 75/85/95</option>
-                    <option value={4}>Deload - 40/50/60</option>
+                    <option value={1}>Week 1 — 65/75/85%</option>
+                    <option value={2}>Week 2 — 70/80/90%</option>
+                    <option value={3}>Week 3 — 75/85/95%</option>
+                    <option value={4}>Deload — 40/50/60%</option>
                   </select>
                 </label>
 
@@ -683,6 +814,24 @@ export default function Session() {
                       Set training max in Calculator.
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* Visual confirmation of what's being logged */}
+            <div className="rounded-2xl border-2 border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">Now Logging</div>
+                  <div className="text-xl font-bold text-brand-800">
+                    {LIFT_LABELS[lift]} — Week {week}
+                  </div>
+                  <div className="text-sm text-brand-600">{WEEK_THEMES[week].focus}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-black text-brand-700">
+                    {week === 4 ? "40/50/60" : week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
+                  </div>
                 </div>
               </div>
             </div>
@@ -820,23 +969,36 @@ export default function Session() {
             <TrendMini values={estSeries} unit={unit} />
           </div>
           <ul className="space-y-3 text-sm text-gray-700">
-            {history.slice(-5).map((session, index) => (
-              <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-semibold text-gray-900">
-                    {session.est1rm ? `est1RM ${session.est1rm} ${session.unit}` : "Logged session"}
+            {history.slice(-5).map((session, index) => {
+              const weekColors: Record<number, string> = {
+                1: "bg-blue-100 text-blue-700 border-blue-200",
+                2: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                3: "bg-amber-100 text-amber-700 border-amber-200",
+                4: "bg-purple-100 text-purple-700 border-purple-200",
+              };
+              return (
+                <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
+                        W{session.week}
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {session.est1rm ? `est1RM ${session.est1rm} ${session.unit}` : "Logged"}
+                      </span>
+                    </div>
+                    {session.pr ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                        PR
+                      </span>
+                    ) : null}
                   </div>
-                  {session.pr ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                      PR
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-xs text-gray-500">
-                  AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit} - Week {session.week}
-                </div>
-              </li>
-            ))}
+                  <div className="text-xs text-gray-500 mt-1">
+                    AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
+                  </div>
+                </li>
+              );
+            })}
             {history.length === 0 && (
               <li className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500">
                 Log your first session to see trends here.

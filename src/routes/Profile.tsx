@@ -10,6 +10,7 @@ import {
   type Team,
 } from "../lib/db";
 import OnboardingWizard from "../components/OnboardingWizard";
+import { AllLiftsProgressCharts } from "../components/LiftProgressChart";
 
 export default function ProfilePage() {
   const [p, setP] = useState<ProfileModel | null>(null);
@@ -166,6 +167,9 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* Lift Progress Charts */}
+      <AllLiftsProgressCharts unit={p.unit} />
     </div>
   );
 }

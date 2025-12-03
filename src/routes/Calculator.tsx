@@ -413,15 +413,18 @@ export default function Calculator() {
         estimatorWeight > 0 &&
         estimatorReps > 0
       ) {
-        return Number(estimate1RM(estimatorWeight, estimatorReps).toFixed(1));
+        // Round to nearest 5 lb (or 2.5 kg)
+        const raw = estimate1RM(estimatorWeight, estimatorReps);
+        return roundToPlate(raw, unit, unit === "lb" ? 5 : 2.5);
       }
       return null;
     }
     if (typeof measured1rm === "number" && measured1rm > 0) {
-      return Number(measured1rm.toFixed(1));
+      // Round measured 1RM to nearest 5 lb (or 2.5 kg) as well
+      return roundToPlate(measured1rm, unit, unit === "lb" ? 5 : 2.5);
     }
     return null;
-  }, [useEstimator, measured1rm, estimatorWeight, estimatorReps]);
+  }, [useEstimator, measured1rm, estimatorWeight, estimatorReps, unit]);
 
   const trainingMax = useMemo(() => {
     if (!estimated1rm) return null;
