@@ -7,6 +7,7 @@ import {
   hasFirebase,
   isCoach,
   isAdmin,
+  loadProfileRemote,
   subscribeToRoleChanges,
   setStoredTeamSelection,
   type Team,
@@ -104,6 +105,16 @@ export default function Nav() {
       setFriendlyName(stored);
       return;
     }
+
+    // Attempt to recover name from profile if missing from local storage
+    loadProfileRemote(user.uid).then((p) => {
+      if (p && p.firstName && p.lastName) {
+        const name = `${p.firstName} ${p.lastName}`.trim();
+        window.localStorage.setItem("pl-strength-display-name", name);
+        setFriendlyName(name);
+      }
+    });
+
     if (user.email?.endsWith("@pl.strength")) {
       const base = user.email.replace("@pl.strength", "");
       const pretty = base

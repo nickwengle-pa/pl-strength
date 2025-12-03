@@ -29,9 +29,11 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { useOrg } from "../context/OrgContext";
 
-// Stub functions for features not yet fully implemented
-const updateDisplayNameCache = (_name: string) => {
-  // Display name caching - no-op for now
+const updateDisplayNameCache = (name: string) => {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("pl-strength-display-name", name);
+    window.dispatchEvent(new CustomEvent("pl-display-name-change", { detail: name }));
+  }
 };
 
 const waitForRoleSync = async (_uid: string, _isAdmin: boolean) => {

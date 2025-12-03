@@ -15,6 +15,7 @@ import {
   fb,
   subscribeToRoleChanges,
   updateAthleteWeek,
+  updateSession,
   calculateTMSuggestions,
   advanceCycle,
   type Profile,
@@ -94,6 +95,9 @@ export default function Roster() {
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const [cycleAdvancing, setCycleAdvancing] = useState(false);
   const [tmSuggestions, setTmSuggestions] = useState<Record<string, number> | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editSessionDraft, setEditSessionDraft] = useState<Partial<SessionRecord>>({});
+  const [sessionSaving, setSessionSaving] = useState(false);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
@@ -344,6 +348,40 @@ export default function Roster() {
       });
     } finally {
       setTmSaving(null);
+    }
+  };
+
+  const handleEditSession = (session: SessionRecord) => {
+    if (!session.id) return;
+    setEditingSessionId(session.id);
+    setEditSessionDraft({
+      week: session.week,
+      lift: session.lift,
+      amrap: { ...session.amrap },
+    });
+  };
+
+  const handleCancelEditSession = () => {
+    setEditingSessionId(null);
+    setEditSessionDraft({});
+  };
+
+  const handleSaveSession = async (sessionId: string) => {
+    if (!detailProfile?.uid) return;
+    setSessionSaving(true);
+    try {
+      await updateSession(detailProfile.uid, sessionId, editSessionDraft);
+      setDetailSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId ? { ...s, ...editSessionDraft } : s
+        )
+      );
+      setFlash({ kind: "success", text: "Session updated." });
+      setEditingSessionId(null);
+    } catch (err: any) {
+      setFlash({ kind: "error", text: err?.message ?? "Failed to update session." });
+    } finally {
+      setSessionSaving(false);
     }
   };
 
@@ -1201,32 +1239,142 @@ export default function Roster() {
                           <th className="p-2 text-left">AMRAP</th>
                           <th className="p-2 text-left">Est 1RM</th>
                           <th className="p-2 text-left">PR</th>
+                          {isCoach && <th className="p-2 text-left">Action</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {detailSessions.slice(0, 8).map((session) => (
-                          <tr key={session.id ?? session.createdAt} className="border-t">
-                            <td className="p-2 text-xs text-gray-600">
-                              {session.createdAt
-                                ? new Date(session.createdAt).toLocaleDateString()
-                                : "-"}
-                            </td>
-                            <td className="p-2 capitalize">{session.lift}</td>
-                            <td className="p-2">Week {session.week}</td>
-                            <td className="p-2 text-xs">
-                              {session.amrap?.weight ?? 0} {session.unit} x{" "}
-                              {session.amrap?.reps ?? 0}
-                            </td>
-                            <td className="p-2 font-semibold">
-                              {session.est1rm
-                                ? `${session.est1rm} ${session.unit}`
-                                : "-"}
-                            </td>
-                            <td className="p-2 text-green-600">
-                              {session.pr ? "PR" : "-"}
-                            </td>
-                          </tr>
-                        ))}
+                        {detailSessions.slice(0, 8).map((session) => {
+                          const isEditing = editingSessionId === session.id;
+                          return (
+                            <tr key={session.id ?? session.createdAt} className="border-t">
+                              <td className="p-2 text-xs text-gray-600">
+                                {session.createdAt
+                                  ? new Date(session.createdAt).toLocaleDateString()
+                                  : "-"}
+                              </td>
+                              <td className="p-2 capitalize">
+                                {isEditing ? (
+                                  <select
+                                    className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                    value={editSessionDraft.lift}
+                                    onChange={(e) =>
+                                      setEditSessionDraft((prev) => ({
+                                        ...prev,
+                                        lift: e.target.value as any,
+                                      }))
+                                    }
+                                  >
+                                    {LIFT_KEYS.map((k) => (
+                                      <option key={k} value={k}>
+                                        {k}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  session.lift
+                                )}
+                              </td>
+                              <td className="p-2">
+                                {isEditing ? (
+                                  <select
+                                    className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                    value={editSessionDraft.week}
+                                    onChange={(e) =>
+                                      setEditSessionDraft((prev) => ({
+                                        ...prev,
+                                        week: Number(e.target.value) as any,
+                                      }))
+                                    }
+                                  >
+                                    {[1, 2, 3, 4].map((w) => (
+                                      <option key={w} value={w}>
+                                        Week {w}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  `Week ${session.week}`
+                                )}
+                              </td>
+                              <td className="p-2 text-xs">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      className="w-12 rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                      value={editSessionDraft.amrap?.weight ?? 0}
+                                      onChange={(e) =>
+                                        setEditSessionDraft((prev) => ({
+                                          ...prev,
+                                          amrap: {
+                                            weight: Number(e.target.value),
+                                            reps: prev.amrap?.reps ?? 0,
+                                          },
+                                        }))
+                                      }
+                                    />
+                                    <span>{session.unit} x</span>
+                                    <input
+                                      type="number"
+                                      className="w-10 rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                      value={editSessionDraft.amrap?.reps ?? 0}
+                                      onChange={(e) =>
+                                        setEditSessionDraft((prev) => ({
+                                          ...prev,
+                                          amrap: {
+                                            weight: prev.amrap?.weight ?? 0,
+                                            reps: Number(e.target.value),
+                                          },
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                ) : (
+                                  `${session.amrap?.weight ?? 0} ${session.unit} x ${
+                                    session.amrap?.reps ?? 0
+                                  }`
+                                )}
+                              </td>
+                              <td className="p-2 font-semibold">
+                                {session.est1rm
+                                  ? `${session.est1rm} ${session.unit}`
+                                  : "-"}
+                              </td>
+                              <td className="p-2 text-green-600">
+                                {session.pr ? "PR" : "-"}
+                              </td>
+                              {isCoach && (
+                                <td className="p-2">
+                                  {isEditing ? (
+                                    <div className="flex gap-1">
+                                      <button
+                                        className="btn px-2 py-0.5 text-[10px] bg-green-50 text-green-700 border-green-200"
+                                        onClick={() => handleSaveSession(session.id!)}
+                                        disabled={sessionSaving}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        className="btn px-2 py-0.5 text-[10px] bg-gray-50 text-gray-600 border-gray-200"
+                                        onClick={handleCancelEditSession}
+                                        disabled={sessionSaving}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      className="btn px-2 py-0.5 text-[10px]"
+                                      onClick={() => handleEditSession(session)}
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

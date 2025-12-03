@@ -12,11 +12,13 @@ import {
   saveSession,
   bestEst1RM,
   recentSessions,
+  defaultEquipment,
   type Profile,
 } from "../lib/db";
 import CoachTips from "../components/CoachTips";
 import TrendMini from "../components/TrendMini";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { PlateCalculatorDisplay } from "../components/PlateMath";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
 type Week = 1 | 2 | 3 | 4;
@@ -77,6 +79,7 @@ export default function Session() {
   const [liftConfirmed, setLiftConfirmed] = useState(false);
   const [showWeekAdvancePrompt, setShowWeekAdvancePrompt] = useState(false);
   const [liftsLoggedThisWeek, setLiftsLoggedThisWeek] = useState<Set<Lift>>(new Set());
+  const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
 
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
@@ -191,9 +194,23 @@ export default function Session() {
     }
     (async () => {
       const rows = await recentSessions(lift, 12, targetUid);
-      setHistory(rows.reverse());
+      // rows are returned newest-first (descending).
+      // We reverse them for the chart (oldest-first).
+      const chartHistory = [...rows].reverse();
+      setHistory(chartHistory);
+
+      // Smart Default Logic:
+      // If the user hasn't manually picked a week yet (liftConfirmed is false),
+      // try to guess the next week based on the most recent session for this lift.
+      if (!liftConfirmed && rows.length > 0) {
+        const lastSession = rows[0]; // Newest session
+        const lastWeek = lastSession.week;
+        // Simple cycle logic: 1->2->3->4->1
+        const nextWeek = lastWeek === 4 ? 1 : ((lastWeek + 1) as Week);
+        setWeek(nextWeek);
+      }
     })();
-  }, [lift, targetUid, isCoach, coachLoading, version]);
+  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed]);
 
   const setWarmStatus = (index: number, status: "" | "S" | "F") => {
     setWarmOutcomes((prev) => {
@@ -647,11 +664,48 @@ export default function Session() {
         </div>
       )}
 
+      {/* Plate Calculator Modal */}
+      {plateCalcTarget !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setPlateCalcTarget(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-3xl bg-gray-900 p-1 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rounded-[20px] bg-gray-900 p-6 space-y-4 border border-gray-800">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-white">Plate Math</h3>
+                <button
+                  onClick={() => setPlateCalcTarget(null)}
+                  className="text-gray-400 hover:text-white px-3 py-1 rounded-lg hover:bg-gray-800"
+                >
+                  Close
+                </button>
+              </div>
+              <PlateCalculatorDisplay
+                targetWeight={plateCalcTarget}
+                unit={unit}
+                equipment={profile?.equipment ?? defaultEquipment()}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Prominent Week Selector Tabs */}
       <div className="rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 p-1 shadow-lg">
         <div className="grid grid-cols-4 gap-1">
           {([1, 2, 3, 4] as Week[]).map((w) => {
             const isActive = week === w;
+            // Check if this week was completed recently (in the last 4 sessions)
+            // history is oldest->newest. We want to check the newest entries.
+            const recentHistory = history.slice(-4); 
+            // Use filter + pop instead of findLast for compatibility
+            const lastDone = recentHistory.filter((h: any) => h.week === w).pop();
+            const isDone = Boolean(lastDone);
+            
             const weekTheme = WEEK_THEMES[w];
             const weekColors: Record<Week, string> = {
               1: "from-blue-500 to-blue-600",
@@ -669,8 +723,13 @@ export default function Session() {
                     : "bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white"
                 }`}
               >
-                <div className="text-xs font-medium uppercase tracking-wide opacity-80">
-                  {w === 4 ? "Deload" : `Week ${w}`}
+                <div className="flex items-center justify-center gap-1">
+                  <div className="text-xs font-medium uppercase tracking-wide opacity-80">
+                    {w === 4 ? "Deload" : `Week ${w}`}
+                  </div>
+                  {isDone && !isActive && (
+                    <span className="text-[10px] text-emerald-400" title="Completed recently">✓</span>
+                  )}
                 </div>
                 <div className={`text-lg font-bold ${isActive ? "" : "text-gray-100"}`}>
                   {w === 4 ? "40/50/60" : w === 1 ? "65/75/85" : w === 2 ? "70/80/90" : "75/85/95"}
@@ -679,6 +738,9 @@ export default function Session() {
                   <div className="mt-1 text-[10px] font-medium opacity-90 truncate">
                     {weekTheme.name}
                   </div>
+                )}
+                {isDone && isActive && (
+                   <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-white/30" />
                 )}
               </button>
             );
@@ -770,7 +832,8 @@ export default function Session() {
                     value={lift}
                     onChange={(event) => {
                       setLift(event.target.value as Lift);
-                      setLiftConfirmed(true);
+                      // Reset confirmation so auto-logic can run for the new lift
+                      setLiftConfirmed(false);
                     }}
                   >
                     <option value="bench">Bench Press</option>
@@ -863,6 +926,7 @@ export default function Session() {
                       outcome={warmOutcomes[index]}
                       onStatusChange={(status) => setWarmStatus(index, status)}
                       onActualChange={(value) => setWarmActual(index, value)}
+                      onPlateCalc={(w) => setPlateCalcTarget(w)}
                       showActualInput
                     />
                   ))}
@@ -896,6 +960,7 @@ export default function Session() {
                       outcome={workOutcomes[index]}
                       onStatusChange={(status) => setWorkStatus(index, status)}
                       onActualChange={(value) => setWorkActual(index, value)}
+                      onPlateCalc={(w) => setPlateCalcTarget(w)}
                       showActualInput
                     />
                   ))}
@@ -1036,6 +1101,7 @@ type SetRowProps = {
   outcome?: SetOutcome;
   onStatusChange: (status: "" | "S" | "F") => void;
   onActualChange: (value: string) => void;
+  onPlateCalc: (weight: number) => void;
   showActualInput?: boolean;
 };
 
@@ -1048,6 +1114,7 @@ function SetRow({
   outcome,
   onStatusChange,
   onActualChange,
+  onPlateCalc,
   showActualInput = false,
 }: SetRowProps) {
   const status = outcome?.status ?? "";
@@ -1074,7 +1141,19 @@ function SetRow({
           </span>
           <span className="text-xs text-gray-500">Set {index + 1}</span>
         </div>
-        <div className="text-sm font-semibold text-gray-900">{weightLabel}</div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="text-sm font-semibold text-gray-900">{weightLabel}</div>
+          {set.weight > 0 && (
+            <button
+              type="button"
+              onClick={() => onPlateCalc(set.weight)}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] text-gray-500 hover:bg-brand-100 hover:text-brand-700 transition-colors"
+              title="Show plate math"
+            >
+              💿
+            </button>
+          )}
+        </div>
         <div className="text-xs text-gray-500">
           {percentLabel} | {repsLabel} reps
         </div>

@@ -1945,7 +1945,22 @@ export async function fetchAthleteSessions(
       })
     );
   } catch (err) {
-    console.warn(`fetchAthleteSessions failed for ${uid}`, err);
     return [];
   }
+}
+
+export async function updateSession(
+  uid: string,
+  sessionId: string,
+  updates: Partial<SessionPayload>
+): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) throw new Error("Firebase is required to update sessions.");
+
+  const ref = doc(database, "athletes", uid, "sessions", sessionId);
+  await updateDoc(ref, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
 }
