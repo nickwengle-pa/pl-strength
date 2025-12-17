@@ -464,7 +464,7 @@ export default function ProgramOutline() {
     <div className="container py-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Program Outline</h1>
+          <h1 className="text-2xl font-semibold">Daily Lifts</h1>
           <p className="mt-1 text-sm text-gray-600">
             Snapshot for each training cycle. Update the cycle count to match your plan, then review the outline per
             cycle below.

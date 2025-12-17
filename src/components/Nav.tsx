@@ -205,7 +205,7 @@ export default function Nav() {
   };
 
   const athleteLinks = [
-    { to: "/program-outline", label: "Program Outline" },
+    { to: "/program-outline", label: "Daily Lifts" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/exercises", label: "Exercises" },
@@ -214,7 +214,7 @@ export default function Nav() {
 
   const coachLinks = [
     { to: "/attendance", label: "Attendance" },
-    { to: "/program-outline", label: "Program Outline" },
+    { to: "/program-outline", label: "Daily Lifts" },
     { to: "/roster", label: "Roster" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
