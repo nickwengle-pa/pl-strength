@@ -205,6 +205,7 @@ export default function Nav() {
   };
 
   const athleteLinks = [
+    { to: "/program-outline", label: "Program Outline" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/exercises", label: "Exercises" },

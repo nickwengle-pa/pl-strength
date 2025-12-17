@@ -452,20 +452,6 @@ export default function ProgramOutline() {
     );
   }
 
-  if (!coach) {
-    return (
-      <div className="container py-6">
-        <div className="card space-y-2 text-sm text-gray-600">
-          <h1 className="text-lg font-semibold text-gray-800">Coach/Admin Access Required</h1>
-          <p>
-            The program outline is available to coaches and admins only. Sign in with a coach account to view the
-            current program.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const updateOutline = (partial: Partial<ProgramOutlineData>) => {
     setOutline((prev) => {
       const next = normalizeOutline({ ...prev, ...partial });
@@ -495,9 +481,9 @@ export default function ProgramOutline() {
               {editMode ? "Done editing" : "Edit outline"}
             </button>
           )}
-          {coach && !admin && (
+          {!admin && (
             <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              View only - Admin can edit
+              View only
             </span>
           )}
 
