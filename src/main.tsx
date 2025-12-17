@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import './index.css';
-import App from './App';
+import App, { APP_VERSION } from './App';
 import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { DeviceProvider } from './lib/device';
@@ -19,8 +19,7 @@ console.error = (...args: any[]) => {
   originalConsoleError.apply(console, args);
 };
 
-// App version - update this when deploying new versions
-const APP_VERSION = '1.0.4';
+// Version key for localStorage
 const VERSION_KEY = 'pl-strength-app-version';
 
 // Check if this is a new version and clear caches if needed

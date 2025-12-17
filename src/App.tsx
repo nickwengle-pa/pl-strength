@@ -18,6 +18,9 @@ import SignIn from "./routes/SignIn";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
+// App version - keep in sync with main.tsx
+export const APP_VERSION = '1.0.4';
+
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
   const location = useLocation();
@@ -68,6 +71,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+        <footer className="py-2 text-center text-xs text-gray-400">
+          v{APP_VERSION}
+        </footer>
       </div>
     </ActiveAthleteProvider>
   );
