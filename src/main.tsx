@@ -20,7 +20,7 @@ console.error = (...args: any[]) => {
 };
 
 // App version - update this when deploying new versions
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const VERSION_KEY = 'pl-strength-app-version';
 
 // Check if this is a new version and clear caches if needed

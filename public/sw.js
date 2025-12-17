@@ -1,4 +1,4 @@
-const CACHE_NAME = "pl-strength-v3";
+const CACHE_NAME = "pl-strength-v4";
 const PRECACHE_URLS = ["/", "/index.html", "/manifest.webmanifest"];
 
 // Broadcast channel for communicating with the app
