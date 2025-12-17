@@ -19,6 +19,37 @@ console.error = (...args: any[]) => {
   originalConsoleError.apply(console, args);
 };
 
+// App version - update this when deploying new versions
+const APP_VERSION = '1.0.3';
+const VERSION_KEY = 'pl-strength-app-version';
+
+// Check if this is a new version and clear caches if needed
+const checkAndClearCacheOnVersionChange = async () => {
+  const storedVersion = localStorage.getItem(VERSION_KEY);
+  if (storedVersion !== APP_VERSION) {
+    console.log(`Version changed from ${storedVersion} to ${APP_VERSION}, clearing caches...`);
+    // Clear all caches
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+    // Unregister service workers
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(r => r.unregister()));
+    }
+    // Store new version
+    localStorage.setItem(VERSION_KEY, APP_VERSION);
+    // Reload to get fresh content
+    if (storedVersion !== null) {
+      window.location.reload();
+      return true;
+    }
+    localStorage.setItem(VERSION_KEY, APP_VERSION);
+  }
+  return false;
+};
+
 const root = createRoot(document.getElementById('root')!);
 root.render(
   <HashRouter>
@@ -35,11 +66,127 @@ root.render(
 // Register SW only in production; purge in dev to prevent CSS/JS from being served stale.
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((e) => console.warn('SW registration failed', e));
+    // Check for version changes first
+    checkAndClearCacheOnVersionChange().then((reloaded) => {
+      if (reloaded) return; // Page is reloading, don't register SW yet
+      
+      window.addEventListener('load', async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          
+          // Check for updates periodically (every 60 seconds)
+          setInterval(() => {
+            registration.update();
+          }, 60000);
+          
+          // Listen for new service worker
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (!newWorker) return;
+            
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New content is available, show update prompt
+                showUpdatePrompt();
+              }
+            });
+          });
+          
+          // Listen for broadcast messages from service worker
+          const broadcast = new BroadcastChannel('sw-updates');
+          broadcast.addEventListener('message', (event) => {
+            if (event.data?.type === 'SW_UPDATED') {
+              showUpdatePrompt();
+            }
+          });
+          
+          // Also handle controllerchange - when new SW takes over
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            // Don't reload automatically, but could show a subtle notification
+            console.log('New service worker activated');
+          });
+          
+        } catch (e) {
+          console.warn('SW registration failed', e);
+        }
+      });
     });
   } else {
     navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
     caches?.keys?.().then(keys => keys.forEach(k => caches.delete(k)));
   }
+}
+
+// Show update prompt to user
+function showUpdatePrompt() {
+  // Don't show multiple prompts
+  if (document.getElementById('update-prompt')) return;
+  
+  const prompt = document.createElement('div');
+  prompt.id = 'update-prompt';
+  prompt.innerHTML = `
+    <div style="
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 90vw;
+      animation: slideUp 0.3s ease-out;
+    ">
+      <style>
+        @keyframes slideUp {
+          from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+          to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+      </style>
+      <span style="font-size: 14px;">🎉 A new version is available!</span>
+      <button id="update-btn" style="
+        background: white;
+        color: #1e40af;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 14px;
+        transition: transform 0.1s;
+      ">Update Now</button>
+      <button id="dismiss-btn" style="
+        background: transparent;
+        color: rgba(255,255,255,0.8);
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+      ">✕</button>
+    </div>
+  `;
+  
+  document.body.appendChild(prompt);
+  
+  document.getElementById('update-btn')?.addEventListener('click', () => {
+    // Clear caches and reload
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+        window.location.reload();
+      });
+    } else {
+      window.location.reload();
+    }
+  });
+  
+  document.getElementById('dismiss-btn')?.addEventListener('click', () => {
+    prompt.remove();
+  });
 }
