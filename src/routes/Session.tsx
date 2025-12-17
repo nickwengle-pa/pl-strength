@@ -1166,10 +1166,12 @@ function SetRow({
           className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
             status === "S"
               ? "border-emerald-500 bg-emerald-100 text-emerald-700 shadow-sm"
-              : "border-gray-300 bg-white text-gray-700 hover:border-emerald-400 hover:text-emerald-600"
+              : "border-gray-300 bg-white text-gray-400 hover:border-emerald-400 hover:text-emerald-600"
           }`}
         >
-          S
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </button>
         <button
           type="button"
@@ -1177,10 +1179,12 @@ function SetRow({
           className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
             status === "F"
               ? "border-rose-500 bg-rose-100 text-rose-700 shadow-sm"
-              : "border-gray-300 bg-white text-gray-700 hover:border-rose-400 hover:text-rose-600"
+              : "border-gray-300 bg-white text-gray-400 hover:border-rose-400 hover:text-rose-600"
           }`}
         >
-          F
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
