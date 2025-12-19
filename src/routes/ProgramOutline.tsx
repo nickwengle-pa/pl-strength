@@ -289,6 +289,45 @@ function slugifyId(value: string): string {
   );
 }
 
+function parseUrlLoose(value: string): URL | null {
+  try {
+    return new URL(value);
+  } catch {
+    try {
+      return new URL(`https://${value}`);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function toYouTubeEmbedUrl(source: string): string {
+  const trimmed = source.trim();
+  if (!trimmed) return "";
+  const url = parseUrlLoose(trimmed);
+  if (!url) return trimmed;
+
+  const host = url.hostname.replace(/^www\./, "");
+  let videoId = "";
+
+  if (host === "youtu.be") {
+    videoId = url.pathname.slice(1);
+  } else if (host === "youtube.com" || host === "m.youtube.com") {
+    if (url.pathname === "/watch") {
+      videoId = url.searchParams.get("v") ?? "";
+    } else if (url.pathname.startsWith("/shorts/")) {
+      videoId = url.pathname.split("/")[2] ?? "";
+    } else if (url.pathname.startsWith("/embed/")) {
+      videoId = url.pathname.split("/")[2] ?? "";
+    }
+  } else {
+    return trimmed;
+  }
+
+  if (!videoId) return trimmed;
+  return `https://www.youtube.com/embed/${videoId}`;
+}
+
 type StringListKey = "turfWarmup" | "plyometrics" | "plyoDays" | "coreWarmup";
 
 function normalizeStringArray(value: unknown, fallback: string[]): string[] {
@@ -577,6 +616,9 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
   };
 
   const dayRows = Math.max(3, ...data.liftWeeks.map((week) => week.days.length));
+  const hipMobilityEmbedSource =
+    data.hipMobility.embed.trim() || data.hipMobility.url.trim();
+  const hipMobilityEmbed = toYouTubeEmbedUrl(hipMobilityEmbedSource);
 
   return (
     <div className="space-y-6">
@@ -613,11 +655,11 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
               <p>{data.hipMobility.note}</p>
             )}
           </div>
-          {data.hipMobility.embed.trim() && (
+          {hipMobilityEmbed && (
             <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
               <iframe
                 className="absolute inset-0 h-full w-full"
-                src={data.hipMobility.embed}
+                src={hipMobilityEmbed}
                 title="Hip mobility series"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
