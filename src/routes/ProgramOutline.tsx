@@ -16,8 +16,8 @@ const TURF_WARMUP = [
 
 const HIP_MOBILITY = {
   note: "Follow along with the video for 3 sets of 8 per movement.",
-  url: "https://www.youtube.com/shorts/03Duel2-OQ4",
-  embed: "https://www.youtube.com/embed/03Duel2-OQ4",
+  url: "https://youtube.com/shorts/O3Dudt2-OQ4?si=B5WIiAZfI0OaBBQF",
+  embed: "https://www.youtube.com/embed/O3Dudt2-OQ4",
 };
 
 const PLYOMETRICS = [
@@ -299,6 +299,15 @@ function parseUrlLoose(value: string): URL | null {
       return null;
     }
   }
+}
+
+function isYouTubeUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const url = parseUrlLoose(trimmed);
+  if (!url) return false;
+  const host = url.hostname.replace(/^www\./, "");
+  return host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be";
 }
 
 function toYouTubeEmbedUrl(source: string): string {
@@ -616,8 +625,10 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
   };
 
   const dayRows = Math.max(3, ...data.liftWeeks.map((week) => week.days.length));
-  const hipMobilityEmbedSource =
-    data.hipMobility.embed.trim() || data.hipMobility.url.trim();
+  const hipMobilityUrl = data.hipMobility.url.trim();
+  const hipMobilityEmbedSource = isYouTubeUrl(hipMobilityUrl)
+    ? hipMobilityUrl
+    : data.hipMobility.embed.trim() || hipMobilityUrl;
   const hipMobilityEmbed = toYouTubeEmbedUrl(hipMobilityEmbedSource);
 
   return (
