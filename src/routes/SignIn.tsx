@@ -36,9 +36,20 @@ const updateDisplayNameCache = (name: string) => {
   }
 };
 
-const waitForRoleSync = async (_uid: string, _isAdmin: boolean) => {
-  // Wait for role sync - just wait a moment for Firestore to propagate
-  await new Promise(resolve => setTimeout(resolve, 500));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForRoleSync = async (uid: string, expectAdmin: boolean): Promise<void> => {
+  // Poll to verify the role was actually written to Firestore
+  const maxAttempts = expectAdmin ? 6 : 4;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const roles = await refreshRoles(uid);
+    const hasRole = expectAdmin ? roles.includes("admin") : roles.includes("coach");
+    if (hasRole) {
+      return;
+    }
+    await delay(200 * (attempt + 1));
+  }
+  throw new Error(expectAdmin ? "admin-sync-failed" : "coach-sync-failed");
 };
 
 type Mode = "athlete" | "coach";
@@ -406,6 +417,8 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
         ? "Signed in, but we could not confirm admin access. Try the admin code again or contact support."
         : "Signed in, but we could not update coach permissions in Firestore. Ask an admin to confirm Firebase configuration.",
     });
+    setSubmitting(false);
+    return; // Don't proceed if role setup failed - user needs to retry
   }
 
   let allowedTeams: Team[] = [];
@@ -468,7 +481,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     setTeam("");
     setSubmitting(false);
   }
-  navigate("/roster", { replace: true });
+  navigate("/", { replace: true });
 };
 
   return (

@@ -1411,17 +1411,16 @@ export async function ensureCoachRoleOnly(): Promise<void> {
     payload.teamAnchor = existing.teamAnchor;
   }
   
-  // Preserve accessHistory if it exists
-  if (existing?.accessHistory) {
-    payload.accessHistory = existing.accessHistory;
-  }
-
-  // Preserve any existing coach access
-  payload["accessHistory.2468"] = {
-    roles: ["coach"],
-    teamScopes: existing?.teamScopes || [],
-    teamAnchor: existing?.teamAnchor,
-    lastUsed: serverTimestamp()
+  // Build accessHistory properly as a nested object
+  const existingHistory = existing?.accessHistory ?? {};
+  payload.accessHistory = {
+    ...existingHistory,
+    "2468": {
+      roles: ["coach"],
+      teamScopes: existing?.teamScopes || [],
+      teamAnchor: existing?.teamAnchor ?? null,
+      lastUsed: serverTimestamp()
+    }
   };
 
   await setDoc(ref, payload, { merge: true });
