@@ -109,6 +109,8 @@ export default function Roster() {
   const [sortField, setSortField] = useState<"firstName" | "lastName" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
+  const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
+  const [loadingActivity, setLoadingActivity] = useState(false);
 
   const handleSort = (field: "firstName" | "lastName") => {
     if (sortField === field) {
@@ -125,6 +127,47 @@ export default function Roster() {
       catch (e:any) { setErr(e?.message || String(e)); }
     })();
   }, []);
+
+  // Load activity data for athletes
+  useEffect(() => {
+    if (rows.length === 0) return;
+    
+    const athleteUids = rows
+      .filter(r => !r.roles?.includes('coach') && !r.roles?.includes('admin'))
+      .map(r => r.uid);
+    
+    if (athleteUids.length === 0) return;
+    
+    let active = true;
+    setLoadingActivity(true);
+    
+    (async () => {
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const activity: Record<string, { lastWorkout?: number; weekCount: number }> = {};
+      
+      await Promise.all(
+        athleteUids.map(async (uid) => {
+          try {
+            const sessions = await fetchAthleteSessions(uid);
+            const recentSessions = sessions.filter(s => (s.createdAt || 0) >= oneWeekAgo);
+            const lastWorkout = sessions.length > 0 
+              ? Math.max(...sessions.map(s => s.createdAt || 0)) 
+              : undefined;
+            activity[uid] = { lastWorkout, weekCount: recentSessions.length };
+          } catch (err) {
+            activity[uid] = { weekCount: 0 };
+          }
+        })
+      );
+      
+      if (active) {
+        setActivityMap(activity);
+        setLoadingActivity(false);
+      }
+    })();
+    
+    return () => { active = false; };
+  }, [rows]);
 
   useEffect(() => {
     if (!flash) return;
@@ -894,8 +937,8 @@ export default function Roster() {
                   </div>
                 </th>
                 <th className="p-2 text-left">Team</th>
-                <th className="p-2 text-left">Unit</th>
-                <th className="p-2 text-left">Code</th>
+                <th className="p-2 text-left">This Week</th>
+                <th className="p-2 text-left">Last Workout</th>
                 <th className="p-2 text-left">Actions</th>
               </tr>
             </thead>
@@ -903,6 +946,7 @@ export default function Roster() {
               {filteredAthleteRows.map((r, index) => {
                 const selected = selectedUid === r.uid;
                 const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
+                const activity = activityMap[r.uid];
                 return (
                   <tr
                     key={rowKey}
@@ -925,8 +969,26 @@ export default function Roster() {
                     <td className="p-2">{r.firstName || "-"}</td>
                     <td className="p-2">{r.lastName || "-"}</td>
                     <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
-                    <td className="p-2">{r.unit || "-"}</td>
-                    <td className="p-2 font-mono text-xs">{r.accessCode ?? "-"}</td>
+                    <td className="p-2">
+                      {loadingActivity ? (
+                        <span className="text-gray-400 text-xs">...</span>
+                      ) : activity?.weekCount ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700">
+                          {activity.weekCount} workout{activity.weekCount !== 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-xs text-gray-600">
+                      {loadingActivity ? (
+                        <span className="text-gray-400">...</span>
+                      ) : activity?.lastWorkout ? (
+                        new Date(activity.lastWorkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="p-2">
                       <div className="flex flex-wrap gap-2">
                         <button

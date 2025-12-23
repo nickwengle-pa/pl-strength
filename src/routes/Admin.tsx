@@ -174,30 +174,7 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2 text-sm text-gray-600">
-        <h4 className="text-lg font-semibold text-gray-800">How coach access works</h4>
-        <ol className="list-decimal pl-5 space-y-1">
-          <li>
-            Share the team email format with adults (e.g., <code>firstname.lastname@pl.strength</code>) and the coach
-            passcode you've set in <code>.env</code> (<code>VITE_COACH_PASSCODE</code>).
-          </li>
-          <li>
-            When they sign in on the Coach tab using that passcode, the app creates their account (if needed) and gives
-            them the <code>coach</code> role automatically.
-          </li>
-          <li>
-            To rotate the passcode, update <code>VITE_COACH_PASSCODE</code> and redeploy the app, then share the new
-            value.
-          </li>
-        </ol>
-      </div>
 
-      {admin ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-          You have admin rights. If you need to elevate another adult to admin, add their UID to Firestore at{" "}
-          <code>{"roles/{uid}"}</code> with <code>{"{ roles: [\"admin\",\"coach\"] }"}</code>.
-        </div>
-      ) : coach ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
           You have coach access. Reach out to an admin if you need higher privileges.
         </div>

@@ -755,6 +755,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     oneRm: data.oneRm || {},
     accessCode: data.accessCode ?? null,
     equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
+    currentWeek: data.currentWeek as 1 | 2 | 3 | 4 | undefined,
   };
 }
 

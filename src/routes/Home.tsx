@@ -141,7 +141,8 @@ export default function Home() {
         
         const activities = await Promise.all(
           roster
-            .filter((r: RosterEntry) => r.roles?.includes('athlete'))
+            // Athletes are users without coach or admin roles
+            .filter((r: RosterEntry) => !r.roles?.includes('coach') && !r.roles?.includes('admin'))
             .map(async (athlete: RosterEntry) => {
               try {
                 const sessions = await fetchAthleteSessions(athlete.uid);

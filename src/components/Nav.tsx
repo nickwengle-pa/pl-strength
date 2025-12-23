@@ -221,7 +221,6 @@ export default function Nav() {
     { to: "/sheets", label: "Sheets" },
     { to: "/summary", label: "Summary" },
     { to: "/exercises", label: "Exercises" },
-    { to: "/profile", label: "Profile" },
   ];
 
   const baseLinks = coach ? coachLinks : athleteLinks;
