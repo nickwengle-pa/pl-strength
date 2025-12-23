@@ -631,6 +631,25 @@ export default function Attendance() {
           </div>
         </div>
 
+        {/* Unsaved changes reminder */}
+        {selectedDirty && !selectedSaving && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-600 text-lg">⚠️</span>
+              <span className="text-sm font-medium text-amber-800">
+                You have unsaved changes. Don't forget to click "Save attendance" before leaving!
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary text-sm px-3 py-1"
+              onClick={() => handleSave(selectedTeam)}
+            >
+              Save now
+            </button>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
