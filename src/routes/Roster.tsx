@@ -937,6 +937,7 @@ export default function Roster() {
                   </div>
                 </th>
                 <th className="p-2 text-left">Team</th>
+                <th className="p-2 text-left">Code</th>
                 <th className="p-2 text-left">This Week</th>
                 <th className="p-2 text-left">Last Workout</th>
                 <th className="p-2 text-left">Actions</th>
@@ -969,6 +970,7 @@ export default function Roster() {
                     <td className="p-2">{r.firstName || "-"}</td>
                     <td className="p-2">{r.lastName || "-"}</td>
                     <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
+                    <td className="p-2 font-mono text-xs">{r.accessCode ?? "-"}</td>
                     <td className="p-2">
                       {loadingActivity ? (
                         <span className="text-gray-400 text-xs">...</span>
@@ -1020,7 +1022,7 @@ export default function Roster() {
               })}
               {filteredAthleteRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={6}>
+                  <td className="p-2 text-gray-500" colSpan={7}>
                     No athletes found for the selected team.
                   </td>
                 </tr>
