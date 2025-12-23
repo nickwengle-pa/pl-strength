@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
+import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
 import OnboardingWizard from "../components/OnboardingWizard";
 
 const PAGE_LINKS = [
@@ -139,10 +139,23 @@ export default function Home() {
         const roster = await listRoster();
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         
+        // Get coach's team to filter athletes
+        const coachTeam = getStoredTeamSelection();
+        const coachTeamDef = coachTeam ? TEAM_DEFINITIONS.find(def => def.id === coachTeam) : null;
+        
         const activities = await Promise.all(
           roster
             // Athletes are users without coach or admin roles
             .filter((r: RosterEntry) => !r.roles?.includes('coach') && !r.roles?.includes('admin'))
+            // Filter by coach's sport/program (e.g., football varsity sees all football, not basketball)
+            .filter((r: RosterEntry) => {
+              if (!coachTeamDef || !r.team) return true; // Show all if no team filter
+              const athleteTeamDef = TEAM_DEFINITIONS.find(def => def.id === r.team);
+              if (!athleteTeamDef) return false;
+              // Match sport and program (allows varsity coach to see both varsity and JH in same sport)
+              return athleteTeamDef.sport === coachTeamDef.sport && 
+                     athleteTeamDef.program === coachTeamDef.program;
+            })
             .map(async (athlete: RosterEntry) => {
               try {
                 const sessions = await fetchAthleteSessions(athlete.uid);
