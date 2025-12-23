@@ -174,7 +174,12 @@ export default function Admin() {
         </div>
       </div>
 
-
+      {admin ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+          You have admin rights. If you need to elevate another adult to admin, add their UID to Firestore at{" "}
+          <code>{"roles/{uid}"}</code> with <code>{"{ roles: [\"admin\",\"coach\"] }"}</code>.
+        </div>
+      ) : coach ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
           You have coach access. Reach out to an admin if you need higher privileges.
         </div>
@@ -186,10 +191,6 @@ export default function Admin() {
     </div>
   );
 }
-
-
-
-
 
 
 
