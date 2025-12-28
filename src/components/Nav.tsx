@@ -245,13 +245,12 @@ export default function Nav() {
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/exercises", label: "Exercises" },
-    { to: "/profile", label: "Profile" },
   ];
 
   const coachLinks = [
     { to: "/attendance", label: "Attendance" },
-    { to: "/program-outline", label: "Daily Lifts" },
     { to: "/roster", label: "Roster" },
+    { to: "/program-outline", label: "Daily Lifts" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },
@@ -260,7 +259,7 @@ export default function Nav() {
   ];
 
   const baseLinks = coach ? coachLinks : athleteLinks;
-  const links = (admin || coach) ? [...baseLinks, { to: "/admin", label: admin ? "Admin" : "Team" }] : baseLinks;
+  const links = baseLinks;
 
   const isMobile = device.isMobile || (device.isTouch && !device.isDesktop);
 
@@ -272,9 +271,6 @@ export default function Nav() {
   useEffect(() => {
     if (!isMobile) {
       setMenuOpen(false);
-    }
-    if (isMobile) {
-      setSettingsOpen(false);
     }
   }, [isMobile]);
 
@@ -300,6 +296,14 @@ export default function Nav() {
     }
     return active ? "nav-link nav-link-active" : "nav-link";
   };
+
+  const drawerLinkClass = (active: boolean) =>
+    [
+      "flex items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+      active
+        ? "border-brand-200 bg-brand-50 text-brand-700"
+        : "border-gray-200 bg-white text-gray-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
+    ].join(" ");
 
   const handleTeamScopeChange = (next: Team) => {
     if (!next || next === teamSelection) return;
@@ -368,9 +372,17 @@ export default function Nav() {
   };
 
   const closeMenu = () => setMenuOpen(false);
+  const closeSettings = () => setSettingsOpen(false);
+
+  const gearLinks = [
+    { to: "/profile", label: "Profile" },
+    ...(coach || admin
+      ? [{ to: "/admin", label: admin ? "Admin" : "Team" }]
+      : []),
+  ];
 
   return (
-    <header className="relative border-b border-gray-200/70 bg-white/90 backdrop-blur">
+    <header className="relative z-50 border-b border-gray-200/70 bg-white/90 backdrop-blur">
       <div className="container flex items-center gap-3 py-3 md:h-16 md:py-0">
         <Link to="/" className="flex items-center gap-2 text-gray-900 hover:opacity-90">
           <img src="/assets/dragon.png" alt="Dragon" className="h-8 w-8 object-contain" />
@@ -391,7 +403,7 @@ export default function Nav() {
                   signOut();
                 }}
               >
-                <span className="sr-only">Sign out</span>
+                <span className="sr-only">Sign Out</span>
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 16l4-4-4-4" />
@@ -401,7 +413,30 @@ export default function Nav() {
               <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
-                onClick={() => setMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSettingsOpen((prev) => !prev);
+                }}
+                aria-expanded={settingsOpen}
+                aria-haspopup="dialog"
+              >
+                <span className="sr-only">Open settings</span>
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.5 1.75h5l.73 2.2a7.5 7.5 0 012 .84l2.19-.79 2.5 4.33-1.85 1.33a7.6 7.6 0 010 2.68l1.85 1.33-2.5 4.33-2.19-.79a7.5 7.5 0 01-2 .84l-.73 2.2h-5l-.73-2.2a7.5 7.5 0 01-2-.84l-2.19.79-2.5-4.33 1.85-1.33a7.6 7.6 0 010-2.68l-1.85-1.33 2.5-4.33 2.19.79a7.5 7.5 0 012-.84l.73-2.2Z"
+                  />
+                  <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setMenuOpen((prev) => !prev);
+                }}
                 aria-expanded={menuOpen}
                 aria-controls="mobile-navigation"
               >
@@ -428,6 +463,13 @@ export default function Nav() {
                 </NavLink>
               ))}
               <button
+                className="nav-link"
+                type="button"
+                onClick={() => signOut()}
+              >
+                Sign Out
+              </button>
+              <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
                 onClick={() => setSettingsOpen((prev) => !prev)}
@@ -444,26 +486,19 @@ export default function Nav() {
                   <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
-              <button
-                className="nav-link"
-                type="button"
-                onClick={() => signOut()}
-              >
-                Sign out
-              </button>
             </nav>
           )}
         </div>
       </div>
-      {settingsOpen && !isMobile && (
+      {settingsOpen && (
         <div
-          className="fixed inset-0 z-50"
+          className="fixed inset-0 z-[60]"
           role="dialog"
           aria-modal="true"
         >
           <div
             className="absolute inset-0 bg-black/40"
-            onClick={() => setSettingsOpen(false)}
+            onClick={closeSettings}
           />
           <div
             className="absolute right-0 top-0 h-full w-full max-w-sm border-l border-gray-200 bg-white shadow-2xl"
@@ -479,7 +514,7 @@ export default function Nav() {
               <button
                 type="button"
                 className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-brand-200 hover:text-brand-700"
-                onClick={() => setSettingsOpen(false)}
+                onClick={closeSettings}
               >
                 <span className="sr-only">Close settings</span>
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
@@ -504,6 +539,23 @@ export default function Nav() {
                       Coach
                     </span>
                   )}
+                </div>
+              )}
+              {gearLinks.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Quick Links
+                  </div>
+                  {gearLinks.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      className={({ isActive }) => drawerLinkClass(isActive)}
+                      onClick={closeSettings}
+                    >
+                      {link.label}
+                    </NavLink>
+                  ))}
                 </div>
               )}
               <div className="space-y-3">

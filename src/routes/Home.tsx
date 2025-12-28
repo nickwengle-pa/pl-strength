@@ -312,7 +312,7 @@ export default function Home() {
                     <div className="text-xs text-gray-500">last 7 days</div>
                   </div>
                   <div className="card text-center bg-white/80">
-                    <div className="text-sm text-gray-600 mb-1">Recent PRs</div>
+                    <div className="text-sm text-gray-800 mb-1">Recent PRs</div>
                     <div className="text-4xl font-bold text-purple-600">
                       {recentPRs.length}
                     </div>
@@ -332,7 +332,7 @@ export default function Home() {
                         >
                           <div>
                             <div className="font-semibold text-gray-900">{pr.athlete}</div>
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-800">
                               {pr.session.lift} • Week {pr.session.week} • {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
                             </div>
                           </div>
