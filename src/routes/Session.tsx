@@ -938,7 +938,7 @@ export default function Session() {
             <div className="rounded-2xl border-2 border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">Now Logging</div>
+                  <div className="session-now-label text-xs font-semibold uppercase tracking-wide text-brand-600">Now Logging</div>
                   <div className="text-xl font-bold text-brand-800">
                     {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
                   </div>

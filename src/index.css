@@ -82,6 +82,11 @@ html.theme-dark { color-scheme: dark; }
 .theme-dark .text-brand-700 { color: #fda4af; }
 .theme-dark .text-brand-600 { color: #fb7185; }
 
+.theme-dark .session-now-label { @apply text-sky-300; }
+
+.theme-dark .odd\:bg-white:nth-child(odd) { @apply bg-slate-900; }
+.theme-dark .even\:bg-gray-50:nth-child(even) { @apply bg-slate-800; }
+
 .theme-dark .hover\:bg-gray-50:hover { background-color: #0f172a; }
 .theme-dark .hover\:bg-gray-100:hover { background-color: #1f2937; }
 .theme-dark .hover\:bg-white:hover { background-color: #0f172a; }
