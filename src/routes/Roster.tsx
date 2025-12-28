@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   TEAM_DEFINITIONS,
+  AthleteAuthError,
   assignAthleteAccessCode,
+  createAthleteAccount,
   deleteAthlete,
   defaultEquipment,
   fetchAthleteSessions,
@@ -10,6 +12,7 @@ import {
   isAdmin,
   listRoster,
   loadProfileRemote,
+  normalizePasscodeDigits,
   regenerateAthleteCode,
   saveProfile,
   fb,
@@ -91,6 +94,7 @@ export default function Roster() {
   const [detailSessions, setDetailSessions] = useState<SessionRecord[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [tmDraft, setTmDraft] = useState<Record<LiftKey, string>>(() => emptyTmDraft());
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const [cycleAdvancing, setCycleAdvancing] = useState(false);
@@ -105,12 +109,23 @@ export default function Roster() {
   const [adminCoachFilter, setAdminCoachFilter] = useState<Team | "all">("all");
   const [adminAthleteFilter, setAdminAthleteFilter] = useState<Team | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [addAthleteOpen, setAddAthleteOpen] = useState(false);
+  const [addAthleteDraft, setAddAthleteDraft] = useState<{
+    firstName: string;
+    lastName: string;
+    team: Team | "";
+    code: string;
+  }>({ firstName: "", lastName: "", team: "", code: "" });
+  const [addAthleteError, setAddAthleteError] = useState<string | null>(null);
+  const [addAthleteSaving, setAddAthleteSaving] = useState(false);
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const [sortField, setSortField] = useState<"firstName" | "lastName" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
+  const activeTeamSelection = coachTeam ?? getStoredTeamSelection();
 
   const handleSort = (field: "firstName" | "lastName") => {
     if (sortField === field) {
@@ -118,6 +133,108 @@ export default function Roster() {
     } else {
       setSortField(field);
       setSortDirection("asc");
+    }
+  };
+
+  const resolveAddAthleteTeam = (): Team | "" => {
+    if (!isAdminUser && coachTeam) return coachTeam;
+    if (teamFilter !== "all") return teamFilter;
+    if (adminAthleteFilter !== "all") return adminAthleteFilter;
+    return getStoredTeamSelection();
+  };
+
+  const openAddAthlete = () => {
+    setAddAthleteDraft({
+      firstName: "",
+      lastName: "",
+      team: resolveAddAthleteTeam(),
+      code: "",
+    });
+    setAddAthleteError(null);
+    setAddAthleteOpen(true);
+  };
+
+  const closeAddAthlete = () => {
+    setAddAthleteOpen(false);
+    setAddAthleteError(null);
+  };
+
+  const handleAddAthlete = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (addAthleteSaving) return;
+
+    const safeFirst = addAthleteDraft.firstName.trim().replace(/\s+/g, " ");
+    const safeLast = addAthleteDraft.lastName.trim().replace(/\s+/g, " ");
+    const digits = normalizePasscodeDigits(addAthleteDraft.code);
+
+    if (!safeFirst || !safeLast) {
+      setAddAthleteError("Enter first and last name.");
+      return;
+    }
+    if (!addAthleteDraft.team) {
+      setAddAthleteError("Select a team before saving.");
+      return;
+    }
+    if (digits.length !== 4) {
+      setAddAthleteError("Access code must be 4 digits.");
+      return;
+    }
+
+    setAddAthleteSaving(true);
+    setAddAthleteError(null);
+
+    try {
+      const { profile } = await createAthleteAccount({
+        firstName: safeFirst,
+        lastName: safeLast,
+        passcodeDigits: digits,
+        team: addAthleteDraft.team as Team,
+      });
+
+      setRows((prev) => {
+        const nextEntry: RosterEntry = {
+          uid: profile.uid,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          team: profile.team,
+          teamScopes: profile.teamScopes,
+          teamAnchor: profile.teamAnchor,
+          unit: profile.unit,
+          accessCode: profile.accessCode ?? null,
+          roles: [],
+        };
+        const existingIndex = prev.findIndex((row) => row.uid === profile.uid);
+        if (existingIndex >= 0) {
+          const next = [...prev];
+          next[existingIndex] = { ...next[existingIndex], ...nextEntry };
+          return next;
+        }
+        return [nextEntry, ...prev];
+      });
+
+      setFlash({
+        kind: "success",
+        text: `${profile.firstName} ${profile.lastName} added to the roster.`,
+      });
+      closeAddAthlete();
+    } catch (err: any) {
+      if (err instanceof AthleteAuthError) {
+        if (err.code === "auth/wrong-password") {
+          setAddAthleteError("That code does not match the existing athlete account.");
+        } else if (err.code === "athlete-code/taken") {
+          setAddAthleteError("That code is already used by another athlete.");
+        } else if (err.code === "athlete-code/unavailable") {
+          setAddAthleteError("We could not reserve that code. Try again in a moment.");
+        } else if (err.code === "auth/unavailable") {
+          setAddAthleteError("Firebase auth is unavailable.");
+        } else {
+          setAddAthleteError(err.message || "Failed to add athlete.");
+        }
+      } else {
+        setAddAthleteError(err?.message ?? "Failed to add athlete.");
+      }
+    } finally {
+      setAddAthleteSaving(false);
     }
   };
 
@@ -148,7 +265,11 @@ export default function Roster() {
       await Promise.all(
         athleteUids.map(async (uid) => {
           try {
-            const sessions = await fetchAthleteSessions(uid);
+            const sessions = await fetchAthleteSessions(
+              uid,
+              12,
+              activeTeamSelection || undefined
+            );
             const recentSessions = sessions.filter(s => (s.createdAt || 0) >= oneWeekAgo);
             const lastWorkout = sessions.length > 0 
               ? Math.max(...sessions.map(s => s.createdAt || 0)) 
@@ -167,7 +288,7 @@ export default function Roster() {
     })();
     
     return () => { active = false; };
-  }, [rows]);
+  }, [rows, activeTeamSelection]);
 
   useEffect(() => {
     if (!flash) return;
@@ -317,6 +438,7 @@ export default function Roster() {
         setSelectedUid(null);
         setDetailProfile(null);
         setDetailSessions([]);
+        setDetailModalOpen(false);
       }
       setFlash({
         kind: "success",
@@ -468,6 +590,11 @@ export default function Roster() {
     return roles.includes("coach") || roles.includes("admin");
   };
 
+  const getRowTeams = (row: RosterEntry): Team[] => {
+    if (row.teamScopes && row.teamScopes.length > 0) return row.teamScopes;
+    return row.team ? [row.team] : [];
+  };
+
   const coachRows = useMemo(
     () => rows.filter(isCoachRow),
     [rows]
@@ -476,7 +603,6 @@ export default function Roster() {
     () => rows.filter((row) => !isCoachRow(row)),
     [rows]
   );
-  const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
 
   const filteredCoachRows = useMemo(() => {
     let rows = coachRows;
@@ -485,20 +611,24 @@ export default function Roster() {
       const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
       if (coachTeamDef) {
         rows = rows.filter((row) => {
-          const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === row.team);
-          if (!rowTeamDef) return false;
-          // Must match sport and program
-          const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport && 
-                                      rowTeamDef.program === coachTeamDef.program;
-          if (!matchesSportProgram) return false;
-          // Apply level filter
-          if (coachLevelFilter === "both") return true;
-          return rowTeamDef.level === coachLevelFilter;
+          const rowTeams = getRowTeams(row);
+          if (rowTeams.length === 0) return false;
+          return rowTeams.some((teamId) => {
+            const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === teamId);
+            if (!rowTeamDef) return false;
+            // Must match sport and program
+            const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport &&
+                                        rowTeamDef.program === coachTeamDef.program;
+            if (!matchesSportProgram) return false;
+            // Apply level filter
+            if (coachLevelFilter === "both") return true;
+            return rowTeamDef.level === coachLevelFilter;
+          });
         });
       }
     }
     if (isAdminUser && adminCoachFilter !== "all") {
-      rows = rows.filter((row) => row.team === adminCoachFilter);
+      rows = rows.filter((row) => getRowTeams(row).includes(adminCoachFilter));
     }
     return rows;
   }, [coachRows, coachTeamFilter, isAdminUser, adminCoachFilter, coachLevelFilter]);
@@ -517,7 +647,7 @@ export default function Roster() {
     
     // Apply team filter (for admins or when explicitly set)
     if (teamFilter !== "all") {
-      rows = rows.filter((row) => row.team === teamFilter);
+      rows = rows.filter((row) => getRowTeams(row).includes(teamFilter));
     }
     
     if (!isAdminUser && coachTeamFilter) {
@@ -525,20 +655,24 @@ export default function Roster() {
       const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
       if (coachTeamDef) {
         rows = rows.filter((row) => {
-          const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === row.team);
-          if (!rowTeamDef) return false;
-          // Must match sport and program
-          const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport && 
-                                      rowTeamDef.program === coachTeamDef.program;
-          if (!matchesSportProgram) return false;
-          // Apply level filter
-          if (coachLevelFilter === "both") return true;
-          return rowTeamDef.level === coachLevelFilter;
+          const rowTeams = getRowTeams(row);
+          if (rowTeams.length === 0) return false;
+          return rowTeams.some((teamId) => {
+            const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === teamId);
+            if (!rowTeamDef) return false;
+            // Must match sport and program
+            const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport &&
+                                        rowTeamDef.program === coachTeamDef.program;
+            if (!matchesSportProgram) return false;
+            // Apply level filter
+            if (coachLevelFilter === "both") return true;
+            return rowTeamDef.level === coachLevelFilter;
+          });
         });
       }
     }
     if (isAdminUser && adminAthleteFilter !== "all") {
-      rows = rows.filter((row) => row.team === adminAthleteFilter);
+      rows = rows.filter((row) => getRowTeams(row).includes(adminAthleteFilter));
     }
     
     // Apply sorting
@@ -579,6 +713,7 @@ export default function Roster() {
       setDetailSessions([]);
       setDetailError(null);
       setDetailLoading(false);
+      setDetailModalOpen(false);
     }
   }, [filteredAthleteRows, selectedUid]);
 
@@ -588,8 +723,10 @@ export default function Roster() {
       setDetailSessions([]);
       setDetailError(null);
       setTmDraft(emptyTmDraft());
+      setDetailModalOpen(false);
       return;
     }
+    setDetailModalOpen(true);
     let active = true;
     setDetailLoading(true);
     setDetailError(null);
@@ -597,7 +734,11 @@ export default function Roster() {
       try {
         const [profile, sessions] = await Promise.all([
           loadProfileRemote(selectedUid),
-          fetchAthleteSessions(selectedUid, 12),
+          fetchAthleteSessions(
+            selectedUid,
+            12,
+            activeTeamSelection || undefined
+          ),
         ]);
         if (!active) return;
         const resolvedProfile: Profile = profile
@@ -618,14 +759,14 @@ export default function Roster() {
             uid: resolvedProfile.uid,
             firstName: resolvedProfile.firstName ?? undefined,
             lastName: resolvedProfile.lastName ?? undefined,
-            team: resolvedProfile.team ?? null,
+            team: activeTeamSelection || resolvedProfile.team || null,
             unit: resolvedProfile.unit,
           });
         }
         setDetailSessions(sessions);
         
-        // Calculate TM suggestions if on Week 4
-        if (resolvedProfile.currentWeek === 4) {
+        // Calculate TM suggestions if on Week 3
+        if (resolvedProfile.currentWeek === 3) {
           const suggestions = await calculateTMSuggestions(selectedUid);
           if (active) setTmSuggestions(suggestions);
         } else {
@@ -643,7 +784,417 @@ export default function Roster() {
     return () => {
       active = false;
     };
-  }, [filteredAthleteRows, isCoach, selectedRow, selectedUid, setActiveAthlete]);
+  }, [filteredAthleteRows, isCoach, selectedRow, selectedUid, setActiveAthlete, activeTeamSelection]);
+
+  const detailHeader = (
+    <div>
+      <h3 className="text-lg font-semibold">
+        Review: {detailProfile?.firstName} {detailProfile?.lastName}
+      </h3>
+      {selectedRow?.roles && <RoleBadges roles={selectedRow.roles} />}
+    </div>
+  );
+
+  const detailBody = (
+    <>
+      {detailLoading && (
+        <div className="space-y-3">
+          <StatCardSkeleton />
+          <StatCardSkeleton />
+        </div>
+      )}
+
+      {detailError && !detailLoading && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {detailError}
+        </div>
+      )}
+
+      {!detailLoading && !detailError && detailProfile && (
+        <>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <div className="text-sm text-gray-600">Team</div>
+            <div className="text-base font-semibold text-gray-900">
+              {formatTeamLabel(activeTeamSelection || detailProfile.team, "-")}
+            </div>
+            <div className="mt-2 text-sm text-gray-600">Unit</div>
+            <div className="text-base font-semibold text-gray-900">
+              {detailProfile.unit}
+            </div>
+            <div className="mt-2 text-sm text-gray-600">Sign-in code</div>
+            <div className="font-mono text-base text-gray-900">
+              {detailProfile.accessCode ?? "-"}
+            </div>
+          </div>
+
+          {/* Cycle Advancement */}
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 mt-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-indigo-900">
+                  Training Cycle
+                </div>
+                <div className="text-xs text-indigo-700 mt-1">
+                  Manage weekly progression and cycle advancement
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-indigo-700 font-medium">Current Week:</span>
+                {[1, 2, 3].map((week) => (
+                  <button
+                    key={week}
+                    onClick={async () => {
+                      if (cycleAdvancing) return;
+                      setCycleAdvancing(true);
+                      try {
+                        await updateAthleteWeek(detailProfile.uid, week as 1 | 2 | 3);
+                        const updated = await loadProfileRemote(detailProfile.uid);
+                        if (updated) {
+                          setDetailProfile(updated);
+                          // Recalculate suggestions if moving to Week 3
+                          if (week === 3) {
+                            const suggestions = await calculateTMSuggestions(detailProfile.uid);
+                            setTmSuggestions(suggestions);
+                          } else {
+                            setTmSuggestions(null);
+                          }
+                        }
+                      } catch (err: any) {
+                        alert(err?.message ?? "Failed to update week");
+                      } finally {
+                        setCycleAdvancing(false);
+                      }
+                    }}
+                    disabled={cycleAdvancing}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                      (detailProfile.currentWeek ?? 1) === week
+                        ? "bg-indigo-600 text-white"
+                        : "bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100"
+                    } ${cycleAdvancing ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    Week {week}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* TM Increase Suggestions after Week 3 */}
+            {tmSuggestions && Object.keys(tmSuggestions).length > 0 && (
+              <div className="mt-4 pt-4 border-t border-indigo-200">
+                <div className="text-sm font-semibold text-indigo-900 mb-2">
+                  Suggested Training Max Increases
+                </div>
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-4 mb-3">
+                  {(["bench", "squat", "deadlift", "press"] as const).map((lift) => {
+                    const suggestion = tmSuggestions[lift];
+                    if (!suggestion) return null;
+                    const current = detailProfile.tm?.[lift] ?? 0;
+                    const newTM = current + suggestion;
+                    return (
+                      <div key={lift} className="bg-white rounded-lg border border-indigo-200 p-2">
+                        <div className="text-xs text-indigo-700 font-medium capitalize">
+                          {lift}
+                        </div>
+                        <div className="text-sm text-gray-900 mt-1">
+                          {current} ƒ+' <span className="font-semibold text-green-600">{newTM}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">+{suggestion} {detailProfile.unit}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={async () => {
+                    if (cycleAdvancing) return;
+                    if (!confirm(`Advance ${detailProfile.firstName} to Week 1 with new TMs?`)) return;
+                    setCycleAdvancing(true);
+                    try {
+                      await advanceCycle(detailProfile.uid, tmSuggestions);
+                      const updated = await loadProfileRemote(detailProfile.uid);
+                      if (updated) {
+                        setDetailProfile(updated);
+                        setTmSuggestions(null);
+                      }
+                      alert("Cycle advanced successfully!");
+                    } catch (err: any) {
+                      alert(err?.message ?? "Failed to advance cycle");
+                    } finally {
+                      setCycleAdvancing(false);
+                    }
+                  }}
+                  disabled={cycleAdvancing}
+                  className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cycleAdvancing ? "Advancing..." : "Start Next Cycle"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mt-4">
+            <div className="flex flex-col gap-1 mb-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-semibold text-gray-700">
+                Lift Summary &amp; Quick Edit
+              </div>
+              <div className="text-xs text-gray-500">
+                Review recent logs and adjust training max numbers on the fly.
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs sm:text-sm">
+                <thead className="text-gray-600">
+                  <tr>
+                    <th className="p-2 text-left">Lift</th>
+                    <th className="p-2 text-left">Training Max</th>
+                    <th className="p-2 text-left">Best Est 1RM</th>
+                    <th className="p-2 text-left">Last Session</th>
+                    <th className="p-2 text-left">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liftSummaries.map((summary) => {
+                    const draftValue = tmDraft[summary.lift];
+                    const isSaving = tmSaving === summary.lift;
+                    const latest = summary.latest;
+                    const latestMeta = latest
+                      ? [`Week ${latest.week}`, latest.pr ? "PR" : ""].filter(Boolean).join(" / ")
+                      : "";
+                    return (
+                      <tr key={summary.lift} className="border-t">
+                        <td className="p-2 capitalize font-medium text-gray-800">
+                          {summary.label}
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              step="1"
+                              className="w-24 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+                              value={draftValue}
+                              onChange={(event) =>
+                                handleTmDraftChange(summary.lift, event.target.value)
+                              }
+                              placeholder="--"
+                            />
+                            <span className="text-xs text-gray-500">
+                              {detailProfile.unit}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          {summary.bestEst
+                            ? `${formatWeight(summary.bestEst.value)} ${summary.bestEst.unit}`
+                            : "-"}
+                        </td>
+                        <td className="p-2">
+                          {latest ? (
+                            <div className="space-y-0.5 text-xs text-gray-600">
+                              <div className="font-medium text-gray-800">
+                                {latest.createdAt
+                                  ? new Date(latest.createdAt).toLocaleDateString()
+                                  : "-"}
+                              </div>
+                              <div>
+                                {latest.amrap?.weight ?? 0} {latest.unit} x{" "}
+                                {latest.amrap?.reps ?? 0}
+                              </div>
+                              {latestMeta && (
+                                <div className="text-gray-500">{latestMeta}</div>
+                              )}
+                              <div className="text-gray-400">
+                                Logs: {summary.totalSessions}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5 text-xs text-gray-400">
+                              <div>No sessions yet</div>
+                              <div>Logs: {summary.totalSessions}</div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <button
+                            type="button"
+                            className="btn px-3 py-1 text-xs"
+                            disabled={isSaving || !detailProfile}
+                            onClick={() => handleSaveTm(summary.lift)}
+                          >
+                            {isSaving ? "Saving..." : "Save"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-gray-700">
+              Recent Sessions
+            </h4>
+            {detailSessions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                No logged sessions yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-2 text-left">Date</th>
+                      <th className="p-2 text-left">Lift</th>
+                      <th className="p-2 text-left">Cycle / Week</th>
+                      <th className="p-2 text-left">AMRAP</th>
+                      <th className="p-2 text-left">Est 1RM</th>
+                      <th className="p-2 text-left">PR</th>
+                      {isCoach && <th className="p-2 text-left">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailSessions.slice(0, 8).map((session) => {
+                      const isEditing = editingSessionId === session.id;
+                      return (
+                        <tr key={session.id ?? session.createdAt} className="border-t">
+                          <td className="p-2 text-xs text-gray-600">
+                            {session.createdAt
+                              ? new Date(session.createdAt).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td className="p-2 capitalize">
+                            {isEditing ? (
+                              <select
+                                className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                value={editSessionDraft.lift}
+                                onChange={(e) =>
+                                  setEditSessionDraft((prev) => ({
+                                    ...prev,
+                                    lift: e.target.value as any,
+                                  }))
+                                }
+                              >
+                                {LIFT_KEYS.map((k) => (
+                                  <option key={k} value={k}>
+                                    {k}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              session.lift
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {isEditing ? (
+                              <select
+                                className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                value={editSessionDraft.week}
+                                onChange={(e) =>
+                                  setEditSessionDraft((prev) => ({
+                                    ...prev,
+                                    week: Number(e.target.value) as any,
+                                  }))
+                                }
+                              >
+                                {[1, 2, 3].map((w) => (
+                                  <option key={w} value={w}>
+                                    Week {w}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              `Cycle ${session.cycle ?? 1} / Week ${session.week}`
+                            )}
+                          </td>
+                          <td className="p-2 text-xs">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  className="w-12 rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                  value={editSessionDraft.amrap?.weight ?? 0}
+                                  onChange={(e) =>
+                                    setEditSessionDraft((prev) => ({
+                                      ...prev,
+                                      amrap: {
+                                        weight: Number(e.target.value),
+                                        reps: prev.amrap?.reps ?? 0,
+                                      },
+                                    }))
+                                  }
+                                />
+                                <span>{session.unit} x</span>
+                                <input
+                                  type="number"
+                                  className="w-10 rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                  value={editSessionDraft.amrap?.reps ?? 0}
+                                  onChange={(e) =>
+                                    setEditSessionDraft((prev) => ({
+                                      ...prev,
+                                      amrap: {
+                                        weight: prev.amrap?.weight ?? 0,
+                                        reps: Number(e.target.value),
+                                      },
+                                    }))
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              `${session.amrap?.weight ?? 0} ${session.unit} x ${
+                                session.amrap?.reps ?? 0
+                              }`
+                            )}
+                          </td>
+                          <td className="p-2 font-semibold">
+                            {session.est1rm
+                              ? `${session.est1rm} ${session.unit}`
+                              : "-"}
+                          </td>
+                          <td className="p-2 text-green-600">
+                            {session.pr ? "PR" : "-"}
+                          </td>
+                          {isCoach && (
+                            <td className="p-2">
+                              {isEditing ? (
+                                <div className="flex gap-1">
+                                  <button
+                                    className="btn px-2 py-0.5 text-[10px] bg-green-50 text-green-700 border-green-200"
+                                    onClick={() => handleSaveSession(session.id!)}
+                                    disabled={sessionSaving}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    className="btn px-2 py-0.5 text-[10px] bg-gray-50 text-gray-600 border-gray-200"
+                                    onClick={handleCancelEditSession}
+                                    disabled={sessionSaving}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="btn px-2 py-0.5 text-[10px]"
+                                  onClick={() => handleEditSession(session)}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
 
   if (err) {
     return (
@@ -788,11 +1339,23 @@ export default function Roster() {
 
       <div className="card">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <h3 className="text-lg font-semibold">Athletes</h3>
-            <p className="text-xs text-gray-500">
-              Click a row to review recent sessions and TM numbers.
-            </p>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Athletes</h3>
+              <p className="text-xs text-gray-500">
+                Click a row to review recent sessions and TM numbers.
+              </p>
+            </div>
+            {(isCoach || isAdminUser) && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={openAddAthlete}
+                disabled={addAthleteSaving}
+              >
+                Add athlete
+              </button>
+            )}
           </div>
 
           {/* Search and Filter Controls */}
@@ -900,6 +1463,130 @@ export default function Roster() {
               </label>
             )}
           </div>
+
+          {addAthleteOpen && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+              <form className="space-y-4" onSubmit={handleAddAthlete}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-emerald-900">
+                      Add athlete
+                    </div>
+                    <div className="text-xs text-emerald-700">
+                      Use the same sign-in code so they can log in later.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm text-xs"
+                    onClick={closeAddAthlete}
+                    disabled={addAthleteSaving}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {addAthleteError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {addAthleteError}
+                  </div>
+                )}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                    First name
+                    <input
+                      className="field"
+                      value={addAthleteDraft.firstName}
+                      onChange={(event) =>
+                        setAddAthleteDraft((prev) => ({
+                          ...prev,
+                          firstName: event.target.value,
+                        }))
+                      }
+                      placeholder="First name"
+                      disabled={addAthleteSaving}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                    Last name
+                    <input
+                      className="field"
+                      value={addAthleteDraft.lastName}
+                      onChange={(event) =>
+                        setAddAthleteDraft((prev) => ({
+                          ...prev,
+                          lastName: event.target.value,
+                        }))
+                      }
+                      placeholder="Last name"
+                      disabled={addAthleteSaving}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                    Team
+                    <select
+                      className="field"
+                      value={addAthleteDraft.team}
+                      onChange={(event) =>
+                        setAddAthleteDraft((prev) => ({
+                          ...prev,
+                          team: event.target.value as Team | "",
+                        }))
+                      }
+                      disabled={addAthleteSaving}
+                    >
+                      <option value="">Select a team</option>
+                      {TEAM_DEFINITIONS.map((definition) => (
+                        <option key={definition.id} value={definition.id}>
+                          {definition.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                    4-digit code
+                    <input
+                      className="field text-center font-semibold tracking-widest"
+                      type="tel"
+                      value={addAthleteDraft.code}
+                      onChange={(event) =>
+                        setAddAthleteDraft((prev) => ({
+                          ...prev,
+                          code: normalizePasscodeDigits(event.target.value),
+                        }))
+                      }
+                      placeholder="1234"
+                      inputMode="numeric"
+                      maxLength={4}
+                      disabled={addAthleteSaving}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={addAthleteSaving}
+                  >
+                    {addAthleteSaving ? "Saving..." : "Add athlete"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={closeAddAthlete}
+                    disabled={addAthleteSaving}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* Results Count */}
@@ -956,12 +1643,13 @@ export default function Roster() {
                     }`}
                     onClick={() => {
                       setSelectedUid(r.uid);
+                      setDetailModalOpen(true);
                       if (isCoach && r.uid) {
                         setActiveAthlete({
                           uid: r.uid,
                           firstName: r.firstName ?? undefined,
                           lastName: r.lastName ?? undefined,
-                          team: r.team ?? null,
+                          team: activeTeamSelection || r.team || null,
                           unit: r.unit ?? undefined,
                         });
                       }
@@ -1035,417 +1723,46 @@ export default function Roster() {
       {selectedUid && (
         <div className="card space-y-4">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">
-              Review: {detailProfile?.firstName} {detailProfile?.lastName}
-            </h3>
-            {selectedRow?.roles && <RoleBadges roles={selectedRow.roles} />}
-          </div>
+            {detailHeader}
             <button
               type="button"
               className="btn text-xs md:text-sm"
-              onClick={() => setSelectedUid(null)}
+              onClick={() => {
+                setSelectedUid(null);
+                setDetailModalOpen(false);
+              }}
             >
               Close
             </button>
           </div>
 
-          {detailLoading && (
-            <div className="space-y-3">
-              <StatCardSkeleton />
-              <StatCardSkeleton />
+          {detailBody}
+        </div>
+      )}
+
+      {detailModalOpen && selectedUid && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+          onClick={() => setDetailModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="card w-full max-w-5xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              {detailHeader}
+              <button
+                type="button"
+                className="btn text-xs md:text-sm"
+                onClick={() => setDetailModalOpen(false)}
+              >
+                Close
+              </button>
             </div>
-          )}
-
-          {detailError && !detailLoading && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {detailError}
-            </div>
-          )}
-
-          {!detailLoading && !detailError && detailProfile && (
-            <>
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-sm text-gray-600">Team</div>
-                <div className="text-base font-semibold text-gray-900">
-                  {formatTeamLabel(detailProfile.team, "-")}
-                </div>
-                <div className="mt-2 text-sm text-gray-600">Unit</div>
-                <div className="text-base font-semibold text-gray-900">
-                  {detailProfile.unit}
-                </div>
-                <div className="mt-2 text-sm text-gray-600">Sign-in code</div>
-                <div className="font-mono text-base text-gray-900">
-                  {detailProfile.accessCode ?? "-"}
-                </div>
-              </div>
-
-              {/* Cycle Advancement */}
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 mt-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-indigo-900">
-                      Training Cycle
-                    </div>
-                    <div className="text-xs text-indigo-700 mt-1">
-                      Manage weekly progression and cycle advancement
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-indigo-700 font-medium">Current Week:</span>
-                    {[1, 2, 3, 4].map((week) => (
-                      <button
-                        key={week}
-                        onClick={async () => {
-                          if (cycleAdvancing) return;
-                          setCycleAdvancing(true);
-                          try {
-                            await updateAthleteWeek(detailProfile.uid, week as 1 | 2 | 3 | 4);
-                            const updated = await loadProfileRemote(detailProfile.uid);
-                            if (updated) {
-                              setDetailProfile(updated);
-                              // Recalculate suggestions if moving to Week 4
-                              if (week === 4) {
-                                const suggestions = await calculateTMSuggestions(detailProfile.uid);
-                                setTmSuggestions(suggestions);
-                              } else {
-                                setTmSuggestions(null);
-                              }
-                            }
-                          } catch (err: any) {
-                            alert(err?.message ?? "Failed to update week");
-                          } finally {
-                            setCycleAdvancing(false);
-                          }
-                        }}
-                        disabled={cycleAdvancing}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                          (detailProfile.currentWeek ?? 1) === week
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-100"
-                        } ${cycleAdvancing ? "opacity-50 cursor-not-allowed" : ""}`}
-                      >
-                        Week {week}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* TM Increase Suggestions after Week 4 */}
-                {tmSuggestions && Object.keys(tmSuggestions).length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-indigo-200">
-                    <div className="text-sm font-semibold text-indigo-900 mb-2">
-                      Suggested Training Max Increases
-                    </div>
-                    <div className="grid gap-2 grid-cols-2 md:grid-cols-4 mb-3">
-                      {(["bench", "squat", "deadlift", "press"] as const).map((lift) => {
-                        const suggestion = tmSuggestions[lift];
-                        if (!suggestion) return null;
-                        const current = detailProfile.tm?.[lift] ?? 0;
-                        const newTM = current + suggestion;
-                        return (
-                          <div key={lift} className="bg-white rounded-lg border border-indigo-200 p-2">
-                            <div className="text-xs text-indigo-700 font-medium capitalize">
-                              {lift}
-                            </div>
-                            <div className="text-sm text-gray-900 mt-1">
-                              {current} → <span className="font-semibold text-green-600">{newTM}</span>
-                            </div>
-                            <div className="text-xs text-gray-500">+{suggestion} {detailProfile.unit}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (cycleAdvancing) return;
-                        if (!confirm(`Advance ${detailProfile.firstName} to Week 1 with new TMs?`)) return;
-                        setCycleAdvancing(true);
-                        try {
-                          await advanceCycle(detailProfile.uid, tmSuggestions);
-                          const updated = await loadProfileRemote(detailProfile.uid);
-                          if (updated) {
-                            setDetailProfile(updated);
-                            setTmSuggestions(null);
-                          }
-                          alert("Cycle advanced successfully!");
-                        } catch (err: any) {
-                          alert(err?.message ?? "Failed to advance cycle");
-                        } finally {
-                          setCycleAdvancing(false);
-                        }
-                      }}
-                      disabled={cycleAdvancing}
-                      className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {cycleAdvancing ? "Advancing..." : "Start Next Cycle"}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mt-4">
-                <div className="flex flex-col gap-1 mb-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm font-semibold text-gray-700">
-                    Lift Summary &amp; Quick Edit
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Review recent logs and adjust training max numbers on the fly.
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs sm:text-sm">
-                      <thead className="text-gray-600">
-                        <tr>
-                          <th className="p-2 text-left">Lift</th>
-                          <th className="p-2 text-left">Training Max</th>
-                          <th className="p-2 text-left">Best Est 1RM</th>
-                          <th className="p-2 text-left">Last Session</th>
-                          <th className="p-2 text-left">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {liftSummaries.map((summary) => {
-                          const draftValue = tmDraft[summary.lift];
-                          const isSaving = tmSaving === summary.lift;
-                          const latest = summary.latest;
-                          const latestMeta = latest
-                            ? [`Week ${latest.week}`, latest.pr ? "PR" : ""].filter(Boolean).join(" / ")
-                            : "";
-                          return (
-                            <tr key={summary.lift} className="border-t">
-                              <td className="p-2 capitalize font-medium text-gray-800">
-                                {summary.label}
-                              </td>
-                              <td className="p-2">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="1"
-                                    className="w-24 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
-                                    value={draftValue}
-                                    onChange={(event) =>
-                                      handleTmDraftChange(summary.lift, event.target.value)
-                                    }
-                                    placeholder="--"
-                                  />
-                                  <span className="text-xs text-gray-500">
-                                    {detailProfile.unit}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="p-2">
-                                {summary.bestEst
-                                  ? `${formatWeight(summary.bestEst.value)} ${summary.bestEst.unit}`
-                                  : "-"}
-                              </td>
-                              <td className="p-2">
-                                {latest ? (
-                                  <div className="space-y-0.5 text-xs text-gray-600">
-                                    <div className="font-medium text-gray-800">
-                                      {latest.createdAt
-                                        ? new Date(latest.createdAt).toLocaleDateString()
-                                        : "-"}
-                                    </div>
-                                    <div>
-                                      {latest.amrap?.weight ?? 0} {latest.unit} x{" "}
-                                      {latest.amrap?.reps ?? 0}
-                                    </div>
-                                    {latestMeta && (
-                                      <div className="text-gray-500">{latestMeta}</div>
-                                    )}
-                                    <div className="text-gray-400">
-                                      Logs: {summary.totalSessions}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-0.5 text-xs text-gray-400">
-                                    <div>No sessions yet</div>
-                                    <div>Logs: {summary.totalSessions}</div>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="p-2">
-                                <button
-                                  type="button"
-                                  className="btn px-3 py-1 text-xs"
-                                  disabled={isSaving || !detailProfile}
-                                  onClick={() => handleSaveTm(summary.lift)}
-                                >
-                                  {isSaving ? "Saving..." : "Save"}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-gray-700">
-                  Recent Sessions
-                </h4>
-                {detailSessions.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-                    No logged sessions yet.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="p-2 text-left">Date</th>
-                          <th className="p-2 text-left">Lift</th>
-                          <th className="p-2 text-left">Week</th>
-                          <th className="p-2 text-left">AMRAP</th>
-                          <th className="p-2 text-left">Est 1RM</th>
-                          <th className="p-2 text-left">PR</th>
-                          {isCoach && <th className="p-2 text-left">Action</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailSessions.slice(0, 8).map((session) => {
-                          const isEditing = editingSessionId === session.id;
-                          return (
-                            <tr key={session.id ?? session.createdAt} className="border-t">
-                              <td className="p-2 text-xs text-gray-600">
-                                {session.createdAt
-                                  ? new Date(session.createdAt).toLocaleDateString()
-                                  : "-"}
-                              </td>
-                              <td className="p-2 capitalize">
-                                {isEditing ? (
-                                  <select
-                                    className="rounded border border-gray-300 px-1 py-0.5 text-xs"
-                                    value={editSessionDraft.lift}
-                                    onChange={(e) =>
-                                      setEditSessionDraft((prev) => ({
-                                        ...prev,
-                                        lift: e.target.value as any,
-                                      }))
-                                    }
-                                  >
-                                    {LIFT_KEYS.map((k) => (
-                                      <option key={k} value={k}>
-                                        {k}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  session.lift
-                                )}
-                              </td>
-                              <td className="p-2">
-                                {isEditing ? (
-                                  <select
-                                    className="rounded border border-gray-300 px-1 py-0.5 text-xs"
-                                    value={editSessionDraft.week}
-                                    onChange={(e) =>
-                                      setEditSessionDraft((prev) => ({
-                                        ...prev,
-                                        week: Number(e.target.value) as any,
-                                      }))
-                                    }
-                                  >
-                                    {[1, 2, 3, 4].map((w) => (
-                                      <option key={w} value={w}>
-                                        Week {w}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  `Week ${session.week}`
-                                )}
-                              </td>
-                              <td className="p-2 text-xs">
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      className="w-12 rounded border border-gray-300 px-1 py-0.5 text-xs"
-                                      value={editSessionDraft.amrap?.weight ?? 0}
-                                      onChange={(e) =>
-                                        setEditSessionDraft((prev) => ({
-                                          ...prev,
-                                          amrap: {
-                                            weight: Number(e.target.value),
-                                            reps: prev.amrap?.reps ?? 0,
-                                          },
-                                        }))
-                                      }
-                                    />
-                                    <span>{session.unit} x</span>
-                                    <input
-                                      type="number"
-                                      className="w-10 rounded border border-gray-300 px-1 py-0.5 text-xs"
-                                      value={editSessionDraft.amrap?.reps ?? 0}
-                                      onChange={(e) =>
-                                        setEditSessionDraft((prev) => ({
-                                          ...prev,
-                                          amrap: {
-                                            weight: prev.amrap?.weight ?? 0,
-                                            reps: Number(e.target.value),
-                                          },
-                                        }))
-                                      }
-                                    />
-                                  </div>
-                                ) : (
-                                  `${session.amrap?.weight ?? 0} ${session.unit} x ${
-                                    session.amrap?.reps ?? 0
-                                  }`
-                                )}
-                              </td>
-                              <td className="p-2 font-semibold">
-                                {session.est1rm
-                                  ? `${session.est1rm} ${session.unit}`
-                                  : "-"}
-                              </td>
-                              <td className="p-2 text-green-600">
-                                {session.pr ? "PR" : "-"}
-                              </td>
-                              {isCoach && (
-                                <td className="p-2">
-                                  {isEditing ? (
-                                    <div className="flex gap-1">
-                                      <button
-                                        className="btn px-2 py-0.5 text-[10px] bg-green-50 text-green-700 border-green-200"
-                                        onClick={() => handleSaveSession(session.id!)}
-                                        disabled={sessionSaving}
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        className="btn px-2 py-0.5 text-[10px] bg-gray-50 text-gray-600 border-gray-200"
-                                        onClick={handleCancelEditSession}
-                                        disabled={sessionSaving}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="btn px-2 py-0.5 text-[10px]"
-                                      onClick={() => handleEditSession(session)}
-                                    >
-                                      Edit
-                                    </button>
-                                  )}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+            {detailBody}
+          </div>
         </div>
       )}
     </div>

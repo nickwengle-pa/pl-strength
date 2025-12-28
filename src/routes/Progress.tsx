@@ -4,6 +4,8 @@ import {
   loadProfileRemote,
   recentSessions,
   saveSession,
+  getStoredTeamSelection,
+  type Team,
   type SessionRecord,
   type Profile,
 } from "../lib/db";
@@ -23,12 +25,33 @@ export default function Progress() {
   const [prReps, setPrReps] = useState<string>("");
   const [prNote, setPrNote] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const { activeAthlete, isCoach, loading: coachLoading } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
     : "";
+
+  const sessionTeam = (teamSelection || profile?.team || activeAthlete?.team) as Team | undefined;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -48,7 +71,7 @@ export default function Progress() {
         console.debug("Progress: Could not load profile", err);
       }
     })();
-  }, [targetUid, activeAthlete]);
+  }, [targetUid, activeAthlete, teamSelection]);
 
   useEffect(() => {
     if (!uid) return;
@@ -56,7 +79,12 @@ export default function Progress() {
     (async () => {
       setLoading(true);
       try {
-        const data = await recentSessions(selectedLift, 50, targetUid || uid);
+        const data = await recentSessions(
+          selectedLift,
+          50,
+          targetUid || uid,
+          sessionTeam
+        );
         setSessions(data.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
       } catch (err) {
         console.debug("Could not load sessions for progress", err);
@@ -64,7 +92,7 @@ export default function Progress() {
         setLoading(false);
       }
     })();
-  }, [uid, selectedLift, targetUid]);
+  }, [uid, selectedLift, targetUid, sessionTeam]);
 
   const unit = profile?.unit || "lb";
   const currentTM = profile?.tm?.[selectedLift] || 0;
@@ -96,6 +124,8 @@ export default function Progress() {
       const record: SessionRecord = {
         lift: selectedLift,
         week: profile?.currentWeek || 1,
+        cycle: profile?.currentCycle || 1,
+        team: sessionTeam,
         unit,
         tm: currentTM,
         est1rm,
@@ -113,7 +143,12 @@ export default function Progress() {
       await saveSession(record, targetUid || uid);
       
       // Refresh sessions
-      const data = await recentSessions(selectedLift, 50, targetUid || uid);
+      const data = await recentSessions(
+        selectedLift,
+        50,
+        targetUid || uid,
+        sessionTeam
+      );
       setSessions(data.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
       
       // Reset form
@@ -251,7 +286,7 @@ export default function Progress() {
                   >
                     <div>
                       <div className="font-semibold">
-                        Week {session.week} • {session.amrap?.reps || 0} reps @ {session.amrap?.weight || 0} {unit}
+                        Cycle {session.cycle ?? 1} / Week {session.week} - {session.amrap?.reps || 0} reps @ {session.amrap?.weight || 0} {unit}
                       </div>
                       <div className="text-sm text-gray-600">
                         Est 1RM: {Math.round(session.est1rm || 0)} {unit}
@@ -274,7 +309,7 @@ export default function Progress() {
                 <thead className="border-b">
                   <tr className="text-left">
                     <th className="pb-2">Date</th>
-                    <th className="pb-2">Week</th>
+                    <th className="pb-2">Cycle / Week</th>
                     <th className="pb-2">TM</th>
                     <th className="pb-2">AMRAP</th>
                     <th className="pb-2">Est 1RM</th>
@@ -285,7 +320,7 @@ export default function Progress() {
                   {sessions.slice(-20).reverse().map((s, idx) => (
                     <tr key={idx} className="border-b last:border-0">
                       <td className="py-2">{formatDate(s.createdAt)}</td>
-                      <td className="py-2">Week {s.week}</td>
+                      <td className="py-2">Cycle {s.cycle ?? 1} / Week {s.week}</td>
                       <td className="py-2">{s.tm} {unit}</td>
                       <td className="py-2">
                         {s.amrap?.reps || 0} @ {s.amrap?.weight || 0} {unit}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   defaultEquipment,
   ensureAnon,
+  getStoredTeamSelection,
   loadProfileRemote,
   normalizeEquipment,
   saveProfile,
@@ -58,12 +59,31 @@ export default function Calculator() {
   const [newPlateWeight, setNewPlateWeight] = useState("");
   const [newBarLabel, setNewBarLabel] = useState("");
   const [newBarWeight, setNewBarWeight] = useState("");
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
     : "";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
 
 
@@ -176,7 +196,7 @@ export default function Calculator() {
     return () => {
       active = false;
     };
-  }, [targetUid, activeAthlete, version]);
+  }, [targetUid, activeAthlete, version, teamSelection]);
 
 
   useEffect(() => {

@@ -13,6 +13,8 @@ import {
   bestEst1RM,
   recentSessions,
   defaultEquipment,
+  getStoredTeamSelection,
+  type Team,
   type Profile,
 } from "../lib/db";
 import CoachTips from "../components/CoachTips";
@@ -21,7 +23,7 @@ import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PlateCalculatorDisplay } from "../components/PlateMath";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
-type Week = 1 | 2 | 3 | 4;
+type Week = 1 | 2 | 3;
 type Unit = "lb" | "kg";
 
 const ALL_LIFTS: Lift[] = ["bench", "squat", "deadlift", "press"];
@@ -33,7 +35,6 @@ const workRepLabels: Record<Week, [string, string, string]> = {
   1: ["5", "5", "5+"],
   2: ["3", "3", "3+"],
   3: ["5", "3", "1+"],
-  4: ["5", "5", "5"],
 };
 
 const LIFT_LABELS: Record<Lift, string> = {
@@ -41,6 +42,22 @@ const LIFT_LABELS: Record<Lift, string> = {
   squat: "Back Squat",
   deadlift: "Deadlift",
   press: "Overhead Press",
+};
+
+const bumpTrainingMaxes = (
+  tm: Profile["tm"] | undefined,
+  unit: Unit
+): Profile["tm"] | undefined => {
+  if (!tm) return tm;
+  const next = { ...tm };
+  (["bench", "squat", "deadlift", "press"] as const).forEach((lift) => {
+    const current = tm[lift];
+    if (typeof current !== "number" || !Number.isFinite(current)) return;
+    const isLower = lift === "squat" || lift === "deadlift";
+    const increment = unit === "kg" ? (isLower ? 5 : 2.5) : (isLower ? 10 : 5);
+    next[lift] = Number((current + increment).toFixed(2));
+  });
+  return next;
 };
 
 const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> = {
@@ -59,11 +76,6 @@ const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> 
     focus: "Prime the nervous system and chase a confident AMRAP.",
     blurb: "Own each top set and push smartly into PR territory.",
   },
-  4: {
-    name: "Deload Reset",
-    focus: "Move well, recover hard, and stay fast.",
-    blurb: "Keep the groove light so you return fresher next week.",
-  },
 };
 
 export default function Session() {
@@ -80,6 +92,7 @@ export default function Session() {
   const [showWeekAdvancePrompt, setShowWeekAdvancePrompt] = useState(false);
   const [liftsLoggedThisWeek, setLiftsLoggedThisWeek] = useState<Set<Lift>>(new Set());
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
@@ -95,6 +108,32 @@ export default function Session() {
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
     : "";
+
+  const sessionTeam = (teamSelection || profile?.team || activeAthlete?.team) as Team | undefined;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
+
+  useEffect(() => {
+    setLiftsLoggedThisWeek(new Set());
+    setShowWeekAdvancePrompt(false);
+    setLiftConfirmed(false);
+  }, [sessionTeam]);
 
 
   useEffect(() => {
@@ -142,7 +181,7 @@ export default function Session() {
       setNote("");
       setPrFlag(false);
     })();
-  }, [lift, targetUid, version]);
+  }, [lift, targetUid, version, teamSelection]);
 
   const warm = useMemo(() => {
     if (!tm) return [];
@@ -158,7 +197,7 @@ export default function Session() {
     if (!tm) return [];
     const percents = weekPercents(week);
     const repsDisplay = workRepLabels[week];
-    const numericReps = week === 1 ? [5, 5, 5] : week === 2 ? [3, 3, 3] : week === 3 ? [5, 3, 1] : [5, 5, 5];
+    const numericReps = week === 1 ? [5, 5, 5] : week === 2 ? [3, 3, 3] : [5, 3, 1];
     return percents.map((pct, index) => ({
       pct,
       weight: roundToPlate(tm * pct, unit, step),
@@ -178,13 +217,13 @@ export default function Session() {
   const lastWorkWeight = work[2]?.weight || 0;
 
   useEffect(() => {
-    if (!tm || work.length === 0 || amrapReps <= 0 || week === 4) {
+    if (!tm || work.length === 0 || amrapReps <= 0) {
       setEst(null);
       return;
     }
     const estimate = estimate1RM(lastWorkWeight, amrapReps);
     setEst(Number(estimate.toFixed(1)));
-  }, [amrapReps, work, tm, week, lastWorkWeight]);
+  }, [amrapReps, work, tm, lastWorkWeight]);
 
   useEffect(() => {
     if (coachLoading) return;
@@ -193,7 +232,7 @@ export default function Session() {
       return;
     }
     (async () => {
-      const rows = await recentSessions(lift, 12, targetUid);
+      const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
       // rows are returned newest-first (descending).
       // We reverse them for the chart (oldest-first).
       const chartHistory = [...rows].reverse();
@@ -205,12 +244,12 @@ export default function Session() {
       if (!liftConfirmed && rows.length > 0) {
         const lastSession = rows[0]; // Newest session
         const lastWeek = lastSession.week;
-        // Simple cycle logic: 1->2->3->4->1
-        const nextWeek = lastWeek === 4 ? 1 : ((lastWeek + 1) as Week);
+        // Simple cycle logic: 1->2->3->1
+        const nextWeek: Week = lastWeek === 1 ? 2 : lastWeek === 2 ? 3 : 1;
         setWeek(nextWeek);
       }
     })();
-  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed]);
+  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam]);
 
   const setWarmStatus = (index: number, status: "" | "S" | "F") => {
     setWarmOutcomes((prev) => {
@@ -277,10 +316,6 @@ export default function Session() {
     });
 
   async function save() {
-    if (week === 4) {
-      alert("Deload week: no AMRAP logging.");
-      return;
-    }
     if (!tm || work.length === 0 || amrapReps <= 0) {
       alert("Set a training max and enter AMRAP reps.");
       return;
@@ -299,13 +334,15 @@ export default function Session() {
     setSaving(true);
     try {
       const est1rm = Number(estimate1RM(lastWorkWeight, amrapReps).toFixed(1));
-      const best = await bestEst1RM(lift, 20, targetUid);
+      const best = await bestEst1RM(lift, 20, targetUid, sessionTeam);
       const pr = est1rm > best;
 
       await saveSession(
         {
           lift,
           week,
+          cycle: cycleNumber,
+          team: sessionTeam,
           unit,
           tm,
           warmups: warmWithResults,
@@ -321,7 +358,7 @@ export default function Session() {
       setPrFlag(pr);
       setEst(est1rm);
 
-      const rows = await recentSessions(lift, 12, targetUid);
+      const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
       setHistory(rows.reverse());
       notifyProfileChange();
       
@@ -333,7 +370,7 @@ export default function Session() {
       // Check if all 4 main lifts are now logged for this week
       const allLiftsLogged = ALL_LIFTS.every((l: Lift) => updatedLifts.has(l));
       
-      if (allLiftsLogged && week < 4) {
+      if (allLiftsLogged) {
         // Show week advance prompt instead of just alert
         setShowWeekAdvancePrompt(true);
       } else {
@@ -352,23 +389,35 @@ export default function Session() {
   }
 
   // Handle week change and save to profile
-  const handleWeekChange = async (newWeek: Week) => {
+  const handleWeekChange = async (newWeek: Week, overrides?: Partial<Profile>) => {
     setWeek(newWeek);
     setLiftConfirmed(true);
     // Reset lifts logged when changing weeks
     setLiftsLoggedThisWeek(new Set());
     // Save to profile
     if (profile) {
-      const updatedProfile = { ...profile, currentWeek: newWeek };
+      const updatedProfile = { ...profile, ...overrides, currentWeek: newWeek };
       await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
       setProfile(updatedProfile);
+      const nextTm = updatedProfile.tm?.[lift];
+      setTm(typeof nextTm === "number" && Number.isFinite(nextTm) ? nextTm : null);
+      notifyProfileChange();
     }
   };
 
-  // Advance to next week (1->2->3->4->1)
+  // Advance to next week (1->2->3->1) and bump TMs on new cycle
   const advanceWeek = async () => {
-    const nextWeek: Week = week === 4 ? 1 : ((week + 1) as Week);
-    await handleWeekChange(nextWeek);
+    if (week === 3) {
+      const nextCycle = (profile?.currentCycle ?? 1) + 1;
+      const nextTm = bumpTrainingMaxes(profile?.tm, unit);
+      await handleWeekChange(1, {
+        currentCycle: nextCycle,
+        tm: nextTm ?? profile?.tm,
+      });
+    } else {
+      const nextWeek: Week = week === 1 ? 2 : 3;
+      await handleWeekChange(nextWeek);
+    }
     setShowWeekAdvancePrompt(false);
   };
 
@@ -417,9 +466,10 @@ export default function Session() {
 
   const theme = WEEK_THEMES[week];
   const liftLabel = LIFT_LABELS[lift];
+  const cycleNumber = profile?.currentCycle ?? 1;
   const quickStats = [
     { label: "Lift", value: liftLabel },
-    { label: "Week", value: `Week ${week} | ${theme.name}` },
+    { label: "Week", value: `Cycle ${cycleNumber} / Week ${week} | ${theme.name}` },
     {
       label: "Training Max",
       value: tm && Number.isFinite(tm) ? `${tm} ${unit}` : "Set in Calculator",
@@ -445,7 +495,7 @@ export default function Session() {
   if (mobileMode && tm) {
     const currentSet = allSets[currentSetIndex];
     const isLastSet = currentSetIndex === allSets.length - 1;
-    const isAMRAPSet = currentSet?.phase === 'work' && currentSetIndex === allSets.length - 1 && week !== 4;
+    const isAMRAPSet = currentSet?.phase === 'work' && currentSetIndex === allSets.length - 1;
     
     return (
       <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col overflow-hidden">
@@ -643,8 +693,13 @@ export default function Session() {
             </div>
             <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center">
               <p className="text-sm font-medium text-emerald-800">
-                Ready to advance to Week {week === 3 ? "4 (Deload)" : week + 1}?
+                Ready to advance to Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? cycleNumber + 1 : cycleNumber})?
               </p>
+              {week === 3 && (
+                <p className="mt-1 text-xs text-emerald-700">
+                  Training maxes will increase for the next cycle.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -696,12 +751,12 @@ export default function Session() {
 
       {/* Prominent Week Selector Tabs */}
       <div className="rounded-2xl bg-gradient-to-r from-gray-900 to-gray-800 p-1 shadow-lg">
-        <div className="grid grid-cols-4 gap-1">
-          {([1, 2, 3, 4] as Week[]).map((w) => {
+        <div className="grid grid-cols-3 gap-1">
+          {([1, 2, 3] as Week[]).map((w) => {
             const isActive = week === w;
-            // Check if this week was completed recently (in the last 4 sessions)
+            // Check if this week was completed recently (in the last 3 sessions)
             // history is oldest->newest. We want to check the newest entries.
-            const recentHistory = history.slice(-4); 
+            const recentHistory = history.slice(-3); 
             // Use filter + pop instead of findLast for compatibility
             const lastDone = recentHistory.filter((h: any) => h.week === w).pop();
             const isDone = Boolean(lastDone);
@@ -711,7 +766,6 @@ export default function Session() {
               1: "from-blue-500 to-blue-600",
               2: "from-emerald-500 to-emerald-600",
               3: "from-amber-500 to-amber-600",
-              4: "from-purple-500 to-purple-600",
             };
             return (
               <button
@@ -725,14 +779,14 @@ export default function Session() {
               >
                 <div className="flex items-center justify-center gap-1">
                   <div className="text-xs font-medium uppercase tracking-wide opacity-80">
-                    {w === 4 ? "Deload" : `Week ${w}`}
+                    Week {w}
                   </div>
                   {isDone && !isActive && (
                     <span className="text-[10px] text-emerald-400" title="Completed recently">✓</span>
                   )}
                 </div>
                 <div className={`text-lg font-bold ${isActive ? "" : "text-gray-100"}`}>
-                  {w === 4 ? "40/50/60" : w === 1 ? "65/75/85" : w === 2 ? "70/80/90" : "75/85/95"}
+                  {w === 1 ? "65/75/85" : w === 2 ? "70/80/90" : "75/85/95"}
                 </div>
                 {isActive && (
                   <div className="mt-1 text-[10px] font-medium opacity-90 truncate">
@@ -753,7 +807,7 @@ export default function Session() {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-gray-900">Let's Train</h1>
             <p className="text-sm font-semibold text-gray-700">
-              Week {week} - {theme.name}
+              Cycle {cycleNumber} - Week {week} - {theme.name}
             </p>
             <p className="text-sm text-gray-600">{theme.focus}</p>
             <p className="text-xs text-gray-500">{theme.blurb}</p>
@@ -853,7 +907,6 @@ export default function Session() {
                     <option value={1}>Week 1 — 65/75/85%</option>
                     <option value={2}>Week 2 — 70/80/90%</option>
                     <option value={3}>Week 3 — 75/85/95%</option>
-                    <option value={4}>Deload — 40/50/60%</option>
                   </select>
                 </label>
 
@@ -887,13 +940,13 @@ export default function Session() {
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">Now Logging</div>
                   <div className="text-xl font-bold text-brand-800">
-                    {LIFT_LABELS[lift]} — Week {week}
+                    {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
                   </div>
                   <div className="text-sm text-brand-600">{WEEK_THEMES[week].focus}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-black text-brand-700">
-                    {week === 4 ? "40/50/60" : week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
+                    {week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
                   </div>
                 </div>
               </div>
@@ -973,31 +1026,29 @@ export default function Session() {
               </div>
             </div>
 
-            {week !== 4 && (
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                    <span className="text-xs uppercase tracking-wide text-amber-700">Last set AMRAP reps</span>
-                    <input
-                      className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                      type="number"
-                      min={0}
-                      value={amrapReps}
-                      onChange={(event) => setAmrapReps(Number(event.target.value) || 0)}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                    <span className="text-xs uppercase tracking-wide text-amber-700">Session notes</span>
-                    <input
-                      className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                      value={note}
-                      onChange={(event) => setNote(event.target.value)}
-                      placeholder="Form cues, RPE, reminders"
-                    />
-                  </label>
-                </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                  <span className="text-xs uppercase tracking-wide text-amber-700">Last set AMRAP reps</span>
+                  <input
+                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    type="number"
+                    min={0}
+                    value={amrapReps}
+                    onChange={(event) => setAmrapReps(Number(event.target.value) || 0)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                  <span className="text-xs uppercase tracking-wide text-amber-700">Session notes</span>
+                  <input
+                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Form cues, RPE, reminders"
+                  />
+                </label>
               </div>
-            )}
+            </div>
 
             <div
               className={`rounded-2xl px-4 py-4 text-white shadow-lg ${
@@ -1018,9 +1069,9 @@ export default function Session() {
             <button
               className="btn btn-primary w-full justify-center py-3 text-base"
               onClick={save}
-              disabled={saving || !tm || (week !== 4 && amrapReps <= 0)}
+              disabled={saving || !tm || amrapReps <= 0}
             >
-              {week === 4 ? "Deload (no save)" : saving ? "Saving..." : "Save session"}
+              {saving ? "Saving..." : "Save session"}
             </button>
           </div>
         </div>
@@ -1039,14 +1090,14 @@ export default function Session() {
                 1: "bg-blue-100 text-blue-700 border-blue-200",
                 2: "bg-emerald-100 text-emerald-700 border-emerald-200",
                 3: "bg-amber-100 text-amber-700 border-amber-200",
-                4: "bg-purple-100 text-purple-700 border-purple-200",
               };
+              const cycleLabel = session.cycle ?? 1;
               return (
                 <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
-                        W{session.week}
+                        C{cycleLabel} W{session.week}
                       </span>
                       <span className="font-semibold text-gray-900">
                         {session.est1rm ? `est1RM ${session.est1rm} ${session.unit}` : "Logged"}
@@ -1205,8 +1256,3 @@ function SetRow({
     </div>
   );
 }
-
-
-
-
-

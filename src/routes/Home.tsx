@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile } from "../lib/db";
+import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile, type Team } from "../lib/db";
 import OnboardingWizard from "../components/OnboardingWizard";
 
 const PAGE_LINKS = [
@@ -43,7 +43,7 @@ const FEATURE_LINKS = [
   {
     to: "/sheets",
     label: "Printable / Fillable Sheets",
-    message: "Week 1-4 or blank sheets. Print or fill and save.",
+    message: "Week 1-3 or blank sheets. Print or fill and save.",
     badge: "SH",
     accent: "from-emerald-400/90 to-emerald-600/90",
   },
@@ -106,6 +106,25 @@ export default function Home() {
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
   // Load profile and check if onboarding should show (for athletes)
   useEffect(() => {
@@ -127,7 +146,7 @@ export default function Home() {
         console.debug('Could not load profile', err);
       }
     })();
-  }, [isCoach]);
+  }, [isCoach, teamSelection]);
 
   // Load athlete activity for coaches
   useEffect(() => {
@@ -140,7 +159,7 @@ export default function Home() {
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         
         // Get coach's team to filter athletes
-        const coachTeam = getStoredTeamSelection();
+        const coachTeam = teamSelection;
         const coachTeamDef = coachTeam ? TEAM_DEFINITIONS.find(def => def.id === coachTeam) : null;
         
         const activities = await Promise.all(
@@ -149,16 +168,27 @@ export default function Home() {
             .filter((r: RosterEntry) => !r.roles?.includes('coach') && !r.roles?.includes('admin'))
             // Filter by coach's sport/program (e.g., football varsity sees all football, not basketball)
             .filter((r: RosterEntry) => {
-              if (!coachTeamDef || !r.team) return true; // Show all if no team filter
-              const athleteTeamDef = TEAM_DEFINITIONS.find(def => def.id === r.team);
-              if (!athleteTeamDef) return false;
-              // Match sport and program (allows varsity coach to see both varsity and JH in same sport)
-              return athleteTeamDef.sport === coachTeamDef.sport && 
-                     athleteTeamDef.program === coachTeamDef.program;
+              const rowTeams = r.teamScopes && r.teamScopes.length > 0
+                ? r.teamScopes
+                : r.team
+                ? [r.team]
+                : [];
+              if (!coachTeamDef || rowTeams.length === 0) return true; // Show all if no team filter
+              return rowTeams.some((teamId) => {
+                const athleteTeamDef = TEAM_DEFINITIONS.find(def => def.id === teamId);
+                if (!athleteTeamDef) return false;
+                // Match sport and program (allows varsity coach to see both varsity and JH in same sport)
+                return athleteTeamDef.sport === coachTeamDef.sport &&
+                       athleteTeamDef.program === coachTeamDef.program;
+              });
             })
             .map(async (athlete: RosterEntry) => {
               try {
-                const sessions = await fetchAthleteSessions(athlete.uid);
+                const sessions = await fetchAthleteSessions(
+                  athlete.uid,
+                  12,
+                  coachTeam || undefined
+                );
                 const recentSessions = sessions.filter(s => (s.createdAt || 0) >= oneWeekAgo);
                 const prCount = sessions.filter(s => s.pr).length;
                 const lastWorkout = sessions.length > 0 ? Math.max(...sessions.map(s => s.createdAt || 0)) : undefined;
@@ -191,7 +221,7 @@ export default function Home() {
         setLoadingActivity(false);
       }
     })();
-  }, [isCoach]);
+  }, [isCoach, teamSelection]);
 
   const activeAthletes = athleteActivity.filter(a => a.weekCount > 0).length;
   const totalWorkouts = athleteActivity.reduce((sum, a) => sum + a.weekCount, 0);
@@ -317,7 +347,12 @@ export default function Home() {
 
                 {/* Athlete Activity */}
                 <div className="card bg-white/80">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">Athlete Activity</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">
+                    Athlete Activity
+                    <span className="ml-2 text-xs font-normal text-gray-500">
+                      (🟢 = active in last 2 hours)
+                    </span>
+                  </h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="border-b">
@@ -332,9 +367,21 @@ export default function Home() {
                         {athleteActivity
                           .sort((a, b) => (b.lastWorkout || 0) - (a.lastWorkout || 0))
                           .slice(0, 10)
-                          .map((athlete) => (
+                          .map((athlete) => {
+                            const isActive = athlete.lastWorkout && (Date.now() - athlete.lastWorkout) < 2 * 60 * 60 * 1000;
+                            return (
                             <tr key={athlete.uid} className="border-b last:border-0">
-                              <td className="py-2 font-medium">{athlete.name}</td>
+                              <td className="py-2 font-medium">
+                                <span className="flex items-center gap-2">
+                                  {isActive && (
+                                    <span className="relative flex h-3 w-3">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                    </span>
+                                  )}
+                                  {athlete.name}
+                                </span>
+                              </td>
                               <td className="py-2">
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                                   athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -356,7 +403,7 @@ export default function Home() {
                                 )}
                               </td>
                             </tr>
-                          ))}
+                          );})}
                       </tbody>
                     </table>
                     {athleteActivity.length === 0 && (
@@ -390,7 +437,7 @@ export default function Home() {
                     className="field !text-sm !py-1 bg-white border-blue-300"
                     value={profile.currentWeek ?? 1}
                     onChange={async (e) => {
-                      const newWeek = Number(e.target.value) as 1 | 2 | 3 | 4;
+                      const newWeek = Number(e.target.value) as 1 | 2 | 3;
                       const updated = { ...profile, currentWeek: newWeek };
                       setProfile(updated);
                       try {
@@ -403,7 +450,6 @@ export default function Home() {
                     <option value={1}>1</option>
                     <option value={2}>2</option>
                     <option value={3}>3</option>
-                    <option value={4}>4</option>
                   </select>
                 </div>
                 

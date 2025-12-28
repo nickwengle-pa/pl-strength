@@ -1,7 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ensureAnon, isCoach, isAdmin, subscribeToRoleChanges } from "../lib/db";
-
-const MAX_CYCLES = 5;
 
 const TURF_WARMUP = [
   "Jog in place 3-4 minutes",
@@ -47,10 +45,6 @@ const LIFT_WEEKS = [
   {
     week: "Week 3",
     days: ["Monday - Bench", "Tuesday - Squat", "Thursday - Deadlift"],
-  },
-  {
-    week: "Week 4",
-    days: ["Monday - Squat", "Tuesday - Bench", "Thursday - Bench"],
   },
 ];
 
@@ -424,8 +418,6 @@ export default function ProgramOutline() {
   const [coach, setCoach] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [cycleCount, setCycleCount] = useState(3);
-  const [selectedCycle, setSelectedCycle] = useState(1);
   const [outline, setOutline] = useState<ProgramOutlineData>(() => loadStoredOutline());
   const [library, setLibrary] = useState<OutlineLibrary>(() =>
     mergeLibrary(loadStoredLibrary(), loadStoredOutline())
@@ -464,12 +456,6 @@ export default function ProgramOutline() {
   }, []);
 
   useEffect(() => {
-    if (selectedCycle > cycleCount) {
-      setSelectedCycle(cycleCount || 1);
-    }
-  }, [cycleCount, selectedCycle]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(OUTLINE_STORAGE_KEY, JSON.stringify(outline));
@@ -486,11 +472,6 @@ export default function ProgramOutline() {
       console.warn("Failed to persist outline library", err);
     }
   }, [library]);
-
-  const cycleButtons = useMemo(
-    () => Array.from({ length: Math.max(1, cycleCount) }, (_, i) => i + 1),
-    [cycleCount]
-  );
 
   if (loading) {
     return (
@@ -514,8 +495,7 @@ export default function ProgramOutline() {
         <div>
           <h1 className="text-2xl font-semibold">Daily Lifts</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Snapshot for each training cycle. Update the cycle count to match your plan, then review the outline per
-            cycle below.
+            Reference this outline for warmups, plyos, and accessories during daily planning.
           </p>
         </div>
 
@@ -534,19 +514,6 @@ export default function ProgramOutline() {
               View only
             </span>
           )}
-
-          <span className="text-sm font-medium text-gray-700">Cycles</span>
-          <select
-            className="field w-24"
-            value={cycleCount}
-            onChange={(event) => setCycleCount(Number(event.target.value) || 1)}
-          >
-            {Array.from({ length: MAX_CYCLES }, (_, i) => i + 1).map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -556,22 +523,7 @@ export default function ProgramOutline() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-gray-700">Cycle</span>
-        {cycleButtons.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className={`btn btn-sm ${selectedCycle === value ? "btn-primary" : ""}`}
-            onClick={() => setSelectedCycle(value)}
-          >
-            Cycle {value}
-          </button>
-        ))}
-      </div>
-
-      <OutlineCycle
-        cycleNumber={selectedCycle}
+      <OutlinePanel
         data={outline}
         editable={admin && editMode}
         onUpdate={updateOutline}
@@ -581,15 +533,14 @@ export default function ProgramOutline() {
   );
 }
 
-type OutlineCycleProps = {
-  cycleNumber: number;
+type OutlinePanelProps = {
   data: ProgramOutlineData;
   editable: boolean;
   onUpdate: (update: Partial<ProgramOutlineData>) => void;
   library: OutlineLibrary;
 };
 
-function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: OutlineCycleProps) {
+function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) {
   const updateStringList = (key: StringListKey) => (items: string[]) => {
     onUpdate({ [key]: [...items] } as Partial<ProgramOutlineData>);
   };
@@ -636,7 +587,7 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
       <div className="card space-y-4">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-gray-800">Cycle {cycleNumber}</h2>
+            <h2 className="text-xl font-semibold text-gray-800">Lift Outline</h2>
             <p className="text-sm text-gray-600">
               Use this outline for team briefing and daily planning. Adjust notes to match the specific roster and
               facilities.
@@ -737,13 +688,13 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
           <div>
             <h3 className="text-lg font-semibold text-gray-800">Lift (Weightroom)</h3>
             <p className="text-sm text-gray-600">
-              Align these training days with the 5/3/1 percentages for the selected cycle.
+              Align these training days with the 5/3/1 percentages for the current week.
             </p>
           </div>
           {editable ? (
             <div className="space-y-4">
               {data.liftWeeks.map((week, weekIndex) => {
-                const weekListId = `lift-week-${cycleNumber}-${weekIndex}`;
+                const weekListId = `lift-week-${weekIndex}`;
                 return (
                   <div
                     key={weekIndex}
@@ -771,7 +722,7 @@ function OutlineCycle({ cycleNumber, data, editable, onUpdate, library }: Outlin
                       ) : null}
                     </label>
                     {Array.from({ length: dayRows }, (_, dayIndex) => {
-                      const dayListId = `lift-day-${cycleNumber}-${weekIndex}-${dayIndex}`;
+                      const dayListId = `lift-day-${weekIndex}-${dayIndex}`;
                       return (
                         <div key={dayIndex} className="flex items-center gap-2">
                           <span className="w-20 text-xs text-gray-500">Day {dayIndex + 1}</span>
@@ -1249,7 +1200,7 @@ function AccessorySection({
                       className="rounded-full border border-rose-200 bg-white px-2 py-0.5"
                     >
                       {option.name}
-                      {option.prescription ? ` · ${option.prescription}` : ""}
+                      {option.prescription ? ` - ${option.prescription}` : ""}
                     </span>
                   ))}
                 </div>

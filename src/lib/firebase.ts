@@ -1,4 +1,4 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
+import { getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -11,6 +11,8 @@ export type FirebaseHandles = {
 };
 
 let cached: FirebaseHandles | null = null;
+let cachedSecondaryAuth: ReturnType<typeof getAuth> | null = null;
+const SECONDARY_APP_NAME = "secondary-auth";
 
 const resolveConfig = (): Record<string, any> | null => {
   const globalConfig =
@@ -44,10 +46,8 @@ export function tryInitFirebase(): FirebaseHandles | null {
   const cfg = resolveConfig();
   if (!cfg?.apiKey || !cfg.projectId) return null;
   try {
-    const app =
-      getApps().length > 0
-        ? getApp()
-        : initializeApp(cfg);
+    const existing = getApps().find((app) => app.name === "[DEFAULT]");
+    const app = existing ?? initializeApp(cfg);
     cached = {
       app,
       auth: getAuth(app),
@@ -63,4 +63,16 @@ export function tryInitFirebase(): FirebaseHandles | null {
 
 export function resetFirebaseCache() {
   cached = null;
+  cachedSecondaryAuth = null;
+}
+
+export function getSecondaryAuth(): ReturnType<typeof getAuth> | null {
+  if (cachedSecondaryAuth) return cachedSecondaryAuth;
+  const cfg = resolveConfig();
+  if (!cfg?.apiKey || !cfg.projectId) return null;
+
+  const existing = getApps().find((app) => app.name === SECONDARY_APP_NAME);
+  const app = existing ?? initializeApp(cfg, SECONDARY_APP_NAME);
+  cachedSecondaryAuth = getAuth(app);
+  return cachedSecondaryAuth;
 }

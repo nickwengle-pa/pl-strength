@@ -129,7 +129,7 @@ export default function OnboardingWizard({ onComplete, unit }: OnboardingWizardP
             <div className="space-y-4">
               <h3 className="text-2xl font-bold text-gray-900">The 5/3/1 Program 📅</h3>
               <p className="text-gray-700">
-                5/3/1 is a simple, effective strength program based on 4-week cycles with progressive overload.
+                5/3/1 is a simple, effective strength program based on 3-week cycles with progressive overload.
               </p>
 
               <div className="space-y-3">
@@ -147,12 +147,7 @@ export default function OnboardingWizard({ onComplete, unit }: OnboardingWizardP
                   <p className="font-semibold text-purple-900">Week 3: Go Heavy (5/3/1+ reps)</p>
                   <p className="text-purple-800 text-sm mt-1">3 work sets: 75%, 85%, 95% × 5/3/1 reps</p>
                 </div>
-
-                <div className="border-l-4 border-orange-500 bg-orange-50 p-4 rounded-r-lg">
-                  <p className="font-semibold text-orange-900">Week 4: Deload & Recover</p>
-                  <p className="text-orange-800 text-sm mt-1">Light week at 40-60% for recovery</p>
-                </div>
-              </div>
+</div>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="font-semibold text-yellow-900">The Last Set is AMRAP!</p>

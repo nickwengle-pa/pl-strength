@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDevice } from "../lib/device";
 
 type Props = {
-  week: 1 | 2 | 3 | 4;
+  week: 1 | 2 | 3;
   amrapReps: number;
   unit: "lb" | "kg";
   tm: number | null;
@@ -34,17 +34,13 @@ export default function CoachTips({
   const tips = useMemo(() => {
     const list: string[] = [];
 
-    if (week === 4) {
-      list.push(
-        "Deload week: no AMRAP. Keep sets crisp at 40/50/60 percent x 5. Leave 1-2 reps in reserve."
-      );
-    } else if (amrapReps <= 0) {
+    if (amrapReps <= 0) {
       list.push(
         "Log AMRAP reps on the last work set to estimate 1RM and track PRs."
       );
     }
 
-    if (tm && tm > 0 && week !== 4) {
+    if (tm && tm > 0) {
       const target =
         week === 1
           ? "Expect 5-8 reps on the plus set."
@@ -88,7 +84,7 @@ export default function CoachTips({
       }
     }
 
-    if (lastWeight > 0 && week !== 4) {
+    if (lastWeight > 0) {
       list.push(
         `Last set was ${lastWeight} ${unit}. Brace, breathe, keep the bar path clean. Stop 1-2 reps before failure.`
       );
@@ -158,4 +154,3 @@ export default function CoachTips({
     </div>
   );
 }
-

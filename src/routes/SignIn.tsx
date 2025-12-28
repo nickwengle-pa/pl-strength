@@ -195,6 +195,8 @@ export default function SignIn() {
       oneRm: base?.oneRm ?? {},
       accessCode: base?.accessCode ?? null,
       equipment: base?.equipment,
+      currentWeek: base?.currentWeek ?? 1,
+      currentCycle: base?.currentCycle ?? 1,
     });
 
     setStoredTeamSelection(resolvedTeam ?? "");
@@ -239,7 +241,13 @@ export default function SignIn() {
         team,
       });
 
-      setStoredTeamSelection(profile.team ?? "");
+      const resolvedTeam = (team || profile.team) as Team | "";
+      setStoredTeamSelection(resolvedTeam ?? "");
+      if (profile.teamScopes && profile.teamScopes.length > 0) {
+        setStoredTeamScopes(profile.teamScopes);
+      } else if (resolvedTeam) {
+        setStoredTeamScopes([resolvedTeam]);
+      }
       updateDisplayNameCache(`${profile.firstName} ${profile.lastName}`.trim());
       setMessage({
         kind: "success",

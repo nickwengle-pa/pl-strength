@@ -27,7 +27,7 @@ import {
   type Firestore,
   type Timestamp,
 } from "firebase/firestore";
-import { tryInitFirebase, type FirebaseHandles } from "./firebase";
+import { getSecondaryAuth, tryInitFirebase, type FirebaseHandles } from "./firebase";
 import { saveProfile as saveProfileLocal } from "./storage";
 
 const LOCAL_UID = "local";
@@ -348,17 +348,35 @@ export type EquipmentSettings = {
   activeBarId: Record<Unit, string | null>;
 };
 
+export type LiftMap = {
+  bench?: number;
+  squat?: number;
+  deadlift?: number;
+  press?: number;
+};
+
+export type TeamTrainingState = {
+  tm?: LiftMap;
+  oneRm?: LiftMap;
+  currentWeek?: 1 | 2 | 3;
+  currentCycle?: number;
+};
+
 export type Profile = {
   uid: string;
   firstName: string;
   lastName: string;
   unit: Unit;
   team?: Team;
-  tm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
-  oneRm?: { bench?: number; squat?: number; deadlift?: number; press?: number };
+  teamScopes?: Team[];
+  teamAnchor?: Team;
+  teamData?: Partial<Record<Team, TeamTrainingState>>;
+  tm?: LiftMap;
+  oneRm?: LiftMap;
   accessCode?: string | null;
   equipment?: EquipmentSettings;
-  currentWeek?: 1 | 2 | 3 | 4;
+  currentWeek?: 1 | 2 | 3;
+  currentCycle?: number;
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
@@ -483,6 +501,112 @@ export const normalizeEquipment = (
   });
 
   return result;
+};
+
+const normalizeWeek = (value: unknown): 1 | 2 | 3 | undefined => {
+  const parsed = Number(value);
+  if (parsed === 1 || parsed === 2 || parsed === 3) return parsed;
+  return undefined;
+};
+
+const normalizeCycle = (value: unknown): number | undefined => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  const rounded = Math.floor(parsed);
+  return rounded >= 1 ? rounded : undefined;
+};
+
+const LIFT_KEYS: Array<keyof LiftMap> = ["bench", "squat", "deadlift", "press"];
+
+const normalizeLiftMap = (value: unknown): LiftMap => {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const next: LiftMap = {};
+  LIFT_KEYS.forEach((lift) => {
+    const raw = Number(source[lift]);
+    if (Number.isFinite(raw)) {
+      next[lift] = raw;
+    }
+  });
+  return next;
+};
+
+const normalizeTeamTrainingState = (value: unknown): TeamTrainingState => {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const tm = normalizeLiftMap(source.tm);
+  const oneRm = normalizeLiftMap(source.oneRm);
+  const currentWeek = normalizeWeek(source.currentWeek);
+  const currentCycle = normalizeCycle(source.currentCycle);
+  const state: TeamTrainingState = {};
+  if (Object.keys(tm).length) state.tm = tm;
+  if (Object.keys(oneRm).length) state.oneRm = oneRm;
+  if (currentWeek) state.currentWeek = currentWeek;
+  if (currentCycle) state.currentCycle = currentCycle;
+  return state;
+};
+
+const normalizeTeamTrainingMap = (
+  value: unknown
+): Partial<Record<Team, TeamTrainingState>> => {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const next: Partial<Record<Team, TeamTrainingState>> = {};
+  Object.entries(source).forEach(([key, entry]) => {
+    const team = normalizeTeam(key);
+    if (!team) return;
+    const normalized = normalizeTeamTrainingState(entry);
+    if (Object.keys(normalized).length === 0) return;
+    next[team] = normalized;
+  });
+  return next;
+};
+
+const mergeTeamScopes = (...inputs: Array<Team | Team[] | undefined>): Team[] => {
+  const merged: Team[] = [];
+  inputs.forEach((value) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((entry) => {
+        if (entry && !merged.includes(entry)) merged.push(entry);
+      });
+      return;
+    }
+    if (!merged.includes(value)) merged.push(value);
+  });
+  return merged;
+};
+
+const resolveActiveTeam = (
+  profile: Pick<Profile, "team" | "teamAnchor" | "teamScopes">,
+  preferred?: Team | ""
+): Team | undefined => {
+  const scopes = sanitizeTeamScopeArray(profile.teamScopes);
+  const anchor = normalizeTeam(profile.teamAnchor ?? profile.team);
+  const preferredTeam = preferred ? normalizeTeam(preferred) : undefined;
+  if (preferredTeam && scopes.includes(preferredTeam)) return preferredTeam;
+  if (anchor && scopes.includes(anchor)) return anchor;
+  return scopes[0] ?? anchor ?? preferredTeam;
+};
+
+const buildTeamTrainingState = (profile: Partial<Profile>): TeamTrainingState => ({
+  tm: normalizeLiftMap(profile.tm),
+  oneRm: normalizeLiftMap(profile.oneRm),
+  currentWeek: normalizeWeek(profile.currentWeek) ?? 1,
+  currentCycle: normalizeCycle(profile.currentCycle) ?? 1,
+});
+
+const mergeActiveTeamData = (
+  profile: Partial<Profile>,
+  activeTeam?: Team
+): Partial<Record<Team, TeamTrainingState>> => {
+  const base = normalizeTeamTrainingMap(profile.teamData);
+  if (!activeTeam) return base;
+  const next = { ...base };
+  const incoming = buildTeamTrainingState(profile);
+  const existing = next[activeTeam] ?? {};
+  next[activeTeam] = { ...existing, ...incoming };
+  return next;
 };
 
 const profRef = (database: Firestore, uid: string) =>
@@ -745,17 +869,46 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
   const snap = await getDoc(profRef(database, targetUid));
   if (!snap.exists()) return null;
   const data = snap.data() || {};
+  const team = normalizeTeam(data.team);
+  const teamAnchor = normalizeTeam(data.teamAnchor ?? data.team);
+  const teamData = normalizeTeamTrainingMap(data.teamData);
+  const teamDataTeams = Object.keys(teamData)
+    .map((entry) => normalizeTeam(entry))
+    .filter((entry): entry is Team => Boolean(entry));
+  const teamScopes = mergeTeamScopes(
+    sanitizeTeamScopeArray(data.teamScopes),
+    team,
+    teamAnchor,
+    teamDataTeams
+  );
+  const preferredTeam =
+    typeof window !== "undefined" ? getStoredTeamSelection() : "";
+  const activeTeam = resolveActiveTeam(
+    { team, teamAnchor, teamScopes },
+    preferredTeam
+  );
+  const activeState = activeTeam ? teamData[activeTeam] : undefined;
+  const legacyTm = normalizeLiftMap(data.tm);
+  const legacyOneRm = normalizeLiftMap(data.oneRm);
+  const resolvedTeam = teamAnchor ?? team ?? activeTeam;
   return {
     uid: targetUid,
     firstName: data.firstName || "",
     lastName: data.lastName || "",
     unit: (data.unit || "lb") as Unit,
-    team: normalizeTeam(data.team),
-    tm: data.tm || {},
-    oneRm: data.oneRm || {},
+    team: resolvedTeam,
+    teamScopes,
+    teamAnchor: teamAnchor ?? resolvedTeam,
+    teamData,
+    tm: activeState?.tm && Object.keys(activeState.tm).length ? activeState.tm : legacyTm,
+    oneRm:
+      activeState?.oneRm && Object.keys(activeState.oneRm).length
+        ? activeState.oneRm
+        : legacyOneRm,
     accessCode: data.accessCode ?? null,
     equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
-    currentWeek: data.currentWeek as 1 | 2 | 3 | 4 | undefined,
+    currentWeek: activeState?.currentWeek ?? normalizeWeek(data.currentWeek),
+    currentCycle: activeState?.currentCycle ?? normalizeCycle(data.currentCycle),
   };
 }
 
@@ -763,10 +916,37 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
   const handles = resolveHandles();
   const database = handles?.db;
   const normalizedEquipment = normalizeEquipment(p.equipment);
+  const normalizedTeam = normalizeTeam(p.team);
+  const normalizedAnchor = normalizeTeam(p.teamAnchor ?? p.team);
+  const baseTeamScopes = sanitizeTeamScopeArray(p.teamScopes);
+  const teamDataTeams = Object.keys(normalizeTeamTrainingMap(p.teamData))
+    .map((entry) => normalizeTeam(entry))
+    .filter((entry): entry is Team => Boolean(entry));
+  const storedSelection =
+    typeof window !== "undefined" ? getStoredTeamSelection() : "";
+  const activeTeam = resolveActiveTeam(
+    { team: normalizedTeam, teamAnchor: normalizedAnchor, teamScopes: baseTeamScopes },
+    storedSelection
+  );
+  const resolvedTeam = normalizedAnchor ?? normalizedTeam ?? activeTeam;
+  const mergedScopes = mergeTeamScopes(
+    baseTeamScopes,
+    teamDataTeams,
+    resolvedTeam,
+    activeTeam
+  );
+  const mergedTeamData = mergeActiveTeamData(p, activeTeam);
   const normalizedProfile: Profile = {
     ...p,
-    oneRm: p.oneRm || {},
+    team: resolvedTeam,
+    teamAnchor: normalizedAnchor ?? resolvedTeam,
+    teamScopes: mergedScopes,
+    teamData: mergedTeamData,
+    tm: normalizeLiftMap(p.tm),
+    oneRm: normalizeLiftMap(p.oneRm),
     equipment: normalizedEquipment,
+    currentWeek: normalizeWeek(p.currentWeek),
+    currentCycle: normalizeCycle(p.currentCycle),
   };
   if (!database) {
     if (options?.skipLocal) {
@@ -786,8 +966,20 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     accessCode: normalizedProfile.accessCode ?? null,
     equipment: normalizedEquipment,
   };
+  if (normalizedProfile.teamAnchor) {
+    payload.teamAnchor = normalizedProfile.teamAnchor;
+  }
+  if (normalizedProfile.teamScopes && normalizedProfile.teamScopes.length > 0) {
+    payload.teamScopes = normalizedProfile.teamScopes;
+  }
+  if (normalizedProfile.teamData && Object.keys(normalizedProfile.teamData).length > 0) {
+    payload.teamData = normalizedProfile.teamData;
+  }
   if (normalizedProfile.currentWeek) {
     payload.currentWeek = normalizedProfile.currentWeek;
+  }
+  if (normalizedProfile.currentCycle) {
+    payload.currentCycle = normalizedProfile.currentCycle;
   }
   const snap = await getDoc(ref);
   if (snap.exists()) await updateDoc(ref, payload);
@@ -798,16 +990,21 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
 }
 
 // Update athlete's current week
-export async function updateAthleteWeek(uid: string, week: 1 | 2 | 3 | 4): Promise<void> {
-  const handles = resolveHandles();
-  const database = handles?.db;
-  if (!database) throw new Error("Firebase not available");
-  
-  const ref = profRef(database, uid);
-  await updateDoc(ref, { currentWeek: week });
+export async function updateAthleteWeek(uid: string, week: 1 | 2 | 3): Promise<void> {
+  const profile = await loadProfileRemote(uid);
+  if (!profile) {
+    throw new Error("Athlete profile not found.");
+  }
+  await saveProfile(
+    {
+      ...profile,
+      currentWeek: week,
+    },
+    { skipLocal: true }
+  );
 }
 
-// Calculate TM increase suggestions based on Week 4 AMRAP performance
+// Calculate TM increase suggestions based on Week 3 AMRAP performance
 export async function calculateTMSuggestions(uid: string): Promise<{
   bench?: number;
   squat?: number;
@@ -817,8 +1014,10 @@ export async function calculateTMSuggestions(uid: string): Promise<{
   const profile = await loadProfileRemote(uid);
   if (!profile || !profile.tm) return {};
   
-  const sessions = await fetchAthleteSessions(uid);
-  const week4Sessions = sessions.filter(s => s.week === 4);
+  const activeTeam =
+    typeof window !== "undefined" ? normalizeTeam(getStoredTeamSelection()) : profile.team;
+  const sessions = await fetchAthleteSessions(uid, 12, activeTeam ?? profile.team);
+  const week3Sessions = sessions.filter(s => s.week === 3);
   
   const suggestions: Record<string, number> = {};
   
@@ -826,22 +1025,21 @@ export async function calculateTMSuggestions(uid: string): Promise<{
     const currentTM = profile.tm?.[lift];
     if (!currentTM) return;
     
-    // Find most recent Week 4 session for this lift
-    const recentWeek4 = week4Sessions
+    // Find most recent Week 3 session for this lift
+    const recentWeek3 = week3Sessions
       .filter(s => s.lift === lift)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
     
-    if (!recentWeek4) return;
+    if (!recentWeek3) return;
     
-    // Week 4 is deload - check if they're ready to progress
     // Standard progression: +5 lb or +2.5 kg for upper, +10 lb or +5 kg for lower
     const unit = profile.unit || 'lb';
     const isLower = lift === 'squat' || lift === 'deadlift';
     
     if (unit === 'lb') {
-      suggestions[lift] = currentTM + (isLower ? 10 : 5);
+      suggestions[lift] = isLower ? 10 : 5;
     } else {
-      suggestions[lift] = currentTM + (isLower ? 5 : 2.5);
+      suggestions[lift] = isLower ? 5 : 2.5;
     }
   });
   
@@ -858,16 +1056,23 @@ export async function advanceCycle(uid: string, tmIncreases?: {
   const profile = await loadProfileRemote(uid);
   if (!profile) throw new Error("Profile not found");
   
+  const nextCycle = (normalizeCycle(profile.currentCycle) ?? 1) + 1;
   const updatedProfile: Profile = {
     ...profile,
     currentWeek: 1,
+    currentCycle: nextCycle,
   };
   
   if (tmIncreases) {
-    updatedProfile.tm = {
-      ...profile.tm,
-      ...tmIncreases,
-    };
+    const nextTm: NonNullable<Profile["tm"]> = { ...(profile.tm ?? {}) };
+    (["bench", "squat", "deadlift", "press"] as const).forEach((lift) => {
+      const current = profile.tm?.[lift];
+      const increment = tmIncreases[lift];
+      if (typeof current === "number" && Number.isFinite(current) && typeof increment === "number") {
+        nextTm[lift] = current + increment;
+      }
+    });
+    updatedProfile.tm = nextTm;
   }
   
   await saveProfile(updatedProfile, { skipLocal: true });
@@ -875,6 +1080,9 @@ export async function advanceCycle(uid: string, tmIncreases?: {
 
 export const normalizePasscodeDigits = (code: string): string =>
   code.replace(/\D+/g, "").slice(0, 4);
+
+const sanitizeAthleteName = (value: string): string =>
+  value.trim().replace(/\s+/g, " ");
 
 export const buildAthleteEmail = (firstName: string, lastName: string): string => {
   const canonical = `${firstName}${lastName}`.toLowerCase().replace(/[^a-z]/g, "");
@@ -981,16 +1189,47 @@ export async function signInOrCreateAthleteAccount(
     );
   }
 
-  const resolvedTeam = options.team || existingProfile?.team;
+  const resolvedTeam = options.team ? normalizeTeam(options.team) : normalizeTeam(existingProfile?.team);
+  const teamAnchor = normalizeTeam(existingProfile?.teamAnchor ?? existingProfile?.team) ?? resolvedTeam;
+  const existingTeamData = normalizeTeamTrainingMap(existingProfile?.teamData);
+  const activeState = resolvedTeam ? existingTeamData[resolvedTeam] : undefined;
+  const tm = activeState?.tm ?? existingProfile?.tm ?? {};
+  const oneRm = activeState?.oneRm ?? existingProfile?.oneRm ?? {};
+  const currentWeek = activeState?.currentWeek ?? existingProfile?.currentWeek ?? 1;
+  const currentCycle = activeState?.currentCycle ?? existingProfile?.currentCycle ?? 1;
+  const nextTeamData = mergeActiveTeamData(
+    {
+      tm,
+      oneRm,
+      currentWeek,
+      currentCycle,
+      teamData: existingTeamData,
+    },
+    resolvedTeam
+  );
+  const teamScopes = mergeTeamScopes(
+    sanitizeTeamScopeArray(existingProfile?.teamScopes),
+    Object.keys(existingTeamData)
+      .map((entry) => normalizeTeam(entry))
+      .filter((entry): entry is Team => Boolean(entry)),
+    teamAnchor,
+    resolvedTeam
+  );
   const profile: Profile = {
     uid,
     firstName: first,
     lastName: last,
     unit: existingProfile?.unit ?? "lb",
-    team: resolvedTeam,
-    tm: existingProfile?.tm ?? {},
+    team: teamAnchor ?? resolvedTeam,
+    teamAnchor: teamAnchor ?? resolvedTeam,
+    teamScopes,
+    teamData: nextTeamData,
+    tm,
+    oneRm,
     accessCode: code,
     equipment: normalizeEquipment(existingProfile?.equipment),
+    currentWeek,
+    currentCycle,
   };
 
   await saveProfile(profile);
@@ -1002,6 +1241,170 @@ export async function signInOrCreateAthleteAccount(
   };
 }
 
+export type CreateAthleteAccountOptions = {
+  firstName: string;
+  lastName: string;
+  passcodeDigits: string;
+  team: Team | "";
+};
+
+export type CreateAthleteAccountResult = {
+  profile: Profile;
+  createdAccount: boolean;
+};
+
+export async function createAthleteAccount(
+  options: CreateAthleteAccountOptions
+): Promise<CreateAthleteAccountResult> {
+  const secondaryAuth = getSecondaryAuth();
+  if (!secondaryAuth) {
+    throw new AthleteAuthError("auth/unavailable", "Firebase auth is unavailable.");
+  }
+
+  const first = sanitizeAthleteName(options.firstName);
+  const last = sanitizeAthleteName(options.lastName);
+  const code = normalizePasscodeDigits(options.passcodeDigits);
+
+  if (!first || !last) {
+    throw new AthleteAuthError("auth/invalid-name", "Enter first and last name.");
+  }
+  if (code.length !== 4) {
+    throw new AthleteAuthError("auth/invalid-passcode", "Passcode must be 4 digits.");
+  }
+  if (!options.team) {
+    throw new AthleteAuthError("auth/invalid-team", "Select a team before saving.");
+  }
+
+  const email = buildAthleteEmail(first, last);
+  const password = passcodeToPassword(code);
+  let credential: UserCredential | null = null;
+  let createdAccount = false;
+
+  try {
+    credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    createdAccount = true;
+  } catch (err: any) {
+    const error = err as AuthError;
+    if (error.code === "auth/email-already-in-use") {
+      try {
+        credential = await signInWithEmailAndPassword(secondaryAuth, email, password);
+      } catch (signInErr: any) {
+        const signInError = signInErr as AuthError;
+        if (signInError.code === "auth/wrong-password") {
+          throw new AthleteAuthError("auth/wrong-password", "Incorrect passcode.");
+        }
+        throw signInError;
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  const uid = credential?.user?.uid ?? secondaryAuth.currentUser?.uid;
+  if (!uid) {
+    throw new AthleteAuthError("auth/internal-error", "We could not create the athlete account.");
+  }
+
+  let existingProfile: Profile | null = null;
+  try {
+    existingProfile = await loadProfileRemote(uid);
+  } catch (err) {
+    console.warn("Failed to load existing profile before athlete save", err);
+  }
+
+  const cleanupCreatedAccount = async () => {
+    if (!createdAccount || !credential?.user) return;
+    try {
+      await credential.user.delete();
+    } catch (deleteErr) {
+      console.warn("Failed to clean up created athlete account", deleteErr);
+    }
+  };
+
+  const codeStatus = await ensureAthleteCode(
+    uid,
+    code,
+    existingProfile?.accessCode ?? null
+  );
+
+  if (codeStatus === "taken") {
+    await cleanupCreatedAccount();
+    throw new AthleteAuthError(
+      "athlete-code/taken",
+      "That code is already being used by another athlete."
+    );
+  }
+
+  if (codeStatus === "unavailable") {
+    await cleanupCreatedAccount();
+    throw new AthleteAuthError(
+      "athlete-code/unavailable",
+      "We could not verify that code. Try again shortly."
+    );
+  }
+
+  const resolvedTeam = options.team ? normalizeTeam(options.team) : normalizeTeam(existingProfile?.team);
+  const teamAnchor = normalizeTeam(existingProfile?.teamAnchor ?? existingProfile?.team) ?? resolvedTeam;
+  const existingTeamData = normalizeTeamTrainingMap(existingProfile?.teamData);
+  const activeState = resolvedTeam ? existingTeamData[resolvedTeam] : undefined;
+  const tm = activeState?.tm ?? existingProfile?.tm ?? {};
+  const oneRm = activeState?.oneRm ?? existingProfile?.oneRm ?? {};
+  const currentWeek = activeState?.currentWeek ?? existingProfile?.currentWeek ?? 1;
+  const currentCycle = activeState?.currentCycle ?? existingProfile?.currentCycle ?? 1;
+  const nextTeamData = mergeActiveTeamData(
+    {
+      tm,
+      oneRm,
+      currentWeek,
+      currentCycle,
+      teamData: existingTeamData,
+    },
+    resolvedTeam
+  );
+  const teamScopes = mergeTeamScopes(
+    sanitizeTeamScopeArray(existingProfile?.teamScopes),
+    Object.keys(existingTeamData)
+      .map((entry) => normalizeTeam(entry))
+      .filter((entry): entry is Team => Boolean(entry)),
+    teamAnchor,
+    resolvedTeam
+  );
+  const profile: Profile = {
+    uid,
+    firstName: first,
+    lastName: last,
+    unit: existingProfile?.unit ?? "lb",
+    team: teamAnchor ?? resolvedTeam,
+    teamAnchor: teamAnchor ?? resolvedTeam,
+    teamScopes,
+    teamData: nextTeamData,
+    tm,
+    oneRm,
+    accessCode: code,
+    equipment: normalizeEquipment(existingProfile?.equipment),
+    currentWeek,
+    currentCycle,
+  };
+
+  try {
+    await saveProfile(profile, { skipLocal: true });
+  } catch (err) {
+    await cleanupCreatedAccount();
+    throw err;
+  }
+
+  try {
+    await secondaryAuth.signOut();
+  } catch (err) {
+    console.warn("Failed to sign out secondary auth", err);
+  }
+
+  return {
+    profile,
+    createdAccount,
+  };
+}
+
 // listRoster via collectionGroup("profile")
 export type RosterEntry = {
   uid: string;
@@ -1009,6 +1412,8 @@ export type RosterEntry = {
   lastName?: string;
   unit?: Unit;
   team?: Team;
+  teamScopes?: Team[];
+  teamAnchor?: Team;
   accessCode?: string | null;
   roles?: string[];
 };
@@ -1040,12 +1445,25 @@ export async function listRoster(): Promise<RosterEntry[]> {
         console.warn(`Failed to load roles for ${uid}`, err);
       }
 
+      const team = normalizeTeam(data.team);
+      const teamAnchor = normalizeTeam(data.teamAnchor ?? data.team);
+      const teamData = normalizeTeamTrainingMap(data.teamData);
+      const teamScopes = mergeTeamScopes(
+        sanitizeTeamScopeArray(data.teamScopes),
+        teamAnchor,
+        team,
+        Object.keys(teamData)
+          .map((entry) => normalizeTeam(entry))
+          .filter((entry): entry is Team => Boolean(entry))
+      );
       return {
         uid,
         firstName: data.firstName,
         lastName: data.lastName,
         unit: data.unit as Unit,
-        team: normalizeTeam(data.team),
+        team: teamAnchor ?? team,
+        teamAnchor: teamAnchor ?? team,
+        teamScopes,
         accessCode: data.accessCode ?? null,
         roles,
       };
@@ -1465,7 +1883,7 @@ export async function ensureAdminRole(): Promise<void> {
 }
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
-type Week = 1 | 2 | 3 | 4;
+type Week = 1 | 2 | 3;
 
 export type SessionSet = {
   pct: number;
@@ -1477,6 +1895,8 @@ export type SessionSet = {
 export type SessionPayload = {
   lift: Lift;
   week: Week;
+  cycle: number;
+  team?: Team;
   unit: Unit;
   tm: number;
   warmups: SessionSet[];
@@ -1569,9 +1989,14 @@ const normalizeSession = (
   overrides: Partial<SessionRecord> = {}
 ): SessionRecord => {
   const createdAt = toMillis(raw?.createdAt) || Date.now();
+  const rawCycle = Number(raw?.cycle);
+  const cycle = Number.isFinite(rawCycle) && rawCycle >= 1 ? Math.floor(rawCycle) : 1;
+  const overrideTeam = normalizeTeam((overrides as any)?.team);
+  const resolvedTeam = normalizeTeam(raw?.team) ?? overrideTeam;
   return {
     lift: raw.lift,
     week: raw.week,
+    cycle,
     unit: raw.unit,
     tm: raw.tm,
     warmups: normalizeSetList(raw.warmups),
@@ -1582,6 +2007,7 @@ const normalizeSession = (
     pr: !!raw.pr,
     createdAt,
     ...overrides,
+    team: resolvedTeam,
   };
 };
 
@@ -1589,7 +2015,14 @@ export async function saveSession(
   payload: SessionPayload,
   targetUid?: string
 ): Promise<{ source: "remote" | "local" }> {
-  const base = normalizeSession(payload, {
+  const resolvedTeam =
+    normalizeTeam(payload.team) ??
+    (typeof window !== "undefined" ? normalizeTeam(getStoredTeamSelection()) : undefined);
+  const basePayload = {
+    ...payload,
+    team: resolvedTeam,
+  };
+  const base = normalizeSession(basePayload, {
     createdAt: Date.now(),
     source: "local",
   });
@@ -1603,7 +2036,7 @@ export async function saveSession(
     }
     const col = collection(database, "athletes", targetUid, "sessions");
     await addDoc(col, {
-      ...payload,
+      ...basePayload,
       createdAt: serverTimestamp(),
     });
     return { source: "remote" };
@@ -1623,7 +2056,7 @@ export async function saveSession(
 
   const col = collection(database, "athletes", uid, "sessions");
   await addDoc(col, {
-    ...payload,
+    ...basePayload,
     createdAt: serverTimestamp(),
   });
 
@@ -1633,10 +2066,12 @@ export async function saveSession(
 export async function recentSessions(
   lift: Lift,
   count = 10,
-  targetUid?: string
+  targetUid?: string,
+  team?: Team
 ): Promise<SessionRecord[]> {
   const handles = resolveHandles();
   const database = handles?.db;
+  const teamFilter = team ? normalizeTeam(team) : undefined;
 
   if (targetUid) {
     if (!database) return [];
@@ -1654,7 +2089,10 @@ export async function recentSessions(
             source: "remote",
           })
         )
-        .filter((s) => s.lift === lift);
+        .filter((s) => s.lift === lift)
+        .filter((s) =>
+          teamFilter ? s.team === teamFilter || !s.team : true
+        );
       return remote.slice(0, count);
     } catch (err) {
       console.warn("recentSessions coach query failed", err);
@@ -1662,7 +2100,9 @@ export async function recentSessions(
     }
   }
 
-  const local = readLocalSessions().filter((s) => s.lift === lift);
+  const local = readLocalSessions()
+    .filter((s) => s.lift === lift)
+    .filter((s) => (teamFilter ? s.team === teamFilter || !s.team : true));
   const localSorted = local
     .map((s) =>
       normalizeSession(s, { source: "local", uid: s.uid ?? LOCAL_UID })
@@ -1694,7 +2134,10 @@ export async function recentSessions(
           source: "remote",
         })
       )
-      .filter((s) => s.lift === lift);
+      .filter((s) => s.lift === lift)
+      .filter((s) =>
+        teamFilter ? s.team === teamFilter || !s.team : true
+      );
 
     const combined = [...remote, ...localSorted];
     combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -1708,9 +2151,10 @@ export async function recentSessions(
 export async function bestEst1RM(
   lift: Lift,
   sample = 10,
-  targetUid?: string
+  targetUid?: string,
+  team?: Team
 ): Promise<number> {
-  const rows = await recentSessions(lift, sample, targetUid);
+  const rows = await recentSessions(lift, sample, targetUid, team);
   const ests = rows
     .map((r) => (typeof r.est1rm === "number" ? r.est1rm : Number(r.est1rm)))
     .filter((v): v is number => typeof v === "number" && !isNaN(v));
@@ -1927,23 +2371,29 @@ export async function deleteAthlete(uid: string): Promise<void> {
 
 export async function fetchAthleteSessions(
   uid: string,
-  count = 12
+  count = 12,
+  team?: Team
 ): Promise<SessionRecord[]> {
   const handles = resolveHandles();
   const database = handles?.db;
   if (!database) return [];
+  const teamFilter = team ? normalizeTeam(team) : undefined;
   try {
     const col = collection(database, "athletes", uid, "sessions");
     const snap = await getDocs(
       query(col, orderBy("createdAt", "desc"), limit(Math.max(count, 1)))
     );
-    return snap.docs.map((docSnap) =>
-      normalizeSession(docSnap.data(), {
-        id: docSnap.id,
-        uid,
-        source: "remote",
-      })
-    );
+    return snap.docs
+      .map((docSnap) =>
+        normalizeSession(docSnap.data(), {
+          id: docSnap.id,
+          uid,
+          source: "remote",
+        })
+      )
+      .filter((session) =>
+        teamFilter ? session.team === teamFilter || !session.team : true
+      );
   } catch (err) {
     return [];
   }

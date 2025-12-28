@@ -4,6 +4,7 @@ import {
   formatTeamLabel,
   getStoredTeamSelection,
   getStoredTeamScopes,
+  setStoredTeamScopes,
   hasFirebase,
   isCoach,
   isAdmin,
@@ -16,6 +17,9 @@ import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
 type Status = "checking" | "connected" | "offline";
+type Theme = "light" | "dark";
+
+const THEME_STORAGE_KEY = "pl-strength-theme";
 
 export default function Nav() {
   const { user, signOut } = useAuth();
@@ -26,6 +30,12 @@ export default function Nav() {
   const [admin, setAdmin] = useState(false);
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
+      ? "dark"
+      : "light";
+  });
   const [teamSelection, setTeamSelection] = useState<Team | "">("");
   const [teamScopes, setTeamScopes] = useState<Team[]>([]);
 
@@ -70,6 +80,14 @@ export default function Nav() {
       active = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {}
+  }, [theme]);
 
   useEffect(() => {
     const handler: EventListener = (event) => {
@@ -175,6 +193,23 @@ export default function Nav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user || coach) return;
+    if (teamScopes.length > 0) return;
+    loadProfileRemote(user.uid).then((profile) => {
+      if (!profile) return;
+      if (profile.teamScopes && profile.teamScopes.length > 0) {
+        setStoredTeamScopes(profile.teamScopes);
+      } else if (profile.team) {
+        setStoredTeamScopes([profile.team]);
+      }
+      const currentSelection = getStoredTeamSelection();
+      if (!currentSelection && profile.team) {
+        setStoredTeamSelection(profile.team);
+      }
+    });
+  }, [user, coach, teamScopes.length]);
+
   const statusLabel =
     status === "connected"
       ? "Connected to Firebase"
@@ -256,15 +291,19 @@ export default function Nav() {
     setStoredTeamSelection(next);
   };
 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
   const renderTeamPicker = (variant: "desktop" | "mobile") => {
-    if (!coach || teamScopes.length <= 1) return null;
+    if (teamScopes.length <= 1) return null;
     const wrapperClass =
       variant === "desktop"
         ? "flex flex-col gap-1 text-[11px] text-gray-500"
         : "flex flex-col gap-1 text-xs text-gray-500";
     return (
       <div className={wrapperClass}>
-        <span className="font-semibold uppercase tracking-wide">Team view</span>
+        <span className="font-semibold uppercase tracking-wide">Active team</span>
         <select
           className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none"
           value={teamSelection || ""}
@@ -335,11 +374,19 @@ export default function Nav() {
                   Coach
                 </span>
               )}
+              {renderTeamPicker("desktop")}
               {friendlyName && (
                 <span className="badge badge-muted text-xs md:text-sm">
                   {friendlyName}
                 </span>
               )}
+              <button
+                className="nav-link"
+                type="button"
+                onClick={toggleTheme}
+              >
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
               <button
                 className="nav-link"
                 type="button"
@@ -355,13 +402,16 @@ export default function Nav() {
         <div
           id="mobile-navigation"
           className={[
-            "pointer-events-none transition-[max-height,opacity] duration-200 ease-out",
-            menuOpen ? "pointer-events-auto max-h-[480px] opacity-100" : "max-h-0 opacity-0",
+            "pointer-events-none overflow-y-auto transition-[max-height,opacity] duration-200 ease-out",
+            menuOpen
+              ? "pointer-events-auto max-h-[calc(100vh-5rem)] opacity-100"
+              : "max-h-0 opacity-0",
           ].join(" ")}
         >
           <div className="container pb-3">
             <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-soft">
               <div>{renderStatusIndicator()}</div>
+              {renderTeamPicker("mobile")}
               <nav className="space-y-2">
                 {links.map(({ to, label }) => (
                   <NavLink
@@ -393,6 +443,13 @@ export default function Nav() {
                 <button
                   className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
                   type="button"
+                  onClick={toggleTheme}
+                >
+                  {theme === "dark" ? "Light mode" : "Dark mode"}
+                </button>
+                <button
+                  className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+                  type="button"
                   onClick={() => {
                     closeMenu();
                     signOut();
@@ -408,7 +465,3 @@ export default function Nav() {
     </header>
   );
 }
-
-
-
-

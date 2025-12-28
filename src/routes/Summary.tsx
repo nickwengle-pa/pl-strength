@@ -6,6 +6,8 @@ import {
   loadProfileRemote,
   saveProfile,
   recentSessions,
+  getStoredTeamSelection,
+  type Team,
   type Profile,
   type Unit,
   type SessionRecord,
@@ -13,13 +15,12 @@ import {
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type Lift = "bench" | "squat" | "deadlift" | "press";
-type Week = 1 | 2 | 3 | 4;
+type Week = 1 | 2 | 3;
 
 const PCT: Record<Week, Array<[number,string]>> = {
   1: [[0.65,"x5"], [0.75,"x5"], [0.85,"x5+"]],
   2: [[0.70,"x3"], [0.80,"x3"], [0.90,"x3+"]],
   3: [[0.75,"x5"], [0.85,"x3"], [0.95,"x1+"]],
-  4: [[0.40,"x5"], [0.50,"x5"], [0.60,"x5"]], // deload
 };
 
 function roundWeight(x:number, unit:Unit) {
@@ -37,12 +38,33 @@ export default function Summary() {
   const [tm, setTm] = useState<number | "">( "");
   const [completedLifts, setCompletedLifts] = useState<Set<Lift>>(new Set());
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
     : "";
+
+  const sessionTeam = (teamSelection || profile?.team || activeAthlete?.team) as Team | undefined;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -89,7 +111,7 @@ export default function Summary() {
         console.debug("Summary: Could not load profile (user may be signing out)", err);
       }
     })();
-  }, [targetUid, activeAthlete, version]);
+  }, [targetUid, activeAthlete, version, teamSelection]);
 
   useEffect(() => {
     if (!profile) {
@@ -113,7 +135,12 @@ export default function Summary() {
         // Check each lift for recent sessions matching current week
         await Promise.all(
           allLifts.map(async (liftName) => {
-            const sessions = await recentSessions(liftName, 5, targetUid || uid);
+            const sessions = await recentSessions(
+              liftName,
+              5,
+              targetUid || uid,
+              sessionTeam
+            );
             
             // Check if any session from today matches current week
             const today = new Date();
@@ -138,7 +165,7 @@ export default function Summary() {
         setLoadingSessions(false);
       }
     })();
-  }, [uid, week, targetUid]);
+  }, [uid, week, targetUid, sessionTeam]);
 
   const unit = profile?.unit || "lb";
 
@@ -247,7 +274,7 @@ export default function Summary() {
 
       <div className="flex items-center gap-3">
         <div className="btn">Week</div>
-        {[1,2,3,4].map(w => (
+        {[1,2,3].map(w => (
           <button key={w}
             className={`btn ${week===w ? "btn-primary" : ""}`}
             onClick={() => setWeek(w as Week)}>{w}</button>
@@ -290,7 +317,7 @@ export default function Summary() {
             <ul className="list-disc pl-5 text-sm space-y-1">
               <li>Move fast. Rest 2-3 min on the big sets.</li>
               <li>"+" means stop with 1-2 reps in the tank. No grinders.</li>
-              <li>Week 4 is a reset. Easy work -&gt; lock in technique.</li>
+              <li>After Week 3, adjust TMs and start the next cycle.</li>
             </ul>
           </div>
         </div>

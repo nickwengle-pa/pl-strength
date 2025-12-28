@@ -232,7 +232,11 @@ export default function Attendance() {
         await Promise.all(
           roster.map(async (athlete) => {
             try {
-              const sessions = await fetchAthleteSessions(athlete.uid);
+              const sessions = await fetchAthleteSessions(
+                athlete.uid,
+                12,
+                selectedTeam
+              );
               if (sessions.length > 0) {
                 // Get most recent session date
                 const lastSession = sessions.reduce((latest, session) => 
@@ -252,7 +256,7 @@ export default function Attendance() {
         console.debug('Could not load workout dates', err);
       }
     })();
-  }, [authLoading, isCoach, visibleTeams]);
+  }, [authLoading, isCoach, visibleTeams, selectedTeam]);
 
   useEffect(() => {
     setFormDraft((prev) => ({

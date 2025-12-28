@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   defaultEquipment,
   ensureAnon,
+  getStoredTeamSelection,
   loadProfileRemote,
+  type Team,
   type Profile,
   type Unit,
 } from "../lib/db";
@@ -11,7 +13,7 @@ import { roundToPlate, weekPercents } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type LiftKey = "squat" | "bench" | "deadlift" | "press";
-type Week = 1 | 2 | 3 | 4;
+type Week = 1 | 2 | 3;
 
 const LIFTS: Array<{ key: LiftKey; label: string }> = [
   { key: "squat", label: "Squat" },
@@ -27,10 +29,9 @@ const WEEK_META: Record<
   1: { title: "Week One", short: "One", reps: ["5", "5", "5+"] },
   2: { title: "Week Two", short: "Two", reps: ["3", "3", "3+"] },
   3: { title: "Week Three", short: "Three", reps: ["5", "3", "1+"] },
-  4: { title: "Deload", short: "Deload", reps: ["5", "5", "5"] },
 };
 
-const WEEK_ORDER: Week[] = [1, 2, 3, 4];
+const WEEK_ORDER: Week[] = [1, 2, 3];
 const DEFAULT_ONE_RM = 100;
 
 type PlanSet = { reps: string; weight: number };
@@ -124,6 +125,7 @@ function saveSheetsPrefs(prefs: SheetsPrefs) {
 export default function Sheets() {
   const savedPrefs = loadSheetsPrefs();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const [cycleCount, setCycleCount] = useState<number>(3);
   const [selectedCycle, setSelectedCycle] = useState<number>(savedPrefs.selectedCycle ?? 1);
   const [selectedWeek, setSelectedWeek] = useState<Week>(savedPrefs.selectedWeek ?? 1);
@@ -136,6 +138,24 @@ export default function Sheets() {
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
     : "";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readTeam = () => setTeamSelection(getStoredTeamSelection());
+    readTeam();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "pl-strength-team") {
+        readTeam();
+      }
+    };
+    const handleCustom = () => readTeam();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pl-team-change", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pl-team-change", handleCustom);
+    };
+  }, []);
 
   const unit: Unit = (profile?.unit ?? "lb") as Unit;
   const effectiveRoundStep = roundStep > 0 ? roundStep : unit === "kg" ? 2.5 : 5;
@@ -163,7 +183,7 @@ export default function Sheets() {
       }
       setProfile(resolved);
     })();
-  }, [targetUid, activeAthlete]);
+  }, [targetUid, activeAthlete, teamSelection]);
 
   useEffect(() => {
     const defaultStep = unit === "kg" ? 2.5 : 5;

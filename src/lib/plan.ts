@@ -13,7 +13,7 @@ export type PlanRow = {
 
 export type PlanSheet = {
   lift: 'bench'|'squat'|'deadlift'|'press';
-  week: 1|2|3|4;
+  week: 1|2|3;
   unit: 'lb'|'kg';
   tm: number;
   rows: PlanRow[];
@@ -24,7 +24,7 @@ export function buildPlan(lift: PlanSheet['lift'], week: PlanSheet['week'], unit
   const step = unit === 'lb' ? 5 : 2.5;
   const warm = warmupPercents().map((p,i)=>({ kind:'warmup' as const, pct:p, weight: roundToPlate(tm*p, unit, step), targetReps: i<2?5:3 }));
   const workP = weekPercents(week);
-  const repScheme = week===1?[5,5,5]:week===2?[3,3,3]:week===3?[5,3,1]:[5,5,5];
+  const repScheme = week===1?[5,5,5]:week===2?[3,3,3]:[5,3,1];
   const work = workP.map((p,i)=>({ kind:'work' as const, pct:p, weight: roundToPlate(tm*p, unit, step), targetReps: repScheme[i] }));
   return [...warm, ...work];
 }

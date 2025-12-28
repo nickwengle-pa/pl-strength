@@ -7,6 +7,16 @@ import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { DeviceProvider } from './lib/device';
 
+const THEME_STORAGE_KEY = "pl-strength-theme";
+try {
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === "dark") {
+    document.documentElement.classList.add("theme-dark");
+  } else {
+    document.documentElement.classList.remove("theme-dark");
+  }
+} catch {}
+
 // Suppress expected Firestore listener termination errors during sign-out
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {
