@@ -295,6 +295,38 @@ export default function Nav() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
+  const renderThemeToggle = (variant: "desktop" | "mobile") => {
+    const isDark = theme === "dark";
+    const labelClass = variant === "desktop" ? "text-xs" : "text-sm";
+    const wrapperClass =
+      variant === "desktop"
+        ? "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+        : "flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700";
+    const trackClass = [
+      "relative inline-flex h-5 w-9 items-center rounded-full border transition",
+      isDark ? "bg-brand-600 border-brand-500" : "bg-gray-200 border-gray-300",
+    ].join(" ");
+    const knobClass = [
+      "inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+      isDark ? "translate-x-4" : "translate-x-1",
+    ].join(" ");
+    return (
+      <button
+        className={wrapperClass}
+        type="button"
+        onClick={toggleTheme}
+        role="switch"
+        aria-checked={isDark}
+        aria-label="Toggle dark mode"
+      >
+        <span className={labelClass}>Theme</span>
+        <span className={trackClass}>
+          <span className={knobClass} />
+        </span>
+      </button>
+    );
+  };
+
   const renderTeamPicker = (variant: "desktop" | "mobile") => {
     if (teamScopes.length <= 1) return null;
     const wrapperClass =
@@ -380,13 +412,7 @@ export default function Nav() {
                   {friendlyName}
                 </span>
               )}
-              <button
-                className="nav-link"
-                type="button"
-                onClick={toggleTheme}
-              >
-                {theme === "dark" ? "Light mode" : "Dark mode"}
-              </button>
+              {renderThemeToggle("desktop")}
               <button
                 className="nav-link"
                 type="button"
@@ -440,13 +466,7 @@ export default function Nav() {
                     {friendlyName}
                   </span>
                 )}
-                <button
-                  className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
-                  type="button"
-                  onClick={toggleTheme}
-                >
-                  {theme === "dark" ? "Light mode" : "Dark mode"}
-                </button>
+                {renderThemeToggle("mobile")}
                 <button
                   className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
                   type="button"
