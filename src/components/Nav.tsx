@@ -30,6 +30,7 @@ export default function Nav() {
   const [admin, setAdmin] = useState(false);
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
     return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
@@ -265,13 +266,28 @@ export default function Nav() {
 
   useEffect(() => {
     setMenuOpen(false);
+    setSettingsOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     if (!isMobile) {
       setMenuOpen(false);
     }
+    if (isMobile) {
+      setSettingsOpen(false);
+    }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [settingsOpen]);
 
   const navLinkClass = (active: boolean) => {
     if (isMobile) {
@@ -370,6 +386,21 @@ export default function Nav() {
               <button
                 type="button"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
+                onClick={() => {
+                  setMenuOpen(false);
+                  signOut();
+                }}
+              >
+                <span className="sr-only">Sign out</span>
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 16l4-4-4-4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H9" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-expanded={menuOpen}
                 aria-controls="mobile-navigation"
@@ -396,23 +427,23 @@ export default function Nav() {
                   {label}
                 </NavLink>
               ))}
-              {admin && (
-                <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs md:text-sm font-semibold text-purple-700">
-                  Admin
-                </span>
-              )}
-              {coach && !admin && (
-                <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-3 py-1 text-xs md:text-sm font-semibold text-brand-700">
-                  Coach
-                </span>
-              )}
-              {renderTeamPicker("desktop")}
-              {friendlyName && (
-                <span className="badge badge-muted text-xs md:text-sm">
-                  {friendlyName}
-                </span>
-              )}
-              {renderThemeToggle("desktop")}
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-soft transition hover:border-brand-200 hover:text-brand-700"
+                onClick={() => setSettingsOpen((prev) => !prev)}
+                aria-expanded={settingsOpen}
+                aria-haspopup="dialog"
+              >
+                <span className="sr-only">Open settings</span>
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.5 1.75h5l.73 2.2a7.5 7.5 0 012 .84l2.19-.79 2.5 4.33-1.85 1.33a7.6 7.6 0 010 2.68l1.85 1.33-2.5 4.33-2.19-.79a7.5 7.5 0 01-2 .84l-.73 2.2h-5l-.73-2.2a7.5 7.5 0 01-2-.84l-2.19.79-2.5-4.33 1.85-1.33a7.6 7.6 0 010-2.68l-1.85-1.33 2.5-4.33 2.19.79a7.5 7.5 0 012-.84l.73-2.2Z"
+                  />
+                  <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
               <button
                 className="nav-link"
                 type="button"
@@ -424,6 +455,65 @@ export default function Nav() {
           )}
         </div>
       </div>
+      {settingsOpen && !isMobile && (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSettingsOpen(false)}
+          />
+          <div
+            className="absolute right-0 top-0 h-full w-full max-w-sm border-l border-gray-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">Settings</div>
+                {friendlyName && (
+                  <div className="text-xs text-gray-500">{friendlyName}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-brand-200 hover:text-brand-700"
+                onClick={() => setSettingsOpen(false)}
+              >
+                <span className="sr-only">Close settings</span>
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              {(admin || coach) && (
+                <div className="flex flex-wrap gap-2">
+                  {admin && (
+                    <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                      Admin
+                    </span>
+                  )}
+                  {coach && !admin && (
+                    <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
+                      Coach
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="space-y-3">
+                {renderTeamPicker("mobile")}
+                {renderThemeToggle("mobile")}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {isMobile && (
         <div
           id="mobile-navigation"
@@ -467,16 +557,6 @@ export default function Nav() {
                   </span>
                 )}
                 {renderThemeToggle("mobile")}
-                <button
-                  className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-2 text-base font-medium text-gray-700 transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
-                  type="button"
-                  onClick={() => {
-                    closeMenu();
-                    signOut();
-                  }}
-                >
-                  Sign out
-                </button>
               </div>
             </div>
           </div>
