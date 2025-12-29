@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   estimate1RM,
   warmupPercents,
@@ -93,6 +93,7 @@ export default function Session() {
   const [liftsLoggedThisWeek, setLiftsLoggedThisWeek] = useState<Set<Lift>>(new Set());
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
+  const autoAdvanceRef = useRef(false);
 
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
@@ -369,7 +370,16 @@ export default function Session() {
       
       // Check if all 4 main lifts are now logged for this week
       const allLiftsLogged = ALL_LIFTS.every((l: Lift) => updatedLifts.has(l));
-      
+      let didAutoAdvance = false;
+
+      if (profile?.currentWeek === 3) {
+        didAutoAdvance = await maybeAutoAdvanceWeek3(updatedLifts);
+      }
+
+      if (didAutoAdvance) {
+        return;
+      }
+
       if (allLiftsLogged) {
         // Show week advance prompt instead of just alert
         setShowWeekAdvancePrompt(true);
@@ -407,7 +417,8 @@ export default function Session() {
 
   // Advance to next week (1->2->3->1) and bump TMs on new cycle
   const advanceWeek = async () => {
-    if (week === 3) {
+    const effectiveWeek: Week = profile?.currentWeek ?? week;
+    if (effectiveWeek === 3) {
       const nextCycle = (profile?.currentCycle ?? 1) + 1;
       const nextTm = bumpTrainingMaxes(profile?.tm, unit);
       await handleWeekChange(1, {
@@ -415,11 +426,51 @@ export default function Session() {
         tm: nextTm ?? profile?.tm,
       });
     } else {
-      const nextWeek: Week = week === 1 ? 2 : 3;
+      const nextWeek: Week = effectiveWeek === 1 ? 2 : 3;
       await handleWeekChange(nextWeek);
     }
     setShowWeekAdvancePrompt(false);
   };
+
+  const maybeAutoAdvanceWeek3 = async (loggedLifts?: Set<Lift>) => {
+    if (autoAdvanceRef.current) return false;
+    if (!profile || profile.currentWeek !== 3) return false;
+
+    const cycle = profile.currentCycle ?? 1;
+    const logged = new Set<Lift>(loggedLifts ? Array.from(loggedLifts) : []);
+    const missing = ALL_LIFTS.filter((liftKey) => !logged.has(liftKey));
+
+    if (missing.length) {
+      const results = await Promise.all(
+        missing.map(async (liftKey) => {
+          const rows = await recentSessions(liftKey, 12, targetUid, sessionTeam);
+          return rows.some(
+            (row) => row.week === 3 && (row.cycle ?? 1) === cycle
+          );
+        })
+      );
+      missing.forEach((liftKey, index) => {
+        if (results[index]) logged.add(liftKey);
+      });
+    }
+
+    if (!ALL_LIFTS.every((liftKey) => logged.has(liftKey))) return false;
+
+    autoAdvanceRef.current = true;
+    setShowWeekAdvancePrompt(false);
+    try {
+      await advanceWeek();
+      alert("Week 3 complete. Cycle advanced and training maxes updated.");
+      return true;
+    } finally {
+      autoAdvanceRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!profile || profile.currentWeek !== 3) return;
+    void maybeAutoAdvanceWeek3();
+  }, [profile?.currentWeek, profile?.currentCycle, sessionTeam, targetUid]);
 
   const estSeries = history
     .map((row) => row.est1rm)
