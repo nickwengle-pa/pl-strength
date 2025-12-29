@@ -85,12 +85,12 @@ export default function LiftProgressChart({ lift, unit }: Props) {
   const yMax = Math.ceil(maxEst + padding);
   const yRange = yMax - yMin || 1;
 
-  const chartWidth = 300;
-  const chartHeight = 120;
-  const paddingLeft = 40;
-  const paddingRight = 10;
-  const paddingTop = 10;
-  const paddingBottom = 30;
+  const chartWidth = 320;
+  const chartHeight = 140;
+  const paddingLeft = 48;
+  const paddingRight = 24;
+  const paddingTop = 24;
+  const paddingBottom = 32;
   const graphWidth = chartWidth - paddingLeft - paddingRight;
   const graphHeight = chartHeight - paddingTop - paddingBottom;
 
@@ -116,11 +116,24 @@ export default function LiftProgressChart({ lift, unit }: Props) {
   const currentBest = Math.max(...data.map((d) => d.est1rm));
   const latestEst = data[data.length - 1]?.est1rm || 0;
 
+  const labelAnchorForIndex = (index: number) => {
+    if (index === 0) return "start";
+    if (index === data.length - 1) return "end";
+    return "middle";
+  };
+
+  const labelXForIndex = (index: number) => {
+    const x = xScale(index);
+    if (index === 0) return x + 6;
+    if (index === data.length - 1) return x - 6;
+    return x;
+  };
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h3 className="font-bold text-gray-900">{LIFT_LABELS[lift]}</h3>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="text-gray-600">
             Best: <span className="font-bold text-gray-900">{currentBest} {unit}</span>
           </span>
@@ -194,7 +207,10 @@ export default function LiftProgressChart({ lift, unit }: Props) {
         />
 
         {/* Data points */}
-        {data.map((d, i) => (
+        {data.map((d, i) => {
+          const labelAnchor = labelAnchorForIndex(i);
+          const labelX = labelXForIndex(i);
+          return (
           <g key={i}>
             {d.pr ? (
               <>
@@ -215,9 +231,9 @@ export default function LiftProgressChart({ lift, unit }: Props) {
                   strokeWidth={2}
                 />
                 <text
-                  x={xScale(i)}
+                  x={labelX}
                   y={yScale(d.est1rm) - 14}
-                  textAnchor="middle"
+                  textAnchor={labelAnchor}
                   className="text-[8px] font-bold fill-amber-600"
                 >
                   PR! {d.est1rm}
@@ -234,9 +250,9 @@ export default function LiftProgressChart({ lift, unit }: Props) {
                   strokeWidth={1.5}
                 />
                 <text
-                  x={xScale(i)}
+                  x={labelX}
                   y={yScale(d.est1rm) - 8}
-                  textAnchor="middle"
+                  textAnchor={labelAnchor}
                   className="text-[8px] fill-gray-600"
                 >
                   {d.est1rm}
@@ -244,7 +260,7 @@ export default function LiftProgressChart({ lift, unit }: Props) {
               </>
             )}
           </g>
-        ))}
+        );})}
       </svg>
       
       {/* PR Legend */}
