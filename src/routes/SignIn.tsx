@@ -108,9 +108,9 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!org) {
-      setMessage({ kind: "error", text: "Select your school/team first." });
+      setMessage({ kind: "error", text: "Select Your School/Team First." });
       navigate("/", { replace: true });
-    } else if (message?.kind === "error" && message.text.includes("Select your school")) {
+    } else if (message?.kind === "error" && message.text.includes("Select Your School")) {
       setMessage(null);
     }
   }, [org, message, navigate]);
@@ -130,7 +130,7 @@ export default function SignIn() {
   }, [firstName, lastName]);
 
   const selectedTeamLabel = useMemo(() => {
-    if (!team) return "No team selected yet";
+    if (!team) return "No Team Selected Yet";
     return TEAM_DEFINITIONS.find((definition) => definition.id === team)?.label ?? team;
   }, [team]);
 
@@ -209,7 +209,7 @@ export default function SignIn() {
   const handleAthleteSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!auth) {
-      setMessage({ kind: "error", text: "Firebase auth is unavailable." });
+      setMessage({ kind: "error", text: "Firebase Auth Is Unavailable." });
       return;
     }
     const safeFirst = sanitizeName(firstName);
@@ -217,19 +217,19 @@ export default function SignIn() {
     const digits = normalizePasscodeDigits(passcode);
 
     if (!safeFirst || !safeLast) {
-      setMessage({ kind: "error", text: "Enter first and last name." });
+      setMessage({ kind: "error", text: "Enter First And Last Name." });
       return;
     }
     if (digits.length !== 4) {
       setMessage({
         kind: "error",
-        text: "Passcode must be 4 digits. Ask your coach if you forgot it.",
+        text: "Passcode Must Be 4 Digits. Ask Your Coach If You Forgot It.",
       });
       return;
     }
 
     if (!team) {
-      setMessage({ kind: "error", text: "Select your team before signing in." });
+      setMessage({ kind: "error", text: "Select Your Team Before Signing In." });
       return;
     }
 
@@ -253,7 +253,7 @@ export default function SignIn() {
       updateDisplayNameCache(`${profile.firstName} ${profile.lastName}`.trim());
       setMessage({
         kind: "success",
-        text: "Signed in! You're ready to train.",
+        text: "Signed In! You're Ready To Train.",
       });
       navigate("/", { replace: true });
     } catch (err: any) {
@@ -261,35 +261,35 @@ export default function SignIn() {
         if (err.code === "auth/wrong-password") {
           setMessage({
             kind: "error",
-            text: "Passcode does not match. Ask your coach if you need help.",
+            text: "Passcode Does Not Match. Ask Your Coach If You Need Help.",
           });
         } else if (err.code === "athlete-code/taken") {
           setMessage({
             kind: "error",
-            text: "That code is already being used by another athlete. Ask your coach for a unique code.",
+            text: "That Code Is Already Being Used By Another Athlete. Ask Your Coach For A Unique Code.",
           });
         } else if (err.code === "athlete-code/unavailable") {
           setMessage({
             kind: "error",
-            text: "We couldn't verify that code. Try again in a moment.",
+            text: "We Couldn't Verify That Code. Try Again In A Moment.",
           });
         } else if (err.code === "auth/unavailable") {
           setMessage({
             kind: "error",
-            text: "Firebase auth is unavailable.",
+            text: "Firebase Auth Is Unavailable.",
           });
         } else {
           setMessage({
             kind: "error",
-            text: err.message || "We could not sign you in.",
+            text: err.message || "We Could Not Sign You In.",
           });
         }
       } else {
         const code = (err as AuthError)?.code;
         const text =
           code === "auth/email-already-in-use"
-            ? "That athlete already exists. Double-check spelling or the passcode."
-            : (err?.message ?? "We could not sign you in.");
+            ? "That Athlete Already Exists. Double-Check Spelling Or The Passcode."
+            : (err?.message ?? "We Could Not Sign You In.");
         setMessage({ kind: "error", text });
       }
     } finally {
@@ -302,13 +302,13 @@ export default function SignIn() {
 const handleCoachSignIn = async (event: React.FormEvent) => {
   event.preventDefault();
   if (!auth) {
-    setMessage({ kind: "error", text: "Firebase auth is unavailable." });
+    setMessage({ kind: "error", text: "Firebase Auth Is Unavailable." });
     return;
   }
   if (!coachPasscodeFromEnv) {
     setMessage({
       kind: "error",
-      text: "Coach passcode is not configured. Ask an admin to set VITE_COACH_PASSCODE.",
+      text: "Coach Passcode Is Not Configured. Ask An Admin To Set VITE_COACH_PASSCODE.",
     });
     return;
   }
@@ -316,18 +316,18 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   const safeFirst = sanitizeName(firstName);
   const safeLast = sanitizeName(lastName);
   if (!safeFirst || !safeLast) {
-    setMessage({ kind: "error", text: "Enter first and last name." });
+    setMessage({ kind: "error", text: "Enter First And Last Name." });
     return;
   }
   if (!team) {
-    setMessage({ kind: "error", text: "Select your team before signing in." });
+    setMessage({ kind: "error", text: "Select Your Team Before Signing In." });
     return;
   }
 
   const email = buildCoachEmail(safeFirst, safeLast);
   const entered = normalizeCoachPasscode(passcode);
   if (!entered) {
-    setMessage({ kind: "error", text: "Enter the coach passcode." });
+    setMessage({ kind: "error", text: "Enter The Coach Passcode." });
     return;
   }
   const expected = normalizeCoachPasscode(coachPasscodeFromEnv);
@@ -339,7 +339,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
   if (entered !== expected && !isAdminOverride) {
     setMessage({
       kind: "error",
-      text: "That passcode does not match. Check with your admin for the current coach code.",
+      text: "That Passcode Does Not Match. Check With Your Admin For The Current Coach Code.",
     });
     return;
   }
@@ -372,13 +372,13 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
           } catch (retryErr: any) {
             const text =
               (retryErr as AuthError)?.message ??
-              "We could not sign you in with the existing coach account. Ask an admin to reset the coach passcode.";
+              "We Could Not Sign You In With The Existing Coach Account. Ask An Admin To Reset The Coach Passcode.";
             setMessage({ kind: "error", text });
             setSubmitting(false);
             return;
           }
         } else {
-          const text = createErr?.message ?? "We could not create the account.";
+          const text = createErr?.message ?? "We Could Not Create The Account.";
           setMessage({ kind: "error", text });
           setSubmitting(false);
           return;
@@ -387,14 +387,14 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     } else if (error.code === "auth/wrong-password") {
       setMessage({
         kind: "error",
-        text: "Passcode does not match. Ask your admin for the current coach code.",
+        text: "Passcode Does Not Match. Ask Your Admin For The Current Coach Code.",
       });
       setSubmitting(false);
       return;
     } else {
       setMessage({
         kind: "error",
-        text: error.message ?? "We could not sign you in.",
+        text: error.message ?? "We Could Not Sign You In.",
       });
       setSubmitting(false);
       return;
@@ -424,8 +424,8 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
     setMessage({
       kind: "error",
       text: isAdminOverride
-        ? "Signed in, but we could not confirm admin access. Try the admin code again or contact support."
-        : "Signed in, but we could not update coach permissions in Firestore. Ask an admin to confirm Firebase configuration.",
+        ? "Signed In, But We Could Not Confirm Admin Access. Try The Admin Code Again Or Contact Support."
+        : "Signed In, But We Could Not Update Coach Permissions In Firestore. Ask An Admin To Confirm Firebase Configuration.",
     });
     setSubmitting(false);
     return; // Don't proceed if role setup failed - user needs to retry
@@ -511,7 +511,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   Purchase Line High School Strength Sign In
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Choose how you want to log in to start training.
+                  Choose How You Want To Log In To Start Training.
                 </p>
               </div>
             </div>
@@ -544,12 +544,12 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                 {mode === "athlete" ? "Athlete Login" : "Coach Login"}
               </p>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-gray-900">
-                {mode === "athlete" ? "Let's get training" : "Welcome back, Coach"}
+                {mode === "athlete" ? "Let's Get Training" : "Welcome Back, Coach"}
               </h1>
               <p className="text-sm text-gray-600">
                 {mode === "athlete" 
-                  ? "Enter your name and team code to access your program"
-                  : "Enter your credentials to manage your team"
+                  ? "Enter Your Name And Team Code To Access Your Program"
+                  : "Enter Your Credentials To Manage Your Team"
                 }
               </p>
             </div>
@@ -575,7 +575,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   disabled={disabled}
                 >
                   <span>←</span>
-                  Back to selection
+                  Back To Selection
                 </button>
                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
                   mode === "athlete" 
@@ -590,7 +590,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                 <form className="space-y-4" onSubmit={handleAthleteSignIn}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                      First name
+                      First Name
                       <input
                         className="field"
                         value={firstName}
@@ -601,7 +601,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                      Last name
+                      Last Name
                       <input
                         className="field"
                         value={lastName}
@@ -630,7 +630,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    4-digit team code
+                    4-Digit Team Code
                     <input
                       className="field tracking-widest text-center text-lg font-bold"
                       type="tel"
@@ -644,7 +644,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   </label>
 
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                    <span className="font-medium">Your team email:</span>{" "}
+                    <span className="font-medium">Your Team Email:</span>{" "}
                     <span className="font-semibold text-gray-900">
                       {athleteEmail || "firstname.lastname@pl.strength"}
                     </span>
@@ -655,14 +655,14 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                     className="btn btn-primary w-full justify-center py-4 text-lg font-bold"
                     disabled={disabled}
                   >
-                    {submitting ? "Signing in..." : "Sign In"}
+                    {submitting ? "Signing In..." : "Sign In"}
                   </button>
                 </form>
               ) : (
                 <form className="space-y-4" onSubmit={handleCoachSignIn}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                      First name
+                      First Name
                       <input
                         className="field"
                         value={firstName}
@@ -673,7 +673,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                      Last name
+                      Last Name
                       <input
                         className="field"
                         value={lastName}
@@ -702,7 +702,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    Coach passcode
+                    Coach Passcode
                     <input
                       className="field tracking-widest text-center text-lg font-bold"
                       value={passcode}
@@ -714,14 +714,14 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   </label>
 
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                    <span className="font-medium">Your coach email:</span>{" "}
+                    <span className="font-medium">Your Coach Email:</span>{" "}
                     <span className="font-semibold text-gray-900">
                       {coachEmail || "coach-firstlast@pl.strength"}
                     </span>
                   </div>
 
                   <p className="text-xs text-gray-500 text-center">
-                    Ask your program admin for the coach passcode
+                    Ask Your Program Admin For The Coach Passcode
                   </p>
 
                   <button
@@ -729,7 +729,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                     className="btn btn-primary w-full justify-center py-4 text-lg font-bold"
                     disabled={disabled}
                   >
-                    {submitting ? "Signing in..." : "Sign In as Coach"}
+                    {submitting ? "Signing In..." : "Sign In As Coach"}
                   </button>
                 </form>
               )}

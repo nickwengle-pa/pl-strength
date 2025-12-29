@@ -214,10 +214,10 @@ export default function Nav() {
 
   const statusLabel =
     status === "connected"
-      ? "Connected to Firebase"
+      ? "Connected To Firebase"
       : status === "checking"
       ? "Checking Firebase..."
-      : "Offline mode";
+      : "Offline Mode";
 
   const statusClass =
     status === "connected"
@@ -231,8 +231,8 @@ export default function Nav() {
       return (
         <span
           className="inline-flex h-3 w-3 items-center justify-center"
-          aria-label="Connected to Firebase"
-          title="Connected to Firebase"
+          aria-label="Connected To Firebase"
+          title="Connected To Firebase"
         >
           <span className="h-3 w-3 rounded-full bg-emerald-500" aria-hidden="true" />
         </span>
@@ -337,7 +337,7 @@ export default function Nav() {
         onClick={toggleTheme}
         role="switch"
         aria-checked={isDark}
-        aria-label="Toggle dark mode"
+        aria-label="Toggle Dark Mode"
       >
         <span className={labelClass}>Theme</span>
         <span className={trackClass}>
@@ -355,7 +355,7 @@ export default function Nav() {
         : "flex flex-col gap-1 text-xs text-gray-500";
     return (
       <div className={wrapperClass}>
-        <span className="font-semibold uppercase tracking-wide">Active team</span>
+        <span className="font-semibold uppercase tracking-wide">Active Team</span>
         <select
           className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:border-brand-300 focus:outline-none"
           value={teamSelection || ""}
@@ -381,7 +381,7 @@ export default function Nav() {
           { to: "/summary", label: "Summary" },
           { to: "/admin", label: admin ? "Admin" : "Team" },
         ]
-      : []),
+      : [{ to: "/progress", label: "Progress" }]),
   ];
 
   const settingsDialog =
@@ -408,7 +408,7 @@ export default function Nav() {
                   className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-brand-200 hover:text-brand-700"
                   onClick={closeSettings}
                 >
-                  <span className="sr-only">Close settings</span>
+                  <span className="sr-only">Close Settings</span>
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
                     <path
                       fillRule="evenodd"
@@ -500,7 +500,7 @@ export default function Nav() {
                 aria-expanded={settingsOpen}
                 aria-haspopup="dialog"
               >
-                <span className="sr-only">Open settings</span>
+                <span className="sr-only">Open Settings</span>
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <path
                     strokeLinecap="round"
@@ -520,7 +520,7 @@ export default function Nav() {
                 aria-expanded={menuOpen}
                 aria-controls="mobile-navigation"
               >
-                <span className="sr-only">Toggle navigation</span>
+                <span className="sr-only">Toggle Navigation</span>
                 <svg
                   className="h-5 w-5"
                   viewBox="0 0 20 20"
@@ -556,7 +556,7 @@ export default function Nav() {
                 aria-expanded={settingsOpen}
                 aria-haspopup="dialog"
               >
-                <span className="sr-only">Open settings</span>
+                <span className="sr-only">Open Settings</span>
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <path
                     strokeLinecap="round"
@@ -598,12 +598,12 @@ export default function Nav() {
                 ))}
                 {admin && (
                   <span className="flex items-center justify-between rounded-xl border-2 border-purple-300 bg-purple-100 px-4 py-2 text-base font-semibold text-purple-700">
-                    Admin mode
+                    Admin Mode
                   </span>
                 )}
                 {coach && !admin && (
                   <span className="flex items-center justify-between rounded-xl border-2 border-brand-300 bg-brand-100 px-4 py-2 text-base font-semibold text-brand-700">
-                    Coach mode
+                    Coach Mode
                   </span>
                 )}
               </nav>

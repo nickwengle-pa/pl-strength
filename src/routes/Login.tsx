@@ -24,11 +24,11 @@ export default function Login() {
     <div className="max-w-md mx-auto mt-10 card">
       <div className="flex items-center gap-3 mb-3">
         <img src="/icons/icon-96.png" className="w-10 h-10" />
-        <h1 className="text-xl font-bold">Welcome to PL Strength</h1>
+        <h1 className="text-xl font-bold">Welcome To PL Strength</h1>
       </div>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">First name</label>
+          <label className="block text-sm font-medium mb-1">First Name</label>
           <input className="w-full border rounded-xl px-3 py-2" value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="e.g., Alex" />
         </div>
         <div>
@@ -39,7 +39,7 @@ export default function Login() {
           </div>
         </div>
         <button className="btn-primary w-full" type="submit">Enter</button>
-        <p className="text-xs text-gray-600">Coach-managed mode: No emails, just a local profile for now. We’ll enable PIN logins when Firebase keys are added.</p>
+        <p className="text-xs text-gray-600">Coach-Managed Mode: No Emails, Just A Local Profile For Now. We’ll Enable PIN Logins When Firebase Keys Are Added.</p>
       </form>
     </div>
   );

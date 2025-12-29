@@ -70,7 +70,7 @@ export default function LiftProgressChart({ lift, unit }: Props) {
           <h3 className="font-bold text-gray-900">{LIFT_LABELS[lift]}</h3>
         </div>
         <div className="h-32 flex items-center justify-center text-sm text-gray-500">
-          Log more sessions to see your progress chart
+          Log More Sessions To See Your Progress Chart
         </div>
       </div>
     );
@@ -271,7 +271,7 @@ export function AllLiftsProgressCharts({ unit }: AllLiftsProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-900">📈 Lift Progress</h2>
-        <span className="text-sm text-gray-500">Est. 1RM over time</span>
+        <span className="text-sm text-gray-500">Est. 1RM Over Time</span>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {lifts.map((lift) => (

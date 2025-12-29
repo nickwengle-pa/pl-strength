@@ -120,11 +120,11 @@ export default function Progress() {
     const reps = Number(prReps);
     
     if (!weight || weight <= 0) {
-      alert("Please enter a valid weight");
+      alert("Please Enter A Valid Weight");
       return;
     }
     if (!reps || reps <= 0) {
-      alert("Please enter a valid number of reps");
+      alert("Please Enter A Valid Number Of Reps");
       return;
     }
     
@@ -169,7 +169,7 @@ export default function Progress() {
       setShowQuickPR(false);
     } catch (err) {
       console.error("Failed to save PR", err);
-      alert("Failed to save PR. Please try again.");
+      alert("Failed To Save PR. Please Try Again.");
     } finally {
       setSaving(false);
     }
@@ -202,7 +202,7 @@ export default function Progress() {
 
       {isCoach && !targetUid ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          No athlete selected. Choose an athlete from the roster to view their progress.
+          No Athlete Selected. Choose An Athlete From The Roster To View Their Progress.
         </div>
       ) : null}
 
@@ -240,26 +240,26 @@ export default function Progress() {
           <div className="text-3xl font-bold text-green-600">
             {prSessions.length}
           </div>
-          <div className="text-xs text-gray-500">personal records</div>
+          <div className="text-xs text-gray-500">Personal Records</div>
         </div>
         <div className="card text-center">
           <div className="text-sm text-gray-600 mb-1">Avg AMRAP</div>
           <div className="text-3xl font-bold text-blue-600">
             {avgAMRAP ? avgAMRAP.toFixed(1) : "—"}
           </div>
-          <div className="text-xs text-gray-500">reps</div>
+          <div className="text-xs text-gray-500">Reps</div>
         </div>
       </div>
 
       {loading ? (
         <div className="card text-center text-gray-600 py-8">
-          Loading session data...
+          Loading Session Data...
         </div>
       ) : sessions.length === 0 ? (
         <div className="card text-center text-gray-600 py-8">
-          No workout sessions recorded yet for {cap(selectedLift)}.
+          No Workout Sessions Recorded Yet For {cap(selectedLift)}.
           <br />
-          Complete your first workout to start tracking progress!
+          Complete Your First Workout To Start Tracking Progress!
         </div>
       ) : (
         <>
@@ -283,10 +283,10 @@ export default function Progress() {
 
           {/* PR Timeline */}
           <div className="card">
-            <h2 className="text-xl font-bold mb-4">dY?+ PR Timeline</h2>
+            <h2 className="text-xl font-bold mb-4">PR Timeline</h2>
             {prSessions.length === 0 ? (
               <div className="text-center text-gray-600 py-4">
-                No PRs yet. Keep pushing!
+                No PRs Yet. Keep Pushing!
               </div>
             ) : (
               <div className="space-y-3">
@@ -450,7 +450,7 @@ export default function Progress() {
           >
             <div className="rounded-t-2xl border-b-2 border-green-200 bg-green-50 px-6 py-4 -mx-6 -mt-6 mb-4">
               <h2 className="text-lg font-bold text-green-900">⚡ Log Quick PR</h2>
-              <p className="text-sm text-green-700 mt-1">Record a personal record for {cap(selectedLift)}</p>
+              <p className="text-sm text-green-700 mt-1">Record A Personal Record For {cap(selectedLift)}</p>
             </div>
             
             <div className="space-y-4">
@@ -486,12 +486,12 @@ export default function Progress() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note (optional)
+                  Note (Optional)
                 </label>
                 <input
                   type="text"
                   className="field w-full"
-                  placeholder="e.g., Felt strong today"
+                  placeholder="E.g., Felt Strong Today"
                   value={prNote}
                   onChange={(e) => setPrNote(e.target.value)}
                 />
@@ -531,51 +531,117 @@ export default function Progress() {
   );
 }
 
-// Simple chart components using CSS
+// Simple chart components using SVG
+type ChartPoint = {
+  x: number;
+  y: number;
+  label: string;
+  pointClassName?: string;
+};
+
+type ChartScaleOptions = {
+  min?: number;
+  max?: number;
+};
+
+const buildChartPoints = (
+  values: number[],
+  labels: string[],
+  options: ChartScaleOptions = {}
+): ChartPoint[] => {
+  if (values.length === 0) return [];
+  const max = Math.max(...values, options.max ?? -Infinity);
+  const min = Math.min(...values, options.min ?? Infinity);
+  const range = max - min || 1;
+  return values.map((value, idx) => {
+    const x = values.length === 1 ? 50 : (idx / (values.length - 1)) * 100;
+    const y = 100 - ((value - min) / range) * 80 - 10;
+    return {
+      x,
+      y,
+      label: labels[idx] ?? "",
+    };
+  });
+};
+
+function LineChart({
+  points,
+  lineClassName,
+}: {
+  points: ChartPoint[];
+  lineClassName: string;
+}) {
+  if (points.length === 0) return null;
+  const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+  return (
+    <div className="relative h-64 rounded-xl border bg-gray-50">
+      <div className="absolute inset-4">
+        <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polyline
+            points={polylinePoints}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className={lineClassName}
+          />
+        </svg>
+        {points.map((point, idx) => (
+          <div
+            key={idx}
+            className="absolute flex items-center gap-2"
+            style={{
+              left: `${point.x}%`,
+              top: `${point.y}%`,
+              transform: "translate(-6px, -50%)",
+            }}
+          >
+            <span
+              className={`h-3 w-3 rounded-full border border-white/80 shadow ${
+                point.pointClassName ?? "bg-brand-500"
+              }`}
+            />
+            <span className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 shadow-sm">
+              {point.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TMChart({ sessions, unit, currentTM }: { sessions: SessionRecord[]; unit: string; currentTM: number }) {
-  const tmValues = sessions.map(s => s.tm);
+  const tmValues = sessions.map((s) => s.tm);
   const uniqueTMs = Array.from(new Set(tmValues));
-  
+
   if (uniqueTMs.length === 1 && uniqueTMs[0] === currentTM) {
     return (
       <div className="text-center py-8 text-gray-600">
-        Training Max has remained constant at {currentTM} {unit}.
+        Training Max Has Remained Constant At {currentTM} {unit}.
         <br />
-        Complete more workouts to see progression!
+        Complete More Workouts To See Progression!
       </div>
     );
   }
 
   const maxTM = Math.max(...tmValues, currentTM);
   const minTM = Math.min(...tmValues, currentTM);
-  const range = maxTM - minTM || 1;
+  const labels = sessions.map(
+    (s) => `${formatValue(s.tm)} ${unit} - ${formatShortDate(s.createdAt)}`
+  );
+  const points = buildChartPoints(tmValues, labels, { min: minTM, max: maxTM }).map(
+    (point) => ({
+      ...point,
+      pointClassName: "bg-brand-500",
+    })
+  );
 
   return (
     <div className="space-y-2">
-      <div className="relative h-64 border rounded-xl p-4 bg-gray-50">
-        {sessions.map((s, idx) => {
-          const x = (idx / Math.max(sessions.length - 1, 1)) * 100;
-          const y = 100 - ((s.tm - minTM) / range) * 80 - 10;
-          
-          return (
-            <div
-              key={idx}
-              className="absolute w-3 h-3 bg-brand-500 rounded-full"
-              style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${s.tm} ${unit} on ${formatDate(s.createdAt)}`}
-            />
-          );
-        })}
-        {/* Current TM indicator */}
-        <div
-          className="absolute right-4 w-3 h-3 bg-green-500 rounded-full ring-2 ring-green-300"
-          style={{ top: `${100 - ((currentTM - minTM) / range) * 80 - 10}%` }}
-          title={`Current: ${currentTM} ${unit}`}
-        />
-      </div>
+      <LineChart points={points} lineClassName="text-brand-500" />
       <div className="flex justify-between text-xs text-gray-600">
-        <span>First: {sessions[0]?.tm || 0} {unit}</span>
-        <span className="text-green-600 font-semibold">Current: {currentTM} {unit}</span>
+        <span>First: {formatValue(sessions[0]?.tm || 0)} {unit}</span>
+        <span className="text-green-600 font-semibold">Current: {formatValue(currentTM)} {unit}</span>
       </div>
     </div>
   );
@@ -585,29 +651,19 @@ function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: Unit
   const est1RMs = sessions.map((s) => roundEstimate(s.est1rm || 0, unit));
   const max = Math.max(...est1RMs);
   const min = Math.min(...est1RMs);
-  const range = max - min || 1;
+  const labels = sessions.map(
+    (s, idx) => `${formatValue(est1RMs[idx])} ${unit} - ${formatShortDate(s.createdAt)}`
+  );
+  const points = buildChartPoints(est1RMs, labels, { min, max }).map((point, idx) => ({
+    ...point,
+    pointClassName: sessions[idx].pr
+      ? "bg-green-500 ring-2 ring-green-300"
+      : "bg-purple-500",
+  }));
 
   return (
     <div className="space-y-2">
-      <div className="relative h-64 border rounded-xl p-4 bg-gray-50">
-        {sessions.map((s, idx) => {
-          const x = (idx / Math.max(sessions.length - 1, 1)) * 100;
-          const rounded = roundEstimate(s.est1rm || 0, unit);
-          const y = 100 - ((rounded - min) / range) * 80 - 10;
-          const isPR = s.pr;
-          
-          return (
-            <div
-              key={idx}
-              className={`absolute w-3 h-3 rounded-full ${
-                isPR ? "bg-green-500 ring-2 ring-green-300" : "bg-purple-500"
-              }`}
-              style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${roundEstimate(s.est1rm || 0, unit)} ${unit} ${isPR ? "(PR)" : ""} on ${formatDate(s.createdAt)}`}
-            />
-          );
-        })}
-      </div>
+      <LineChart points={points} lineClassName="text-purple-500" />
       <div className="flex justify-between text-xs text-gray-600">
         <span>Min: {roundEstimate(min, unit)} {unit}</span>
         <span className="font-semibold">Max: {roundEstimate(max, unit)} {unit}</span>
@@ -617,33 +673,24 @@ function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: Unit
 }
 
 function AMRAPChart({ sessions }: { sessions: SessionRecord[] }) {
-  const amrapReps = sessions.map(s => s.amrap?.reps || 0);
+  const amrapReps = sessions.map((s) => s.amrap?.reps || 0);
   const max = Math.max(...amrapReps, 10);
+  const labels = sessions.map(
+    (s, idx) => `${formatValue(amrapReps[idx])} reps - ${formatShortDate(s.createdAt)}`
+  );
+  const points = buildChartPoints(amrapReps, labels, { min: 0, max }).map((point, idx) => ({
+    ...point,
+    pointClassName: sessions[idx].pr
+      ? "bg-green-500 ring-2 ring-green-300"
+      : "bg-blue-500",
+  }));
 
   return (
     <div className="space-y-2">
-      <div className="relative h-64 border rounded-xl p-4 bg-gray-50">
-        {sessions.map((s, idx) => {
-          const x = (idx / Math.max(sessions.length - 1, 1)) * 100;
-          const reps = s.amrap?.reps || 0;
-          const y = 100 - (reps / max) * 80 - 10;
-          const isPR = s.pr;
-          
-          return (
-            <div
-              key={idx}
-              className={`absolute w-3 h-3 rounded-full ${
-                isPR ? "bg-green-500 ring-2 ring-green-300" : "bg-blue-500"
-              }`}
-              style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${reps} reps ${isPR ? "(PR)" : ""} on ${formatDate(s.createdAt)}`}
-            />
-          );
-        })}
-      </div>
+      <LineChart points={points} lineClassName="text-blue-500" />
       <div className="flex justify-between text-xs text-gray-600">
-        <span>Range: 0-{max} reps</span>
-        <span>Average: {(amrapReps.reduce((a, b) => a + b, 0) / amrapReps.length).toFixed(1)} reps</span>
+        <span>Range: 0-{max} Reps</span>
+        <span>Average: {(amrapReps.reduce((a, b) => a + b, 0) / amrapReps.length).toFixed(1)} Reps</span>
       </div>
     </div>
   );
@@ -654,6 +701,19 @@ function formatDate(timestamp?: number | null): string {
   const date = new Date(timestamp);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+function formatShortDate(timestamp?: number | null): string {
+  if (!timestamp) return "N/A";
+  const date = new Date(timestamp);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatValue(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  if (Math.abs(value - Math.round(value)) < 1e-6) return String(Math.round(value));
+  return value.toFixed(1).replace(/\.0$/, "");
+}
+
 
 function cap(s: string) {
   return s[0].toUpperCase() + s.slice(1);

@@ -96,7 +96,7 @@ export default function ProfilePage() {
 
         <div className="grid md:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">First name</span>
+            <span className="text-sm font-medium">First Name</span>
             <input
               className="border rounded-xl px-3 py-2"
               value={p.firstName}
@@ -104,7 +104,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Last name</span>
+            <span className="text-sm font-medium">Last Name</span>
             <input
               className="border rounded-xl px-3 py-2"
               value={p.lastName}
@@ -143,7 +143,7 @@ export default function ProfilePage() {
 
             >
 
-              <option value="">Select team</option>
+              <option value="">Select Team</option>
 
               {TEAM_DEFINITIONS.map((definition) => (
 
@@ -190,7 +190,7 @@ export default function ProfilePage() {
           </div>
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium">Graduation year</span>
+              <span className="text-sm font-medium">Graduation Year</span>
               <input
                 className="border rounded-xl px-3 py-2"
                 inputMode="numeric"
@@ -205,19 +205,19 @@ export default function ProfilePage() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-          <div className="font-semibold">Sign-in code</div>
+          <div className="font-semibold">Sign-In Code</div>
           <div className="mt-1 font-mono text-base text-gray-900">
             {p.accessCode ?? "-"}
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Coaches assign unique codes to each athlete. Ask a coach if you need yours reset.
+            Coaches Assign Unique Codes To Each Athlete. Ask A Coach If You Need Yours Reset.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {lastSaved && (
             <span className="text-sm text-gray-600">
-              Last saved: {new Date(lastSaved).toLocaleTimeString()}
+              Last Saved: {new Date(lastSaved).toLocaleTimeString()}
             </span>
           )}
           <button className="btn btn-primary" onClick={save}>

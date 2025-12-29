@@ -195,15 +195,15 @@ export default function Roster() {
     const digits = normalizePasscodeDigits(addAthleteDraft.code);
 
     if (!safeFirst || !safeLast) {
-      setAddAthleteError("Enter first and last name.");
+      setAddAthleteError("Enter First And Last Name.");
       return;
     }
     if (!addAthleteDraft.team) {
-      setAddAthleteError("Select a team before saving.");
+      setAddAthleteError("Select A Team Before Saving.");
       return;
     }
     if (digits.length !== 4) {
-      setAddAthleteError("Access code must be 4 digits.");
+      setAddAthleteError("Access Code Must Be 4 Digits.");
       return;
     }
 
@@ -241,24 +241,24 @@ export default function Roster() {
 
       setFlash({
         kind: "success",
-        text: `${profile.firstName} ${profile.lastName} added to the roster.`,
+        text: `${profile.firstName} ${profile.lastName} Added To The Roster.`,
       });
       closeAddAthlete();
     } catch (err: any) {
       if (err instanceof AthleteAuthError) {
         if (err.code === "auth/wrong-password") {
-          setAddAthleteError("That code does not match the existing athlete account.");
+          setAddAthleteError("That Code Does Not Match The Existing Athlete Account.");
         } else if (err.code === "athlete-code/taken") {
-          setAddAthleteError("That code is already used by another athlete.");
+          setAddAthleteError("That Code Is Already Used By Another Athlete.");
         } else if (err.code === "athlete-code/unavailable") {
-          setAddAthleteError("We could not reserve that code. Try again in a moment.");
+          setAddAthleteError("We Could Not Reserve That Code. Try Again In A Moment.");
         } else if (err.code === "auth/unavailable") {
-          setAddAthleteError("Firebase auth is unavailable.");
+          setAddAthleteError("Firebase Auth Is Unavailable.");
         } else {
-          setAddAthleteError(err.message || "Failed to add athlete.");
+          setAddAthleteError(err.message || "Failed To Add Athlete.");
         }
       } else {
-        setAddAthleteError(err?.message ?? "Failed to add athlete.");
+        setAddAthleteError(err?.message ?? "Failed To Add Athlete.");
       }
     } finally {
       setAddAthleteSaving(false);
@@ -371,14 +371,14 @@ export default function Roster() {
     if (!row.uid) return;
 
     const input = window.prompt(
-      `Enter a 4-digit code for ${row.firstName ?? "this athlete"}.\nLeave blank to auto-generate a new code.`,
+      `Enter A 4-Digit Code For ${row.firstName ?? "This Athlete"}.\nLeave Blank To Auto-Generate A New Code.`,
       ""
     );
     if (input === null) return;
 
     const trimmed = input.trim();
     if (trimmed && !/^\d{4}$/.test(trimmed)) {
-      alert("Codes must be exactly 4 digits (for example, 1234).");
+      alert("Codes Must Be Exactly 4 Digits (For Example, 1234).");
       return;
     }
 
@@ -392,14 +392,14 @@ export default function Roster() {
         if (result.status === "taken") {
           setFlash({
             kind: "error",
-            text: "That code is already used by another athlete. Try a different four-digit code.",
+            text: "That Code Is Already Used By Another Athlete. Try A Different Four-Digit Code.",
           });
           return;
         }
         if (result.status === "unavailable") {
           setFlash({
             kind: "error",
-            text: "We could not reserve that code. Check Firestore permissions and try again.",
+            text: "We Could Not Reserve That Code. Check Firestore Permissions And Try Again.",
           });
           return;
         }
@@ -412,7 +412,7 @@ export default function Roster() {
       if (!nextCode) {
         setFlash({
           kind: "error",
-          text: "A code was not generated. Try again.",
+          text: "A Code Was Not Generated. Try Again.",
         });
         return;
       }
@@ -429,12 +429,12 @@ export default function Roster() {
         kind: "success",
         text:
           source === "local"
-            ? `Code ${nextCode} assigned locally. Remote sync will apply once permissions are available.`
-            : `Code ${nextCode} assigned.`,
+            ? `Code ${nextCode} Assigned Locally. Remote Sync Will Apply Once Permissions Are Available.`
+            : `Code ${nextCode} Assigned.`,
       });
     } catch (e: any) {
       const message =
-        e?.message ?? "Could not set a new code. Try again in a moment.";
+        e?.message ?? "Could Not Set A New Code. Try Again In A Moment.";
       console.error("Failed to assign athlete code", e);
       setFlash({ kind: "error", text: message });
     } finally {
@@ -446,14 +446,14 @@ export default function Roster() {
     if (!row.uid) return;
 
     if (currentUid && row.uid === currentUid) {
-      alert("You cannot remove your own account from the roster while signed in.");
+      alert("You Cannot Remove Your Own Account From The Roster While Signed In.");
       return;
     }
 
     const label =
       kind === "coach"
-        ? `Remove ${row.firstName ?? "this coach"}? This will revoke access and queue account deletion.`
-        : `Delete ${row.firstName ?? "this athlete"} from roster? This clears their profile and sessions.`;
+        ? `Remove ${row.firstName ?? "This Coach"}? This Will Revoke Access And Queue Account Deletion.`
+        : `Delete ${row.firstName ?? "This Athlete"} From Roster? This Clears Their Profile And Sessions.`;
     const confirmDelete = window.confirm(label);
     if (!confirmDelete) return;
 
@@ -471,12 +471,12 @@ export default function Roster() {
         kind: "success",
         text:
           kind === "coach"
-            ? `${row.firstName ?? "Coach"} removed. Auth account will be deleted shortly.`
-            : `${row.firstName ?? "Athlete"} removed.`,
+            ? `${row.firstName ?? "Coach"} Removed. Auth Account Will Be Deleted Shortly.`
+            : `${row.firstName ?? "Athlete"} Removed.`,
       });
     } catch (e: any) {
       const message =
-        e?.message ?? "Could not delete athlete. Try again in a moment.";
+        e?.message ?? "Could Not Delete Athlete. Try Again In A Moment.";
       setFlash({ kind: "error", text: message });
     } finally {
       setDeleteUid(null);
@@ -534,17 +534,17 @@ export default function Roster() {
     const raw = (tmDraft[lift] ?? "").trim();
     const nextValue = raw === "" ? null : Number(raw);
     if (nextValue !== null && (!Number.isFinite(nextValue) || Number.isNaN(nextValue) || nextValue < 0)) {
-      setFlash({ kind: "error", text: "Enter a valid training max before saving." });
+      setFlash({ kind: "error", text: "Enter A Valid Training Max Before Saving." });
       return;
     }
     const nextWeek = liftWeekDraft[lift] ?? 1;
     const nextCycle = liftCycleDraft[lift] ?? 1;
     if (nextWeek !== 1 && nextWeek !== 2 && nextWeek !== 3) {
-      setFlash({ kind: "error", text: "Week must be 1, 2, or 3." });
+      setFlash({ kind: "error", text: "Week Must Be 1, 2, Or 3." });
       return;
     }
     if (!Number.isFinite(nextCycle) || nextCycle < 1) {
-      setFlash({ kind: "error", text: "Cycle must be 1 or higher." });
+      setFlash({ kind: "error", text: "Cycle Must Be 1 Or Higher." });
       return;
     }
     setTmSaving(lift);
@@ -573,13 +573,13 @@ export default function Roster() {
       setFlash({
         kind: "success",
         text: nextValue === null
-          ? `${lift.charAt(0).toUpperCase() + lift.slice(1)} training max cleared.`
-          : `${lift.charAt(0).toUpperCase() + lift.slice(1)} training max saved.`,
+          ? `${lift.charAt(0).toUpperCase() + lift.slice(1)} Training Max Cleared.`
+          : `${lift.charAt(0).toUpperCase() + lift.slice(1)} Training Max Saved.`,
       });
     } catch (e: any) {
       setFlash({
         kind: "error",
-        text: e?.message ?? "Could not save training max. Try again.",
+        text: e?.message ?? "Could Not Save Training Max. Try Again.",
       });
     } finally {
       setTmSaving(null);
@@ -589,7 +589,7 @@ export default function Roster() {
   const handleEditSession = (session: SessionRecord) => {
     if (!session.id) return;
     if (!LIFT_KEYS.includes(session.lift as LiftKey)) {
-      setFlash({ kind: "error", text: "Legacy lift sessions can be deleted but not edited." });
+      setFlash({ kind: "error", text: "Legacy Lift Sessions Can Be Deleted But Not Edited." });
       return;
     }
     setEditingSessionId(session.id);
@@ -612,15 +612,15 @@ export default function Roster() {
     const nextCycle = editSessionDraft.cycle;
     const nextLift = editSessionDraft.lift;
     if (nextWeek && nextWeek !== 1 && nextWeek !== 2 && nextWeek !== 3) {
-      setFlash({ kind: "error", text: "Week must be 1, 2, or 3." });
+      setFlash({ kind: "error", text: "Week Must Be 1, 2, Or 3." });
       return;
     }
     if (typeof nextCycle === "number" && (!Number.isFinite(nextCycle) || nextCycle < 1)) {
-      setFlash({ kind: "error", text: "Cycle must be 1 or higher." });
+      setFlash({ kind: "error", text: "Cycle Must Be 1 Or Higher." });
       return;
     }
     if (nextLift && !LIFT_KEYS.includes(nextLift as LiftKey)) {
-      setFlash({ kind: "error", text: "Choose bench, squat, or deadlift." });
+      setFlash({ kind: "error", text: "Choose Bench, Squat, Or Deadlift." });
       return;
     }
     setSessionSaving(true);
@@ -631,10 +631,10 @@ export default function Roster() {
           s.id === sessionId ? { ...s, ...editSessionDraft } : s
         )
       );
-      setFlash({ kind: "success", text: "Session updated." });
+      setFlash({ kind: "success", text: "Session Updated." });
       setEditingSessionId(null);
     } catch (err: any) {
-      setFlash({ kind: "error", text: err?.message ?? "Failed to update session." });
+      setFlash({ kind: "error", text: err?.message ?? "Failed To Update Session." });
     } finally {
       setSessionSaving(false);
     }
@@ -642,18 +642,18 @@ export default function Roster() {
 
   const handleDeleteSession = async (session: SessionRecord) => {
     if (!detailProfile?.uid || !session.id) return;
-    if (!confirm("Delete this session? This cannot be undone.")) return;
+    if (!confirm("Delete This Session? This Cannot Be Undone.")) return;
     setSessionDeleting(session.id);
     try {
       await deleteSession(detailProfile.uid, session.id);
       setDetailSessions((prev) => prev.filter((entry) => entry.id !== session.id));
-      setFlash({ kind: "success", text: "Session deleted." });
+      setFlash({ kind: "success", text: "Session Deleted." });
       if (editingSessionId === session.id) {
         setEditingSessionId(null);
         setEditSessionDraft({});
       }
     } catch (err: any) {
-      setFlash({ kind: "error", text: err?.message ?? "Failed to delete session." });
+      setFlash({ kind: "error", text: err?.message ?? "Failed To Delete Session." });
     } finally {
       setSessionDeleting(null);
     }
@@ -1384,7 +1384,7 @@ export default function Roster() {
           <h3 className="text-lg font-semibold mb-2">Roster</h3>
           <div className="text-sm text-red-700">Error: {err}</div>
           <p className="text-sm mt-2">
-            If this says "Missing or insufficient permissions", create Firestore <code>{'roles/{uid}'}</code> with <code>{"{ roles: [\"coach\"], updatedAt: serverTimestamp() }"}</code>, then publish rules.
+            If This Says "Missing Or Insufficient Permissions", Create Firestore <code>{'roles/{uid}'}</code> With <code>{"{ roles: [\"coach\"], updatedAt: serverTimestamp() }"}</code>, Then Publish Rules.
           </p>
         </div>
       </div>
@@ -1447,13 +1447,13 @@ export default function Roster() {
           )}
           {isAdminUser && (
             <label className="flex items-center gap-2 text-xs text-gray-600">
-              <span>Filter by team</span>
+              <span>Filter By Team</span>
               <select
                 className="field !text-xs"
                 value={adminCoachFilter}
                 onChange={(event) => setAdminCoachFilter(event.target.value as Team | "all")}
               >
-                <option value="all">All teams</option>
+                <option value="all">All Teams</option>
                 {TEAM_DEFINITIONS.map((definition) => (
                   <option key={definition.id} value={definition.id}>
                     {definition.label}
@@ -1500,7 +1500,7 @@ export default function Roster() {
                           {deleteUid === r.uid ? "Removing..." : "Remove"}
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">Admin only</span>
+                        <span className="text-xs text-gray-400">Admin Only</span>
                       )}
                     </td>
                   </tr>
@@ -1509,7 +1509,7 @@ export default function Roster() {
               {filteredCoachRows.length === 0 && (
                 <tr>
                   <td className="p-2 text-gray-500" colSpan={5}>
-                    No coaches found for the selected team.
+                    No Coaches Found For The Selected Team.
                   </td>
                 </tr>
               )}
@@ -1524,7 +1524,7 @@ export default function Roster() {
             <div>
               <h3 className="text-lg font-semibold">Athletes</h3>
               <p className="text-xs text-gray-500">
-                Click a row to review recent sessions and TM numbers.
+                Click A Row To Review Recent Sessions And TM Numbers.
               </p>
             </div>
             {(isCoach || isAdminUser) && (
@@ -1534,7 +1534,7 @@ export default function Roster() {
                 onClick={openAddAthlete}
                 disabled={addAthleteSaving}
               >
-                Add athlete
+                Add Athlete
               </button>
             )}
           </div>
@@ -1546,7 +1546,7 @@ export default function Roster() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search athletes..."
+                  placeholder="Search Athletes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 pl-10 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"

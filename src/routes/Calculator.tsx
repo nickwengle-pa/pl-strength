@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   defaultEquipment,
   ensureAnon,
@@ -38,6 +39,7 @@ function parseNumeric(value: string): number | "" {
 }
 
 export default function Calculator() {
+  const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [unit, setUnit] = useState<Unit>("lb");
   const [roundStep, setRoundStep] = useState<number>(defaultStep("lb"));
@@ -45,7 +47,10 @@ export default function Calculator() {
     String(defaultStep("lb"))
   );
   const [calcSettingsOpen, setCalcSettingsOpen] = useState(false);
-  const [lift, setLift] = useState<Lift>("bench");
+  const [lift, setLift] = useState<Lift>(() => {
+    const state = location.state as { lift?: Lift } | null;
+    return state?.lift || "bench";
+  });
   const [useEstimator, setUseEstimator] = useState(false);
   const [measured1rm, setMeasured1rm] = useState<number | "">("");
   const [estimatorWeight, setEstimatorWeight] = useState<number | "">("");
@@ -510,6 +515,36 @@ export default function Calculator() {
     }
   }
 
+  async function handleClear() {
+    if (!profile) return;
+    if (!confirm(`Are you sure you want to clear your ${lift} max?`)) return;
+
+    const nextProfile: Profile = {
+      ...profile,
+      tm: { ...(profile.tm ?? {}) },
+      oneRm: { ...(profile.oneRm ?? {}) },
+    };
+    
+    delete nextProfile.tm![lift];
+    delete nextProfile.oneRm![lift];
+
+    setSaving(true);
+    try {
+      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
+      setProfile(nextProfile);
+      setMeasured1rm("");
+      setTargetWeight("");
+      setEstimatorWeight("");
+      setEstimatorReps("");
+      notifyProfileChange();
+    } catch (err) {
+      console.warn("Failed to clear max", err);
+      alert("Unable to sync with Firebase right now.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (coachLoading) {
     return <PageLoadingSkeleton rows={2} />;
   }
@@ -568,7 +603,7 @@ export default function Calculator() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Plate rounding step</span>
+                  <span>Plate Rounding Step</span>
                   <input
                     className="field"
                     inputMode="decimal"
@@ -582,7 +617,7 @@ export default function Calculator() {
               </div>
               {!isCoach && (
                 <div className="text-xs text-gray-500">
-                  Plate rounding is coach-only.
+                  Plate Rounding Is Coach-Only.
                 </div>
               )}
             </div>
@@ -611,13 +646,13 @@ export default function Calculator() {
                 checked={useEstimator}
                 onChange={(e) => toggleEstimator(e.target.checked)}
               />
-              Use rep-max estimator
+              Use Rep-Max Estimator
             </label>
 
             {useEstimator ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Weight lifted ({unit})</span>
+                  <span>Weight Lifted ({unit})</span>
                   <input
                     className="field"
                     inputMode="decimal"
@@ -670,13 +705,25 @@ export default function Calculator() {
             </div>
           </div>
 
-          <button
-            className="btn btn-primary w-full justify-center py-3 text-base"
-            onClick={handleSave}
-            disabled={saving || trainingMax === null}
-          >
-            {saving ? "Saving..." : "Save as TM for this lift"}
-          </button>
+          <div className="flex flex-col gap-3">
+            <button
+              className="btn btn-primary w-full justify-center py-3 text-base"
+              onClick={handleSave}
+              disabled={saving || trainingMax === null}
+            >
+              {saving ? "Saving..." : "Save As TM For This Lift"}
+            </button>
+
+            {(profile?.tm?.[lift] || profile?.oneRm?.[lift]) && (
+              <button
+                className="btn w-full justify-center py-3 text-base text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClear}
+                disabled={saving}
+              >
+                Clear {lift} Max
+              </button>
+            )}
+          </div>
           </div>
 
           <div className="card space-y-4">
@@ -715,7 +762,7 @@ export default function Calculator() {
                               if (manageEquipment) handleRemovePlate(weight);
                             }}
                             title={
-                              manageEquipment ? "Remove plate size" : undefined
+                              manageEquipment ? "Remove Plate Size" : undefined
                             }
                           >
                             {formatNumber(weight)} {unit}
@@ -729,7 +776,7 @@ export default function Calculator() {
                       })
                     ) : (
                       <span className="text-xs text-gray-400">
-                        No plates listed yet.
+                        No Plates Listed Yet.
                       </span>
                     )}
                   </div>
@@ -774,7 +821,7 @@ export default function Calculator() {
                       })
                     ) : (
                       <span className="text-xs text-gray-400">
-                        No bars saved yet.
+                        No Bars Saved Yet.
                       </span>
                     )}
                   </div>
@@ -784,7 +831,7 @@ export default function Calculator() {
                   <div className="space-y-4 border-t border-dashed border-gray-300 pt-4">
                     <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                       <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Add plate ({unit})</span>
+                        <span>Add Plate ({unit})</span>
                         <input
                           className="field"
                           inputMode="decimal"
@@ -799,12 +846,12 @@ export default function Calculator() {
                         onClick={handleAddPlate}
                         disabled={newPlateWeight.trim() === ""}
                       >
-                        Add plate
+                        Add Plate
                       </button>
                     </div>
                     <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
                       <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Bar label</span>
+                        <span>Bar Label</span>
                         <input
                           className="field"
                           value={newBarLabel}
@@ -813,7 +860,7 @@ export default function Calculator() {
                         />
                       </label>
                       <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Bar weight ({unit})</span>
+                        <span>Bar Weight ({unit})</span>
                         <input
                           className="field"
                           inputMode="decimal"
@@ -828,7 +875,7 @@ export default function Calculator() {
                         onClick={handleAddBar}
                         disabled={newBarWeight.trim() === ""}
                       >
-                        Add bar
+                        Add Bar
                       </button>
                     </div>
                     <div className="flex justify-end">
@@ -837,7 +884,7 @@ export default function Calculator() {
                         className="text-xs font-semibold text-rose-600 hover:text-rose-700"
                         onClick={handleResetEquipment}
                       >
-                        Reset to defaults
+                        Reset To Defaults
                       </button>
                     </div>
                   </div>
@@ -853,7 +900,7 @@ export default function Calculator() {
                     onClick={persistEquipmentChanges}
                     disabled={equipmentSaving || !equipmentDirty}
                   >
-                    {equipmentSaving ? "Saving..." : "Save equipment"}
+                    {equipmentSaving ? "Saving..." : "Save Equipment"}
                   </button>
                 </div>
               </div>
@@ -914,7 +961,7 @@ export default function Calculator() {
 
           <div className="grid gap-3">
             <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-              <span>Target weight ({unit})</span>
+              <span>Target Weight ({unit})</span>
               <input
                 className="field"
                 inputMode="decimal"
@@ -935,7 +982,7 @@ export default function Calculator() {
               </span>
             </div>
             <div>
-              Bar weight:&nbsp;
+              Bar Weight:&nbsp;
               <span className="font-semibold">
                 {formatNumber(activeBarWeight)} {unit}
               </span>

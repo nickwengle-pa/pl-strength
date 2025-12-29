@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   estimate1RM,
   warmupPercents,
@@ -41,6 +42,11 @@ const LIFT_LABELS: Record<Lift, string> = {
   deadlift: "Deadlift",
 };
 
+const trainingMaxIncrement = (lift: Lift, unit: Unit): number => {
+  const isLower = lift === "squat" || lift === "deadlift";
+  return unit === "kg" ? (isLower ? 5 : 2.5) : (isLower ? 10 : 5);
+};
+
 const bumpTrainingMax = (
   tm: Profile["tm"] | undefined,
   lift: Lift,
@@ -49,34 +55,57 @@ const bumpTrainingMax = (
   if (!tm) return tm;
   const current = tm[lift];
   if (typeof current !== "number" || !Number.isFinite(current)) return tm;
-  const isLower = lift === "squat" || lift === "deadlift";
-  const increment = unit === "kg" ? (isLower ? 5 : 2.5) : (isLower ? 10 : 5);
+  const increment = trainingMaxIncrement(lift, unit);
   return { ...tm, [lift]: Number((current + increment).toFixed(2)) };
+};
+
+const adjustTrainingMaxByCycles = (
+  tm: Profile["tm"] | undefined,
+  lift: Lift,
+  unit: Unit,
+  deltaCycles: number
+): Profile["tm"] | undefined => {
+  if (!tm || !Number.isFinite(deltaCycles) || deltaCycles === 0) return tm;
+  const current = tm[lift];
+  if (typeof current !== "number" || !Number.isFinite(current)) return tm;
+  const increment = trainingMaxIncrement(lift, unit);
+  const next = current + increment * deltaCycles;
+  return { ...tm, [lift]: Number(Math.max(0, next).toFixed(2)) };
 };
 
 const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> = {
   1: {
     name: "Foundation Volume",
-    focus: "Set the tone with crisp sets of five.",
-    blurb: "Smooth technique and steady breathing build momentum for the cycle.",
+    focus: "Set The Tone With Crisp Sets Of Five.",
+    blurb: "Smooth Technique And Steady Breathing Build Momentum For The Cycle.",
   },
   2: {
     name: "Power Triples",
-    focus: "Drive explosively through the sticking point.",
-    blurb: "Sharpen power output and keep one rep in the tank on every set.",
+    focus: "Drive Explosively Through The Sticking Point.",
+    blurb: "Sharpen Power Output And Keep One Rep In The Tank On Every Set.",
   },
   3: {
     name: "Peak Week",
-    focus: "Prime the nervous system and chase a confident AMRAP.",
-    blurb: "Own each top set and push smartly into PR territory.",
+    focus: "Prime The Nervous System And Chase A Confident AMRAP.",
+    blurb: "Own Each Top Set And Push Smartly Into PR Territory.",
   },
+};
+
+const clampCycle = (value: number): number => {
+  if (!Number.isFinite(value) || value < 1) return 1;
+  return Math.min(3, Math.floor(value));
+};
+
+const nextCycleAfter = (value: number): number => {
+  const normalized = clampCycle(value);
+  return normalized >= 3 ? 1 : normalized + 1;
 };
 
 const resolveLiftWeek = (profile: Profile | null, lift: Lift): Week =>
   profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1;
 
 const resolveLiftCycle = (profile: Profile | null, lift: Lift): number =>
-  profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
+  clampCycle(profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1);
 
 const seedLiftWeeks = (value: Week): Record<Lift, Week> => ({
   bench: value,
@@ -91,7 +120,11 @@ const seedLiftCycles = (value: number): Record<Lift, number> => ({
 });
 
 export default function Session() {
-  const [lift, setLift] = useState<Lift>("bench");
+  const location = useLocation();
+  const [lift, setLift] = useState<Lift>(() => {
+    const state = location.state as { lift?: Lift } | null;
+    return state?.lift || "bench";
+  });
   const [week, setWeek] = useState<Week>(1);
   const [cycle, setCycle] = useState<number>(1);
   const [unit, setUnit] = useState<Unit>("lb");
@@ -267,9 +300,9 @@ export default function Session() {
         const lastCycle = lastSession.cycle ?? 1;
         // Simple cycle logic: 1->2->3->1
         const nextWeek: Week = lastWeek === 1 ? 2 : lastWeek === 2 ? 3 : 1;
-        const nextCycle = lastWeek === 3 ? lastCycle + 1 : lastCycle;
+        const nextCycle = lastWeek === 3 ? nextCycleAfter(lastCycle) : lastCycle;
         setWeek(nextWeek);
-        setCycle(nextCycle);
+        setCycle(clampCycle(nextCycle));
       }
     })();
   }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam, profile]);
@@ -386,10 +419,13 @@ export default function Session() {
       notifyProfileChange();
 
       if (week === 3) {
-        const nextCycle = cycle + 1;
+        const nextCycle = nextCycleAfter(cycle);
+        const resetCycle = clampCycle(cycle) === 3;
         await advanceWeek();
         alert(
-          `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCycle}. Training max updated.`
+          resetCycle
+            ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
+            : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCycle}. Training max updated.`
         );
         return;
       }
@@ -408,12 +444,13 @@ export default function Session() {
     nextCycle: number,
     nextTm?: Profile["tm"]
   ) => {
+    const clampedCycle = clampCycle(nextCycle);
     setWeek(nextWeek);
-    setCycle(nextCycle);
+    setCycle(clampedCycle);
     setLiftConfirmed(true);
     if (!profile) return;
     const baseWeek = profile.currentWeek ?? week;
-    const baseCycle = profile.currentCycle ?? cycle;
+    const baseCycle = clampCycle(profile.currentCycle ?? cycle);
     const nextLiftWeeks =
       profile.liftWeeks && Object.keys(profile.liftWeeks).length > 0
         ? { ...seedLiftWeeks(baseWeek), ...profile.liftWeeks }
@@ -423,13 +460,13 @@ export default function Session() {
       profile.liftCycles && Object.keys(profile.liftCycles).length > 0
         ? { ...seedLiftCycles(baseCycle), ...profile.liftCycles }
         : seedLiftCycles(baseCycle);
-    nextLiftCycles[lift] = nextCycle;
+    nextLiftCycles[lift] = clampedCycle;
     const updatedProfile: Profile = {
       ...profile,
       liftWeeks: nextLiftWeeks,
       liftCycles: nextLiftCycles,
       currentWeek: nextWeek,
-      currentCycle: nextCycle,
+      currentCycle: clampedCycle,
       tm: nextTm ?? profile.tm,
     };
     await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
@@ -445,8 +482,12 @@ export default function Session() {
   };
 
   const handleCycleChange = async (newCycle: number) => {
-    const normalized = Number.isFinite(newCycle) && newCycle >= 1 ? Math.floor(newCycle) : 1;
-    await persistLiftProgress(week, normalized);
+    const normalized = clampCycle(newCycle);
+    const baseCycle = profile ? resolveLiftCycle(profile, lift) : clampCycle(cycle);
+    const delta = normalized - baseCycle;
+    const nextTm =
+      delta === 0 ? profile?.tm : adjustTrainingMaxByCycles(profile?.tm, lift, unit, delta);
+    await persistLiftProgress(week, normalized, nextTm);
   };
 
   // Advance to next week (1->2->3->1) and bump TMs on new cycle
@@ -456,8 +497,10 @@ export default function Session() {
     const effectiveWeek: Week = week;
     try {
       if (effectiveWeek === 3) {
-        const nextCycle = cycle + 1;
-        const nextTm = bumpTrainingMax(profile?.tm, lift, unit);
+        const currentCycle = clampCycle(cycle);
+        const nextCycle = nextCycleAfter(currentCycle);
+        const nextTm =
+          currentCycle === 3 ? profile?.tm : bumpTrainingMax(profile?.tm, lift, unit);
         await persistLiftProgress(1, nextCycle, nextTm);
       } else {
         const nextWeek: Week = effectiveWeek === 1 ? 2 : 3;
@@ -477,7 +520,7 @@ export default function Session() {
     if (effectiveWeek !== 3) return false;
     const latest = history[history.length - 1];
     if (!latest || latest.week !== 3) return false;
-    if ((latest.cycle ?? 1) !== effectiveCycle) return false;
+    if (clampCycle(latest.cycle ?? 1) !== effectiveCycle) return false;
     setShowWeekAdvancePrompt(false);
     await advanceWeek();
     return true;
@@ -622,7 +665,7 @@ export default function Session() {
           {/* Set Counter */}
           <div className="px-4 py-3 text-center">
             <div className="text-xs opacity-80 uppercase tracking-wide">
-              {currentSet?.phase === 'warm' ? 'Warm-up' : 'Work Set'}
+              {currentSet?.phase === 'warm' ? 'Warm-Up' : 'Work Set'}
             </div>
             <div className="text-5xl font-bold my-1">
               {currentSetIndex + 1} / {allSets.length}
@@ -658,7 +701,7 @@ export default function Session() {
                 {isAMRAPSet && (
                   <div className="mt-4 mx-4 px-4 py-2 bg-yellow-400/20 rounded-xl border-2 border-yellow-300">
                     <div className="text-xl font-bold text-yellow-200">AMRAP SET!</div>
-                    <div className="text-xs mt-1">Leave 1-2 reps in the tank</div>
+                    <div className="text-xs mt-1">Leave 1-2 Reps In The Tank</div>
                   </div>
                 )}
               </div>
@@ -732,7 +775,7 @@ export default function Session() {
                 </button>
                 <button
                   onClick={() => {
-                    const reps = prompt('How many reps did you complete?');
+                    const reps = prompt('How Many Reps Did You Complete?');
                     if (reps) {
                       if (currentSet.phase === 'warm') {
                         setWarmStatus(currentSet.index, 'F');
@@ -773,7 +816,7 @@ export default function Session() {
               {isLastSet && isAMRAPSet && (
                 <button
                   onClick={() => {
-                    const reps = prompt('How many AMRAP reps did you get?');
+                    const reps = prompt('How Many AMRAP Reps Did You Get?');
                     if (reps) {
                       setAmrapReps(Number(reps));
                       setMobileMode(false);
@@ -802,16 +845,18 @@ export default function Session() {
               <div className="text-4xl">🎉</div>
               <h3 className="text-xl font-bold text-gray-900">Week {week} Complete!</h3>
               <p className="text-sm text-gray-600">
-                You've logged {liftLabel} for Week {week}. Nice work!
+                You've Logged {liftLabel} For Week {week}. Nice Work!
               </p>
             </div>
             <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center">
               <p className="text-sm font-medium text-emerald-800">
-                Ready to advance {liftLabel} to Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? cycleNumber + 1 : cycleNumber})?
+                Ready To Advance {liftLabel} To Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? nextCycleAfter(cycleNumber) : cycleNumber})?
               </p>
               {week === 3 && (
                 <p className="mt-1 text-xs text-emerald-700">
-                  Training max will increase for this lift.
+                  {cycleNumber >= 3
+                    ? "Cycle resets to 1. Re-test your 1RM before starting over."
+                    : "Training Max will increase for this lift."}
                 </p>
               )}
             </div>
@@ -896,7 +941,7 @@ export default function Session() {
                     Week {w}
                   </div>
                   {isDone && !isActive && (
-                    <span className="text-[10px] text-emerald-400" title="Completed recently">✓</span>
+                    <span className="text-[10px] text-emerald-400" title="Completed Recently">✓</span>
                   )}
                 </div>
                 <div className={`text-lg font-bold ${isActive ? "" : "text-gray-100"}`}>
@@ -971,7 +1016,7 @@ export default function Session() {
                 ) : (
                   <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500">
                     📱 Mobile Workout Mode
-                    <span className="text-xs">(Set TM first)</span>
+                    <span className="text-xs">(Set TM First)</span>
                   </div>
                 )}
                 {targetUid ? (
@@ -980,12 +1025,12 @@ export default function Session() {
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-                    Personal session
+                    Personal Session
                   </span>
                 )}
                 {isCoach && !targetUid ? (
                   <span className="inline-flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                    No athlete selected. Log your own session or pick someone from the roster to load their plan.
+                    No Athlete Selected. Log Your Own Session Or Pick Someone From The Roster To Load Their Plan.
                   </span>
                 ) : null}
                 <button
@@ -1039,14 +1084,15 @@ export default function Session() {
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                     <span className="text-xs uppercase tracking-wide text-gray-500">Cycle</span>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
+                    <select
                       className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                       value={cycle}
                       onChange={(event) => handleCycleChange(Number(event.target.value))}
-                    />
+                    >
+                      <option value={1}>Cycle 1</option>
+                      <option value={2}>Cycle 2</option>
+                      <option value={3}>Cycle 3</option>
+                    </select>
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
@@ -1064,7 +1110,7 @@ export default function Session() {
                 </div>
 
                 <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span className="text-xs uppercase tracking-wide text-gray-500">Training max</span>
+                  <span className="text-xs uppercase tracking-wide text-gray-500">Training Max</span>
                   {tm && Number.isFinite(tm) ? (
                     <div className="inline-flex items-center justify-between rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-semibold text-brand-700 shadow-sm">
                       <span>{tm} {unit}</span>
@@ -1072,7 +1118,7 @@ export default function Session() {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">
-                      Set training max in Calculator.
+                      Set Training Max In Calculator.
                     </div>
                   )}
                 </div>
@@ -1097,18 +1143,18 @@ export default function Session() {
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-xs text-gray-600 shadow-inner">
-              <span className="font-semibold text-gray-700">Set status legend:</span> S = completed all prescribed reps. F = stopped early - record the reps completed.
+              <span className="font-semibold text-gray-700">Set Status Legend:</span> S = Completed All Prescribed Reps. F = Stopped Early - Record The Reps Completed.
             </div>
 
             <div className="space-y-4">
               <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-sky-900">Warm-up ramp</p>
-                    <p className="text-xs text-sky-800/80">Prime the groove with smooth sets.</p>
+                    <p className="text-sm font-semibold text-sky-900">Warm-Up Ramp</p>
+                    <p className="text-xs text-sky-800/80">Prime The Groove With Smooth Sets.</p>
                   </div>
                   <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                    Warm-up
+                    Warm-Up
                   </span>
                 </div>
                 <div className="mt-3 space-y-2">
@@ -1129,7 +1175,7 @@ export default function Session() {
                   ))}
                   {warm.length === 0 && (
                     <div className="rounded-xl border border-dashed border-sky-200 px-3 py-2 text-sm text-sky-700">
-                      Add a training max to unlock warm-ups.
+                      Add A Training Max To Unlock Warm-Ups.
                     </div>
                   )}
                 </div>
@@ -1138,11 +1184,11 @@ export default function Session() {
               <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-brand-700">Main work</p>
-                    <p className="text-xs text-brand-600">Own each top set and log how it felt.</p>
+                    <p className="text-sm font-semibold text-brand-700">Main Work</p>
+                    <p className="text-xs text-brand-600">Own Each Top Set And Log How It Felt.</p>
                   </div>
                   <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-                    Work sets
+                    Work Sets
                   </span>
                 </div>
                 <div className="mt-3 space-y-2">
@@ -1163,7 +1209,7 @@ export default function Session() {
                   ))}
                   {work.length === 0 && (
                     <div className="rounded-xl border border-dashed border-brand-200 px-3 py-2 text-sm text-brand-700">
-                      Add a training max to populate the working weights.
+                      Add A Training Max To Populate The Working Weights.
                     </div>
                   )}
                 </div>
@@ -1173,7 +1219,7 @@ export default function Session() {
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                  <span className="text-xs uppercase tracking-wide text-amber-700">Last set AMRAP reps</span>
+                  <span className="text-xs uppercase tracking-wide text-amber-700">Last Set AMRAP Reps</span>
                   <input
                     className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
                     type="number"
@@ -1183,12 +1229,12 @@ export default function Session() {
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                  <span className="text-xs uppercase tracking-wide text-amber-700">Session notes</span>
+                  <span className="text-xs uppercase tracking-wide text-amber-700">Session Notes</span>
                   <input
                     className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
-                    placeholder="Form cues, RPE, reminders"
+                    placeholder="Form Cues, RPE, Reminders"
                   />
                 </label>
               </div>
@@ -1201,11 +1247,11 @@ export default function Session() {
             >
               <div className="text-xs uppercase tracking-wide text-white/80">Estimated 1RM</div>
               <div className="text-3xl font-bold">
-                {est ? `${est} ${unit}` : "Log reps to calculate"}
+                {est ? `${est} ${unit}` : "Log Reps To Calculate"}
               </div>
               {prFlag && (
                 <div className="mt-1 text-sm font-medium text-white">
-                  New PR unlocked! Record it before you forget.
+                  New PR Unlocked! Record It Before You Forget.
                 </div>
               )}
             </div>
@@ -1215,14 +1261,14 @@ export default function Session() {
               onClick={save}
               disabled={saving || !tm || amrapReps <= 0}
             >
-              {saving ? "Saving..." : "Save session"}
+              {saving ? "Saving..." : "Save Session"}
             </button>
           </div>
         </div>
 
         <div className="card space-y-5 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Recent sessions</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Recent Sessions</h3>
             <span className="text-xs uppercase tracking-wide text-gray-400">{liftLabel}</span>
           </div>
           <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
@@ -1267,7 +1313,7 @@ export default function Session() {
             })}
             {history.length === 0 && (
               <li className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500">
-                Log your first session to see trends here.
+                Log Your First Session To See Trends Here.
               </li>
             )}
           </ul>
@@ -1349,7 +1395,7 @@ function SetRow({
               type="button"
               onClick={() => onPlateCalc(set.weight)}
               className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] text-gray-500 hover:bg-brand-100 hover:text-brand-700 transition-colors"
-              title="Show plate math"
+              title="Show Plate Math"
             >
               💿
             </button>
@@ -1391,7 +1437,7 @@ function SetRow({
 
       {showActualInput && status === "F" && (
         <div className="flex items-center gap-2 text-xs text-gray-600">
-          <span className="font-semibold uppercase tracking-wide">Actual reps</span>
+          <span className="font-semibold uppercase tracking-wide">Actual Reps</span>
           <input
             className="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100"
             type="number"

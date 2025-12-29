@@ -6,17 +6,17 @@ export default function Guide() {
     <div className="card">
       <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-blue-900 text-sm">
-          <strong>New to the app?</strong> Visit your{" "}
+          <strong>New To The App?</strong> Visit Your{" "}
           <Link to="/profile" className="text-brand-600 underline font-medium">
-            Profile page
+            Profile Page
           </Link>{" "}
-          and click "Show Tutorial Again" to see the interactive walkthrough.
+          And Click "Show Tutorial Again" To See The Interactive Walkthrough.
         </p>
       </div>
       
       <h3 className="text-lg font-semibold mb-2">Program Guide (PDF)</h3>
       <div className="flex gap-2 mb-3">
-        <a className="btn-primary" href="/docs/531-lifting.pdf" target="_blank" rel="noreferrer">Open PDF in new tab</a>
+        <a className="btn-primary" href="/docs/531-lifting.pdf" target="_blank" rel="noreferrer">Open PDF In New Tab</a>
       </div>
       <div className="border rounded-xl overflow-hidden" style={{height: '80vh'}}>
         <iframe

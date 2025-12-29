@@ -476,7 +476,7 @@ export default function ProgramOutline() {
   if (loading) {
     return (
       <div className="container py-6">
-        <div className="card text-sm text-gray-600">Loading outline...</div>
+        <div className="card text-sm text-gray-600">Loading Outline...</div>
       </div>
     );
   }
@@ -495,7 +495,7 @@ export default function ProgramOutline() {
         <div>
           <h1 className="text-2xl font-semibold">Daily Lifts</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Reference this outline for warmups, plyos, and accessories during daily planning.
+            Reference This Outline For Warmups, Plyos, And Accessories During Daily Planning.
           </p>
         </div>
 
@@ -506,12 +506,12 @@ export default function ProgramOutline() {
               className={`btn btn-sm ${editMode ? "btn-secondary" : ""}`}
               onClick={() => setEditMode((prev) => !prev)}
             >
-              {editMode ? "Done editing" : "Edit outline"}
+              {editMode ? "Done Editing" : "Edit Outline"}
             </button>
           )}
           {!admin && (
             <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-              View only
+              View Only
             </span>
           )}
         </div>
@@ -519,7 +519,7 @@ export default function ProgramOutline() {
 
       {admin && editMode && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-          Editing mode is on. Changes save automatically in this browser for all coaches.
+          Editing Mode Is On. Changes Save Automatically In This Browser For All Coaches.
         </div>
       )}
 
@@ -589,8 +589,8 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
           <div>
             <h2 className="text-xl font-semibold text-gray-800">Lift Outline</h2>
             <p className="text-sm text-gray-600">
-              Use this outline for team briefing and daily planning. Adjust notes to match the specific roster and
-              facilities.
+              Use This Outline For Team Briefing And Daily Planning. Adjust Notes To Match The Specific Roster And
+              Facilities.
             </p>
           </div>
         </header>
@@ -658,7 +658,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                 rel="noopener noreferrer"
                 className="text-brand-600 hover:text-brand-700"
               >
-                Watch on YouTube
+                Watch On YouTube
               </a>
             )
           )}
@@ -667,7 +667,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
         <Section
           title="Plyometrics (Turf)"
           items={data.plyometrics}
-          footerLabel="Weekly emphasis"
+          footerLabel="Weekly Emphasis"
           footerItems={data.plyoDays}
           editable={editable}
           options={library.plyometrics}
@@ -677,7 +677,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
         />
 
         <Section
-          title="Warmup (All core lifts)"
+          title="Warmup (All Core Lifts)"
           items={data.coreWarmup}
           editable={editable}
           options={library.coreWarmup}
@@ -688,7 +688,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
           <div>
             <h3 className="text-lg font-semibold text-gray-800">Lift (Weightroom)</h3>
             <p className="text-sm text-gray-600">
-              Align these training days with the 5/3/1 percentages for the current week.
+              Align These Training Days With The 5/3/1 Percentages For The Current Week.
             </p>
           </div>
           {editable ? (
@@ -701,7 +701,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                     className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-2"
                   >
                     <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                      Week name
+                      Week Name
                       <input
                         className="field"
                         value={week.week}
@@ -709,8 +709,8 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                         onChange={(event) => updateLiftWeekName(weekIndex, event.target.value)}
                         placeholder={
                           library.liftWeekNames.length
-                            ? "Select or type a saved week name"
-                            : "Week name"
+                            ? "Select Or Type A Saved Week Name"
+                            : "Week Name"
                         }
                       />
                       {library.liftWeekNames.length ? (
@@ -735,8 +735,8 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                             }
                             placeholder={
                               library.liftDays.length
-                                ? "Select or type a saved training focus"
-                                : "Lift focus"
+                                ? "Select Or Type A Saved Training Focus"
+                                : "Lift Focus"
                             }
                           />
                           {library.liftDays.length ? (
@@ -755,12 +755,12 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
               {(library.liftWeekNames.length > 0 || library.liftDays.length > 0) && (
                 <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
                   <summary className="cursor-pointer font-semibold text-gray-700">
-                    Browse saved week layouts
+                    Browse Saved Week Layouts
                   </summary>
                   <div className="mt-2 space-y-3">
                     {library.liftWeekNames.length > 0 && (
                       <div>
-                        <div className="font-semibold text-gray-700">Week names</div>
+                        <div className="font-semibold text-gray-700">Week Names</div>
                         <div className="mt-1 flex flex-wrap gap-2">
                           {library.liftWeekNames.map((option) => (
                             <span
@@ -775,7 +775,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                     )}
                     {library.liftDays.length > 0 && (
                       <div>
-                        <div className="font-semibold text-gray-700">Day templates</div>
+                        <div className="font-semibold text-gray-700">Day Templates</div>
                         <div className="mt-1 flex flex-wrap gap-2">
                           {library.liftDays.map((option) => (
                             <span
@@ -822,7 +822,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
             </div>
           )}
           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            See Core Breakdown Sheet for set and percent breakdowns.
+            See Core Breakdown Sheet For Set And Percent Breakdowns.
           </div>
         </div>
 
@@ -849,7 +849,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
         />
 
         <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
-          Reference the Exercises tab for sample technique videos.
+          Reference The Exercises Tab For Sample Technique Videos.
         </div>
       </div>
     </div>
@@ -928,7 +928,7 @@ function Section({
                   value={item}
                   list={showOptionSuggestions ? datalistId : undefined}
                   onChange={(event) => updateItem(index, event.target.value)}
-                  placeholder={showOptionSuggestions ? "Select or type a saved item" : undefined}
+                  placeholder={showOptionSuggestions ? "Select Or Type A Saved Item" : undefined}
                 />
                 {showOptionSuggestions ? (
                   <datalist id={datalistId}>
@@ -949,18 +949,18 @@ function Section({
           })}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn btn-sm text-xs" onClick={addItem}>
-              Add item
+              Add Item
             </button>
             {showOptionSuggestions ? (
               <span className="text-xs text-gray-500">
-                Start typing to pick from saved items or add a new one.
+                Start Typing To Pick From Saved Items Or Add A New One.
               </span>
             ) : null}
           </div>
           {showOptionSuggestions ? (
             <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
               <summary className="cursor-pointer font-semibold text-gray-700">
-                Browse saved items
+                Browse Saved Items
               </summary>
               <div className="mt-2 flex flex-wrap gap-2">
                 {optionList.map((option) => (
@@ -996,7 +996,7 @@ function Section({
                       value={item}
                       list={showFooterSuggestions ? footerId : undefined}
                       onChange={(event) => updateFooter(index, event.target.value)}
-                      placeholder={showFooterSuggestions ? "Select or type a saved item" : undefined}
+                      placeholder={showFooterSuggestions ? "Select Or Type A Saved Item" : undefined}
                     />
                     {showFooterSuggestions ? (
                       <datalist id={footerId}>
@@ -1017,18 +1017,18 @@ function Section({
               })}
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" className="btn btn-sm text-xs" onClick={addFooter}>
-                  Add item
+                  Add Item
                 </button>
                 {showFooterSuggestions ? (
                   <span className="text-xs text-gray-500">
-                    Pick from saved emphasis points or add a new one.
+                    Pick From Saved Emphasis Points Or Add A New One.
                   </span>
                 ) : null}
               </div>
               {showFooterSuggestions ? (
                 <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
                   <summary className="cursor-pointer font-semibold text-gray-700">
-                    Browse saved items
+                    Browse Saved Items
                   </summary>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {footerList.map((option) => (
@@ -1133,7 +1133,7 @@ function AccessorySection({
                     list={showNameSuggestions ? nameListId : undefined}
                     onChange={(event) => updateRow(index, "name", event.target.value)}
                     placeholder={
-                      showNameSuggestions ? "Select or type a saved lift" : "Enter lift name"
+                      showNameSuggestions ? "Select Or Type A Saved Lift" : "Enter Lift Name"
                     }
                   />
                   {showNameSuggestions ? (
@@ -1153,8 +1153,8 @@ function AccessorySection({
                     onChange={(event) => updateRow(index, "prescription", event.target.value)}
                     placeholder={
                       showPrescriptionSuggestions
-                        ? "Select or type a saved prescription"
-                        : "Sets x reps"
+                        ? "Select Or Type A Saved Prescription"
+                        : "Sets X Reps"
                     }
                   />
                   {showPrescriptionSuggestions ? (
@@ -1179,18 +1179,18 @@ function AccessorySection({
           })}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn btn-sm text-xs" onClick={addRow}>
-              Add lift
+              Add Lift
             </button>
             {showNameSuggestions ? (
               <span className="text-xs text-gray-500">
-                Start typing to reuse a saved lift or add a brand-new one.
+                Start Typing To Reuse A Saved Lift Or Add A Brand-New One.
               </span>
             ) : null}
           </div>
           {showNameSuggestions ? (
             <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
               <summary className="cursor-pointer font-semibold text-gray-700">
-                Browse saved lifts
+                Browse Saved Lifts
               </summary>
               <div className="mt-2 space-y-2">
                 <div className="flex flex-wrap gap-2">
@@ -1206,7 +1206,7 @@ function AccessorySection({
                 </div>
                 {showPrescriptionSuggestions ? (
                   <div>
-                    <div className="mt-2 font-semibold text-gray-700">Saved prescriptions</div>
+                    <div className="mt-2 font-semibold text-gray-700">Saved Prescriptions</div>
                     <div className="mt-1 flex flex-wrap gap-2">
                       {prescriptionList.map((item) => (
                         <span

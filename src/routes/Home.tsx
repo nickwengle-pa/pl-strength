@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile, type Team } from "../lib/db";
+import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile, type Team, type Lift } from "../lib/db";
 import { roundToPlate } from "../lib/tm";
 import OnboardingWizard from "../components/OnboardingWizard";
 
@@ -9,33 +10,33 @@ const ABBREVIATIONS = [
     code: "TM",
     title: "Training Max",
     detail:
-      "Weight you could lift for around 2-3 hard reps. Every plan and sheet uses this number.",
+      "Weight You Could Lift For Around 2-3 Hard Reps. Every Plan And Sheet Uses This Number.",
   },
   {
     code: "1RM",
     title: "One-Rep Max",
-    detail: "The heaviest weight you can lift once with solid form.",
+    detail: "The Heaviest Weight You Can Lift Once With Solid Form.",
   },
   {
     code: "AMRAP",
     title: "As Many Reps As Possible",
-    detail: "Push the set, but stop while you still have 1-2 good reps left.",
+    detail: "Push The Set, But Stop While You Still Have 1-2 Good Reps Left.",
   },
   {
     code: "PR",
     title: "Personal Record",
-    detail: "Your best lift so far. New PRs mean progress - celebrate them.",
+    detail: "Your Best Lift So Far. New PRs Mean Progress - Celebrate Them.",
   },
   {
     code: "RPE",
     title: "Rate of Perceived Exertion",
-    detail: "How tough a set feels from 1-10. RPE 8 means about two reps left.",
+    detail: "How Tough A Set Feels From 1-10. RPE 8 Means About Two Reps Left.",
   },
   {
     code: "% Bar",
     title: "Percent of TM",
     detail:
-      "Sheets show weights as a percent of your TM so you know what plates to load.",
+      "Sheets Show Weights As A Percent Of Your TM So You Know What Plates To Load.",
   },
 ];
 
@@ -49,6 +50,7 @@ type AthleteActivity = {
 };
 
 export default function Home() {
+  const navigate = useNavigate();
   const { isCoach, loading: coachLoading } = useActiveAthlete();
   const [athleteActivity, setAthleteActivity] = useState<AthleteActivity[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -182,26 +184,32 @@ export default function Home() {
     localStorage.setItem("pl-onboarding-skipped", "true");
   };
 
+  const getLiftStatus = (lift: Lift) => {
+    const week = profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1;
+    const cycle = profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
+    return { week, cycle };
+  };
+
   return (
     <div className="pb-12">
       {showOnboarding && profile && (
         <OnboardingWizard onComplete={handleOnboardingComplete} unit={profile.unit} />
       )}
       
-      <div className="container mt-8 space-y-10">
+      <div className="container mt-8 space-y-8">
         {/* Team Dashboard for Coaches */}
         {isCoach && (
           <div className="coach-dashboard rounded-3xl border-2 border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 shadow-xl">
             <div className="flex flex-col gap-1 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-brand-800">Team Dashboard</h2>
-                <p className="text-sm text-brand-600 mt-1">Weekly activity and performance</p>
+                <p className="text-sm text-brand-600 mt-1">Weekly Activity And Performance</p>
               </div>
             </div>
 
             {loadingActivity ? (
               <div className="text-center py-8 text-gray-600">
-                Loading team activity...
+                Loading Team Activity...
               </div>
             ) : (
               <>
@@ -213,7 +221,7 @@ export default function Home() {
                       {activeAthletes}
                     </div>
                     <div className="text-xs text-gray-500">
-                      of {athleteActivity.length} athletes
+                      Of {athleteActivity.length} Athletes
                     </div>
                   </div>
                   <div className="card text-center bg-white/80">
@@ -221,14 +229,14 @@ export default function Home() {
                     <div className="text-4xl font-bold text-blue-600">
                       {totalWorkouts}
                     </div>
-                    <div className="text-xs text-gray-500">last 7 days</div>
+                    <div className="text-xs text-gray-500">Last 7 Days</div>
                   </div>
                   <div className="card text-center bg-white/80">
                     <div className="text-sm text-gray-800 mb-1">Recent PRs</div>
                     <div className="text-4xl font-bold text-purple-600">
                       {recentPRs.length}
                     </div>
-                    <div className="text-xs text-gray-500">this week</div>
+                    <div className="text-xs text-gray-500">This Week</div>
                   </div>
                 </div>
 
@@ -262,7 +270,7 @@ export default function Home() {
                   <h3 className="text-lg font-bold text-gray-900 mb-3">
                     Athlete Activity
                     <span className="ml-2 text-xs font-normal text-gray-500">
-                      (🟢 = active in last 2 hours)
+                      (🟢 = Active In Last 2 Hours)
                     </span>
                   </h3>
                   <div className="overflow-x-auto">
@@ -298,7 +306,7 @@ export default function Home() {
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                                   athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                                 }`}>
-                                  {athlete.weekCount} this week
+                                  {athlete.weekCount} This Week
                                 </span>
                               </td>
                               <td className="py-2 text-gray-600">
@@ -320,7 +328,7 @@ export default function Home() {
                     </table>
                     {athleteActivity.length === 0 && (
                       <div className="text-center py-8 text-gray-600">
-                        No athletes found. Add athletes from the roster to see activity.
+                        No Athletes Found. Add Athletes From The Roster To See Activity.
                       </div>
                     )}
                   </div>
@@ -330,86 +338,102 @@ export default function Home() {
           </div>
         )}
 
-        {/* Welcome Card for Athletes (non-coaches) */}
+        {/* Athlete View */}
         {!isCoach && profile && (
-          <div className="card border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-blue-800">
-                  Welcome{profile.firstName ? `, ${profile.firstName}` : ''}! 👋
-                </h2>
-                <p className="text-sm text-blue-600 mt-1">Set your current week and open the tutorial anytime.</p>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {/* Week Selector */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-blue-800">Week:</label>
-                  <select
-                    className="field !text-sm !py-1 bg-white border-blue-300"
-                    value={profile.currentWeek ?? 1}
-                    onChange={async (e) => {
-                      const newWeek = Number(e.target.value) as 1 | 2 | 3;
-                      const updated = { ...profile, currentWeek: newWeek };
-                      setProfile(updated);
-                      try {
-                        await saveProfile(updated);
-                      } catch (err) {
-                        console.error("Failed to save week", err);
+          <div className="space-y-8">
+            {/* Hero */}
+            <div className="text-center py-2">
+              <h1 className="text-3xl font-bold text-gray-900">
+                Let's Get To Work, {profile.firstName || 'Athlete'}.
+              </h1>
+              <p className="text-gray-500 mt-2 text-lg">Select A Lift To Start Your Session.</p>
+            </div>
+
+            {/* Lift Cards */}
+            <div className="grid gap-4 md:grid-cols-3">
+              {(['squat', 'bench', 'deadlift'] as Lift[]).map(lift => {
+                const { week, cycle } = getLiftStatus(lift);
+                const liftName = lift === 'bench' ? 'Bench Press' : lift === 'squat' ? 'Back Squat' : 'Deadlift';
+                const liftColor = lift === 'bench' ? 'blue' : lift === 'squat' ? 'brand' : 'purple';
+                const hasTm = (profile?.tm?.[lift] ?? 0) > 0;
+                
+                // Dynamic classes based on lift type for visual variety
+                const borderClass = lift === 'bench' ? 'hover:border-blue-300' : lift === 'squat' ? 'hover:border-brand-300' : 'hover:border-purple-300';
+                const bgBadge = lift === 'bench' ? 'bg-blue-50 text-blue-700' : lift === 'squat' ? 'bg-brand-50 text-brand-700' : 'bg-purple-50 text-purple-700';
+                const btnClass = lift === 'bench' ? 'bg-blue-600 hover:bg-blue-700' : lift === 'squat' ? 'bg-brand-600 hover:bg-brand-700' : 'bg-purple-600 hover:bg-purple-700';
+
+                return (
+                  <div 
+                    key={lift} 
+                    className={`card relative overflow-hidden border-2 border-transparent transition-all duration-200 group cursor-pointer shadow-md hover:shadow-xl ${borderClass}`}
+                    onClick={() => {
+                      if (hasTm) {
+                        navigate('/session', { state: { lift } });
+                      } else {
+                        navigate('/calculator', { state: { lift } });
                       }
                     }}
                   >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                  </select>
+                    <div className="absolute -top-6 -right-6 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
+                      <span className="text-9xl font-black uppercase tracking-tighter">{lift[0]}</span>
+                    </div>
+                    
+                    <div className="relative z-10 p-2">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-2xl font-bold capitalize text-gray-900">{liftName}</h3>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 text-sm mb-6">
+                        <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-semibold">Cycle {cycle}</span>
+                        <span className={`${bgBadge} px-3 py-1 rounded-full font-semibold`}>Week {week}</span>
+                      </div>
+                      
+                      <button className={`w-full py-3 rounded-xl text-white font-bold shadow-sm transition-transform active:scale-95 ${btnClass}`}>
+                        {hasTm ? "Start Session" : "Set Max"}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Cheat Sheet (Collapsible) */}
+            <div className="card bg-gray-50/50 border-gray-200">
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer list-none p-2">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 text-xl">❓</div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Decoding The Lingo</h3>
+                      <p className="text-xs text-gray-500">What Do TM, RPE, And 1RM Mean?</p>
+                    </div>
+                  </div>
+                  <span className="transition-transform duration-200 group-open:rotate-180 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </span>
+                </summary>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {ABBREVIATIONS.map((item) => (
+                    <div
+                      key={item.code}
+                      className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-lg font-bold text-brand-700">
+                          {item.code}
+                        </span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {item.title}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-600 leading-relaxed">{item.detail}</p>
+                    </div>
+                  ))}
                 </div>
-                
-                <button
-                  onClick={() => setShowOnboarding(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition"
-                >
-                  📖 Tutorial
-                </button>
-              </div>
+              </details>
             </div>
           </div>
         )}
-
-        <div className="card bg-white/95 shadow-xl ring-1 ring-gray-100/80">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Cheat Sheet: What the letters mean
-              </h2>
-              <p className="text-sm text-gray-600">
-                Lifting language can be a lot. Use this to decode the shorthand you
-                see everywhere in PL Strength.
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
-              Quick Reference
-            </span>
-          </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {ABBREVIATIONS.map((item) => (
-              <div
-                key={item.code}
-                className="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-4 shadow-inner transition hover:border-brand-200 hover:bg-brand-50/60"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-xl font-semibold text-brand-700">
-                    {item.code}
-                  </span>
-                  <span className="text-sm font-medium text-gray-700">
-                    {item.title}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-gray-600">{item.detail}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

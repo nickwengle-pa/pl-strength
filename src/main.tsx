@@ -158,7 +158,7 @@ function showUpdatePrompt() {
           to { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
       </style>
-      <span style="font-size: 14px;">🎉 A new version is available!</span>
+      <span style="font-size: 14px;">🎉 A New Version Is Available!</span>
       <button id="update-btn" style="
         background: white;
         color: #1e40af;

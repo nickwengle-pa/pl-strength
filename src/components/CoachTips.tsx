@@ -40,35 +40,35 @@ export default function CoachTips({
 
     if (amrapReps <= 0) {
       list.push(
-        "Log AMRAP reps on the last work set to estimate 1RM and track PRs."
+        "Log AMRAP Reps On The Last Work Set To Estimate 1RM And Track PRs."
       );
     }
 
     if (tm && tm > 0) {
       const target =
         week === 1
-          ? "Expect 5-8 reps on the plus set."
+          ? "Expect 5-8 Reps On The Plus Set."
           : week === 2
-          ? "Expect 3-6 reps on the plus set."
-          : "Expect 1-4 reps on the plus set.";
+          ? "Expect 3-6 Reps On The Plus Set."
+          : "Expect 1-4 Reps On The Plus Set.";
       list.push(target);
 
       if (amrapReps > 0) {
         if (week === 1 && amrapReps <= 4) {
           list.push(
-            "Tough Week 1 effort. Consider trimming TM by about 5 percent next cycle."
+            "Tough Week 1 Effort. Consider Trimming TM By About 5 Percent Next Cycle."
           );
         }
         if (week === 2 && amrapReps <= 2) {
           list.push(
-            "Low reps in Week 2. Check sleep and nutrition; adjust TM if it repeats."
+            "Low Reps In Week 2. Check Sleep And Nutrition; Adjust TM If It Repeats."
           );
         }
         if (week === 3 && amrapReps === 0) {
-          list.push("Try to hit at least a clean single on Week 3 if it is safe.");
+          list.push("Try To Hit At Least A Clean Single On Week 3 If It Is Safe.");
         }
         if (amrapReps >= 10) {
-          list.push("Big capacity shown. Eligible for a small TM bump next cycle.");
+          list.push("Big Capacity Shown. Eligible For A Small TM Bump Next Cycle.");
         }
       }
     }
@@ -78,27 +78,27 @@ export default function CoachTips({
       const roundedPrev = roundEstimate(prevBest, unit);
       if (roundedEst > roundedPrev) {
         list.push(
-          `New PR on estimated 1RM: ${roundedEst} ${unit} (previous ${roundedPrev}). Keep TM steady until next cycle.`
+          `New PR On Estimated 1RM: ${roundedEst} ${unit} (Previous ${roundedPrev}). Keep TM Steady Until Next Cycle.`
         );
       } else {
         const delta = roundedPrev - roundedEst;
         list.push(
-          `No PR today (-${delta} ${unit}). Normal variance - tighten technique and recovery.`
+          `No PR Today (-${delta} ${unit}). Normal Variance - Tighten Technique And Recovery.`
         );
       }
     }
 
     if (lastWeight > 0) {
       list.push(
-        `Last set was ${lastWeight} ${unit}. Brace, breathe, keep the bar path clean. Stop 1-2 reps before failure.`
+        `Last Set Was ${lastWeight} ${unit}. Brace, Breathe, Keep The Bar Path Clean. Stop 1-2 Reps Before Failure.`
       );
     }
 
     const cue =
       {
-        bench: "Bench: lats tight, feet planted, consistent touch. No bounce.",
-        squat: "Squat: big air, knees over toes, drive hard from the hole.",
-        deadlift: "Deadlift: take the slack, wedge in, push the floor away.",
+        bench: "Bench: Lats Tight, Feet Planted, Consistent Touch. No Bounce.",
+        squat: "Squat: Big Air, Knees Over Toes, Drive Hard From The Hole.",
+        deadlift: "Deadlift: Take The Slack, Wedge In, Push The Floor Away.",
       }[lift] ?? "";
 
     if (cue) {

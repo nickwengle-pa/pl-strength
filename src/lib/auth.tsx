@@ -48,18 +48,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.localStorage.getItem(COACH_EMAIL_STORAGE_KEY) ?? undefined;
         if (!email) {
           email = window.prompt(
-            "Enter the email you used for the sign-in link:"
+            "Enter The Email You Used For The Sign-In Link:"
           )?.trim();
         }
         if (!email) {
-          throw new Error("Email is required to finish sign-in.");
+          throw new Error("Email Is Required To Finish Sign-In.");
         }
         await signInWithEmailLink(auth, email, window.location.href);
         window.localStorage.removeItem(COACH_EMAIL_STORAGE_KEY);
       } catch (err: any) {
         console.warn("Email link sign-in failed", err);
         setLinkError(
-          err?.message ?? "We could not finish signing you in with the link."
+          err?.message ?? "We Could Not Finish Signing You In With The Link."
         );
       } finally {
         setSigningInWithLink(false);

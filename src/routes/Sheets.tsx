@@ -2,10 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   defaultEquipment,
   ensureAnon,
+  fetchTeamProfiles,
+  fetchAthleteSessions,
+  formatTeamLabel,
   getStoredTeamSelection,
   loadProfileRemote,
-  type Team,
   type Profile,
+  type SessionRecord,
+  type Team,
   type Unit,
 } from "../lib/db";
 import { loadProfile as loadProfileLocal } from "../lib/storage";
@@ -30,20 +34,7 @@ const WEEK_META: Record<
   3: { title: "Week Three", short: "Three", reps: ["5", "3", "1+"] },
 };
 
-const WEEK_ORDER: Week[] = [1, 2, 3];
 const DEFAULT_ONE_RM = 100;
-
-type PlanSet = { reps: string; weight: number };
-type PlanLift = {
-  key: LiftKey;
-  label: string;
-  starting1Rm: number;
-  weeks: Record<Week, PlanSet[]>;
-};
-type PlanCycle = {
-  cycleNumber: number;
-  lifts: PlanLift[];
-};
 
 const unitLabel = (unit: Unit): string => (unit === "kg" ? "kg" : "lbs");
 
@@ -55,118 +46,230 @@ const formatWeightValue = (weight: number): string => {
   return weight.toFixed(1).replace(/\.0$/, "");
 };
 
-const formatSet = (entry: PlanSet | undefined, unit: Unit): string => {
-  if (!entry || !Number.isFinite(entry.weight) || entry.weight <= 0) {
-    return "-";
-  }
-  return `${entry.reps} x ${formatWeightValue(entry.weight)} ${unitLabel(unit)}`;
-};
-
 const cycleIncrement = (lift: LiftKey, unit: Unit): number => {
   const upperIncrement = unit === "kg" ? 2.5 : 5;
   const lowerIncrement = unit === "kg" ? 5 : 10;
   return lift === "bench" ? upperIncrement : lowerIncrement;
 };
 
-const deriveOneRm = (profile: Profile | null, lift: LiftKey): number => {
-  const fromOneRm = profile?.oneRm?.[lift];
-  if (typeof fromOneRm === "number" && Number.isFinite(fromOneRm) && fromOneRm > 0) {
-    return Math.round(fromOneRm);
-  }
+const deriveBaseTm = (profile: Profile | null, lift: LiftKey): number => {
   const fromTm = profile?.tm?.[lift];
   if (typeof fromTm === "number" && Number.isFinite(fromTm) && fromTm > 0) {
-    return Math.round(fromTm / 0.9);
+    return fromTm;
   }
-  return DEFAULT_ONE_RM;
+  const fromOneRm = profile?.oneRm?.[lift];
+  if (typeof fromOneRm === "number" && Number.isFinite(fromOneRm) && fromOneRm > 0) {
+    return fromOneRm * 0.9;
+  }
+  return DEFAULT_ONE_RM * 0.9;
 };
 
-const resolveProfile = async (targetUid?: string): Promise<Profile | null> => {
-  const local = loadProfileLocal();
-  try {
-    const uid = targetUid ?? (await ensureAnon());
-    const remote = await loadProfileRemote(uid);
-    if (remote) return remote;
-    if (targetUid) return null;
-    return (local as Profile | null) ?? null;
-  } catch {
-    return targetUid ? null : (local as Profile | null) ?? null;
-  }
+type SheetLiftData = {
+  key: LiftKey;
+  label: string;
+  tm: number;
+  sets: Array<{ weight: number; reps: string }>;
 };
 
-const SHEETS_PREFS_KEY = "pl-strength.sheets.prefs";
+function calculateSheetData(
+  profile: Profile,
+  cycle: number,
+  week: Week,
+  unit: Unit,
+  roundStep: number
+): SheetLiftData[] {
+  const effectiveRoundStep = roundStep > 0 ? roundStep : unit === "kg" ? 2.5 : 5;
+  
+  return LIFTS.map((lift) => {
+    // Calculate TM for this cycle
+    // Base TM + (Cycle-1 * Increment)
+    const baseTm = deriveBaseTm(profile, lift.key);
+    const cycleIndex = Math.max(0, cycle - 1);
+    const trainingMax = baseTm + cycleIncrement(lift.key, unit) * cycleIndex;
 
-type SheetsPrefs = {
-  selectedCycle?: number;
-  selectedWeek?: Week;
-  showFullTable?: boolean;
-};
+    const percents = weekPercents(week);
+    const reps = WEEK_META[week].reps;
+    
+    const sets = percents.map((pct, idx) => {
+      const raw = trainingMax * pct;
+      const rounded = trainingMax > 0 ? roundToPlate(raw, unit, effectiveRoundStep) : 0;
+      return { weight: rounded, reps: reps[idx] };
+    });
 
-function loadSheetsPrefs(): SheetsPrefs {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(SHEETS_PREFS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (err) {
-    console.warn("Failed to load sheets prefs", err);
-  }
-  return {};
+    return {
+      key: lift.key,
+      label: lift.label,
+      tm: Math.round(trainingMax),
+      sets,
+    };
+  });
 }
 
-function saveSheetsPrefs(prefs: SheetsPrefs) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(SHEETS_PREFS_KEY, JSON.stringify(prefs));
-  } catch (err) {
-    console.warn("Failed to save sheets prefs", err);
-  }
+function SingleSheet({
+  profile,
+  cycle,
+  week,
+  unit,
+  roundStep,
+}: {
+  profile: Profile;
+  cycle: number;
+  week: Week;
+  unit: Unit;
+  roundStep: number;
+}) {
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+
+  useEffect(() => {
+    if (!profile?.uid) return;
+    fetchAthleteSessions(profile.uid, 20).then(setSessions);
+  }, [profile.uid]);
+
+  const data = useMemo(
+    () => calculateSheetData(profile, cycle, week, unit, roundStep),
+    [profile, cycle, week, unit, roundStep]
+  );
+
+  const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "Athlete";
+  const team = profile.team ? formatTeamLabel(profile.team) : "";
+
+  return (
+    <div className="sheet-page bg-white p-6 text-black print:p-0 print:w-full">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between border-b-2 border-black pb-4">
+        <div className="w-1/3">
+          <h1 className="text-2xl font-bold uppercase tracking-tight">PL Strength</h1>
+          <div className="text-sm font-medium uppercase tracking-wider text-gray-600">
+            Cycle {cycle} &middot; {WEEK_META[week].title}
+          </div>
+        </div>
+
+        <div className="w-1/3 flex justify-center">
+          <img src="/assets/dragon.png" alt="Logo" className="h-16 w-16 object-contain grayscale" />
+        </div>
+
+        <div className="w-1/3 text-right">
+          <div className="text-xl font-bold">{name}</div>
+          <div className="text-sm text-gray-600">{team}</div>
+          <div className="mt-1 text-xs text-gray-500">Date: ____________________</div>
+        </div>
+      </div>
+
+      {/* Main Lifts Table */}
+      <div className="mb-8">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+          Main Lifts
+        </h2>
+        <table className="w-full border-collapse border border-black text-sm">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-black p-2 text-left font-bold uppercase">Lift</th>
+              <th className="border border-black p-2 text-center font-bold uppercase w-16">TM</th>
+              <th className="border border-black p-2 text-center font-bold uppercase">Set 1</th>
+              <th className="border border-black p-2 text-center font-bold uppercase">Set 2</th>
+              <th className="border border-black p-2 text-center font-bold uppercase">Set 3</th>
+              <th className="border border-black p-2 text-center font-bold uppercase w-24">Actual</th>
+              <th className="border border-black p-2 text-left font-bold uppercase">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((lift) => {
+              const session = sessions.find(
+                (s) => s.cycle === cycle && s.week === week && s.lift === lift.key
+              );
+              const actualReps = session?.work?.[session.work.length - 1]?.actualReps;
+              const note = session?.note;
+
+              return (
+                <tr key={lift.key}>
+                  <td className="border border-black p-3 font-bold">{lift.label}</td>
+                  <td className="border border-black p-3 text-center text-gray-600">
+                    {lift.tm}
+                  </td>
+                  {lift.sets.map((set, idx) => (
+                    <td key={idx} className="border border-black p-3 text-center">
+                      <div className="font-bold text-lg">{formatWeightValue(set.weight)}</div>
+                      <div className="text-xs text-gray-500">x {set.reps}</div>
+                    </td>
+                  ))}
+                  <td className="border border-black p-3 text-center font-bold text-lg">
+                    {actualReps ?? ""}
+                  </td>
+                  <td className="border border-black p-3 text-sm">
+                    {note ?? ""}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Accessories / Notes */}
+      <div className="grid grid-cols-2 gap-6">
+        <div>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+            Accessories
+          </h2>
+          <div className="h-48 rounded border border-black p-2">
+            {/* Lines for writing */}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="border-b border-gray-300 h-8"></div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-gray-500">
+            Coach Notes
+          </h2>
+          <div className="h-48 rounded border border-black p-2">
+             {/* Lines for writing */}
+             {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="border-b border-gray-300 h-8"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-8 text-center text-[10px] text-gray-400 uppercase tracking-widest">
+        Generated by PL Strength
+      </div>
+    </div>
+  );
 }
 
 export default function Sheets() {
-  const savedPrefs = loadSheetsPrefs();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
-  const [cycleCount, setCycleCount] = useState<number>(3);
-  const [selectedCycle, setSelectedCycle] = useState<number>(savedPrefs.selectedCycle ?? 1);
-  const [selectedWeek, setSelectedWeek] = useState<Week>(savedPrefs.selectedWeek ?? 1);
+  const [selectedCycle, setSelectedCycle] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<Week>(1);
   const [roundStep, setRoundStep] = useState<number>(5);
-  const [roundStepText, setRoundStepText] = useState<string>("5");
-  const [showFullTable, setShowFullTable] = useState<boolean>(savedPrefs.showFullTable ?? true);
+  const [batchMode, setBatchMode] = useState(false);
+  const [roster, setRoster] = useState<Profile[]>([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
 
-  const { activeAthlete, isCoach, loading: coachLoading } = useActiveAthlete();
+  const { activeAthlete, isCoach } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
-  const activeAthleteName = activeAthlete
-    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
-    : "";
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const readTeam = () => setTeamSelection(getStoredTeamSelection());
-    readTeam();
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "pl-strength-team") {
-        readTeam();
-      }
-    };
-    const handleCustom = () => readTeam();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("pl-team-change", handleCustom);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("pl-team-change", handleCustom);
-    };
-  }, []);
-
-  const unit: Unit = (profile?.unit ?? "lb") as Unit;
-  const effectiveRoundStep = roundStep > 0 ? roundStep : unit === "kg" ? 2.5 : 5;
-
+  // Load single profile
   useEffect(() => {
     (async () => {
-      const resolved = await resolveProfile(targetUid);
+      if (batchMode) return; // Don't load single profile in batch mode
+      
+      let resolved: Profile | null = null;
+      if (targetUid) {
+        resolved = await loadProfileRemote(targetUid);
+      } else {
+        const local = loadProfileLocal();
+        const uid = await ensureAnon();
+        const remote = await loadProfileRemote(uid);
+        resolved = remote ?? (local as Profile | null);
+      }
+      
       if (resolved) {
         setProfile(resolved);
-        return;
-      }
-      if (targetUid && activeAthlete) {
+      } else if (targetUid && activeAthlete) {
+        // Fallback for active athlete without full profile doc
         setProfile({
           uid: targetUid,
           firstName: activeAthlete.firstName ?? "",
@@ -178,401 +281,172 @@ export default function Sheets() {
           accessCode: null,
           equipment: defaultEquipment(),
         });
-        return;
       }
-      setProfile(resolved);
     })();
-  }, [targetUid, activeAthlete, teamSelection]);
+  }, [targetUid, activeAthlete, batchMode]);
 
+  // Load roster for batch mode
   useEffect(() => {
-    const defaultStep = unit === "kg" ? 2.5 : 5;
-    setRoundStep(defaultStep);
-    setRoundStepText(String(defaultStep));
-  }, [unit]);
-
-  useEffect(() => {
-    if (selectedCycle > cycleCount) {
-      setSelectedCycle(cycleCount || 1);
-    }
-  }, [cycleCount, selectedCycle]);
-
-  // Save preferences when they change
-  useEffect(() => {
-    saveSheetsPrefs({
-      selectedCycle,
-      selectedWeek,
-      showFullTable,
-    });
-  }, [selectedCycle, selectedWeek, showFullTable]);
-
-
-  const planData = useMemo<PlanCycle[]>(() => {
-    const count = Math.max(1, cycleCount);
-    return Array.from({ length: count }, (_, idx) => {
-      const cycleNumber = idx + 1;
-      const lifts = LIFTS.map((lift) => {
-        const baseOneRm = deriveOneRm(profile, lift.key);
-        const starting1Rm = baseOneRm + cycleIncrement(lift.key, unit) * idx;
-        const trainingMax = starting1Rm * 0.9;
-        const weeks = WEEK_ORDER.reduce((acc, week) => {
-          const percents = weekPercents(week);
-          const reps = WEEK_META[week].reps;
-          acc[week] = percents.map((pct, setIdx) => {
-            const raw = trainingMax * pct;
-            const rounded =
-              trainingMax > 0 ? roundToPlate(raw, unit, effectiveRoundStep) : 0;
-            return { reps: reps[setIdx], weight: rounded };
-          });
-          return acc;
-        }, {} as Record<Week, PlanSet[]>);
-        return {
-          key: lift.key,
-          label: lift.label,
-          starting1Rm: Math.round(starting1Rm),
-          weeks,
-        };
-      });
-      return { cycleNumber, lifts };
-    });
-  }, [cycleCount, effectiveRoundStep, profile, unit]);
-
-  const focused = useMemo(() => {
-    const cycle =
-      planData.find((entry) => entry.cycleNumber === selectedCycle) ?? planData[0];
-    if (!cycle) return null;
-    return {
-      cycleNumber: cycle.cycleNumber,
-      week: selectedWeek,
-      lifts: cycle.lifts.map((lift) => ({
-        key: lift.key,
-        label: lift.label,
-        starting1Rm: lift.starting1Rm,
-        sets: lift.weeks[selectedWeek] ?? [],
-      })),
-    };
-  }, [planData, selectedCycle, selectedWeek]);
-
-  const incrementSummary =
-    unit === "kg"
-      ? { upper: 2.5, lower: 5 }
-      : { upper: 5, lower: 10 };
-
-  const name =
-    profile ? `${profile.firstName || ""} ${profile.lastName || ""}`.trim() : "";
-  const team = profile?.team ?? "";
-
-  const handleRoundStepBlur = () => {
-    const parsed = Number(roundStepText);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      const fallback = unit === "kg" ? 2.5 : 5;
-      setRoundStep(fallback);
-      setRoundStepText(String(fallback));
+    if (!batchMode || !teamSelection) {
+      setRoster([]);
       return;
     }
-    setRoundStep(parsed);
-  };
+    
+    (async () => {
+      setLoadingRoster(true);
+      try {
+        const profiles = await fetchTeamProfiles(teamSelection, { excludeRoles: ["coach"] });
+        // Sort by name
+        profiles.sort((a, b) => {
+          const nameA = (a.lastName + a.firstName).toLowerCase();
+          const nameB = (b.lastName + b.firstName).toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        setRoster(profiles);
+      } catch (err) {
+        console.error("Failed to load roster", err);
+      } finally {
+        setLoadingRoster(false);
+      }
+    })();
+  }, [batchMode, teamSelection]);
 
-  const cycleOptions = useMemo(
-    () => Array.from({ length: Math.max(1, cycleCount) }, (_, idx) => idx + 1),
-    [cycleCount]
-  );
+  // Sync unit/rounding
+  useEffect(() => {
+    const unit = profile?.unit ?? "lb";
+    const defaultStep = unit === "kg" ? 2.5 : 5;
+    setRoundStep(defaultStep);
+  }, [profile?.unit]);
 
-  if (coachLoading) {
-    return (
-      <div className="container py-6">
-        <div className="card text-sm text-gray-600">Loading coach tools...</div>
-      </div>
-    );
-  }
+  const unit = (profile?.unit ?? "lb") as Unit;
 
   return (
-    <div className="container py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Printable Training Sheets</h1>
-        {targetUid ? (<div className="text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
-        <button className="btn btn-primary no-print" onClick={() => window.print()}>
-          Print / Save PDF
+    <div className="container py-6">
+      <div className="flex items-center justify-between mb-6 no-print">
+        <h1 className="text-2xl font-semibold">Printable Sheets</h1>
+        <button className="btn btn-primary" onClick={() => window.print()}>
+          Print Sheets
         </button>
       </div>
 
-      {isCoach && !targetUid ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          No athlete selected. Fill in the sheet manually or pick someone from the roster to load their profile details automatically.
-        </div>
-      ) : null}
+      {/* Controls */}
+      <div className="card mb-8 space-y-4 no-print bg-gray-50 border-gray-200">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {isCoach && (
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Mode</span>
+              <div className="flex items-center gap-2 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!batchMode}
+                    onChange={() => setBatchMode(false)}
+                    className="text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm">Single Athlete</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={batchMode}
+                    onChange={() => setBatchMode(true)}
+                    className="text-brand-600 focus:ring-brand-500"
+                  />
+                  <span className="text-sm">Batch (Team)</span>
+                </label>
+              </div>
+            </label>
+          )}
 
-      <div className="card plan-card print:shadow-none print:border">
-        <div className="grid gap-3 md:grid-cols-4">
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Athlete</span>
-            <input
-              className="field"
-              defaultValue={name}
-              placeholder="First Last"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Team</span>
-            <input
-              className="field"
-              defaultValue={team || ""}
-              placeholder="Team / Group"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Date</span>
-            <input className="field" type="date" />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium">Notes</span>
-            <input className="field" placeholder="Focus, cues, etc." />
-          </label>
-        </div>
-      </div>
-
-      <div className="card space-y-4 no-print">
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            <span>How many cycles?</span>
+            <span className="text-sm font-medium">Cycle</span>
             <select
-              className="field"
-              value={cycleCount}
-              onChange={(e) => setCycleCount(Number(e.target.value) || 1)}
+              className="field bg-white"
+              value={selectedCycle}
+              onChange={(e) => setSelectedCycle(Number(e.target.value))}
             >
-              {[1, 2, 3, 4, 5].map((value) => (
-                <option key={value} value={value}>
-                  {value}
+              {[1, 2, 3].map((c) => (
+                <option key={c} value={c}>
+                  Cycle {c}
                 </option>
               ))}
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            <span>Rounding step ({unitLabel(unit)})</span>
-            <input
-              className="field"
-              value={roundStepText}
-              onChange={(e) => setRoundStepText(e.target.value)}
-              onBlur={handleRoundStepBlur}
-              type="number"
-              min="0.5"
-              step="0.5"
-            />
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium">Week</span>
+            <select
+              className="field bg-white"
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(Number(e.target.value) as Week)}
+            >
+              {Object.entries(WEEK_META).map(([w, meta]) => (
+                <option key={w} value={w}>
+                  {meta.title}
+                </option>
+              ))}
+            </select>
           </label>
-        </div>
+          
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">Select cycle</span>
-          {cycleOptions.map((value) => (
-            <button
-              key={value}
-              className={`btn btn-sm ${selectedCycle === value ? "btn-primary" : ""}`}
-              onClick={() => setSelectedCycle(value)}
-            >
-              Cycle {value}
-            </button>
-          ))}
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">Select week</span>
-          {WEEK_ORDER.map((value) => (
-            <button
-              key={value}
-              className={`btn btn-sm ${selectedWeek === value ? "btn-primary" : ""}`}
-              onClick={() => setSelectedWeek(value)}
-            >
-              {WEEK_META[value].title}
-            </button>
-          ))}
-        </div>
-
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={showFullTable}
-            onChange={(e) => setShowFullTable(e.target.checked)}
-          />
-          Show full program table
-        </label>
+        
+        {batchMode && (
+           <div className="text-sm text-gray-600">
+              Generating sheets for <strong>{roster.length}</strong> athletes in <strong>{formatTeamLabel(teamSelection)}</strong>.
+              {loadingRoster && " Loading..."}
+           </div>
+        )}
       </div>
 
-      {focused && (
-        <div className="card plan-card print:shadow-none print:border print:break-inside-avoid">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-lg font-semibold">
-              Cycle {focused.cycleNumber} &middot; {WEEK_META[focused.week].title}
-            </div>
-            <div className="text-sm text-gray-500">
-              Weights in {unitLabel(unit)} (rounded to{" "}
-              {formatWeightValue(effectiveRoundStep)})
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {focused.lifts.map((lift) => (
-              <div
-                key={lift.key}
-                className="rounded-xl border border-gray-200 bg-white p-3"
-              >
-                <div className="text-base font-semibold">{lift.label}</div>
-                <div className="text-[11px] text-gray-500 leading-tight">
-                  Starting 1RM: {formatWeightValue(lift.starting1Rm)} {unitLabel(unit)}
-                </div>
-                <ul className="mt-2 space-y-1 text-xs">
-                  {lift.sets.map((set, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1 text-xs"
-                    >
-                      <span className="text-[11px] uppercase text-gray-500">
-                        Set {idx + 1}
-                      </span>
-                      <span className="font-semibold whitespace-nowrap">{formatSet(set, unit)}</span>
-                    </li>
-                  ))}
-                </ul>
+      {/* Content Area */}
+      <div className="print-area">
+        {batchMode ? (
+          <div>
+            {roster.map((p) => (
+              <div key={p.uid} className="print:break-after-page mb-8 print:mb-0 border-b-4 border-gray-200 print:border-0 pb-8 print:pb-0">
+                <SingleSheet
+                  profile={p}
+                  cycle={selectedCycle}
+                  week={selectedWeek}
+                  unit={p.unit}
+                  roundStep={roundStep}
+                />
               </div>
             ))}
+            {roster.length === 0 && !loadingRoster && (
+               <div className="text-center py-12 text-gray-500">
+                  No athletes found for this team.
+               </div>
+            )}
           </div>
-        </div>
-      )}
-
-      {showFullTable &&
-        planData.map((cycle) => (
-          <section
-            key={cycle.cycleNumber}
-            className="space-y-3 print:break-inside-avoid plan-card"
-          >
-            <h2 className="text-xl font-semibold">Cycle {cycle.cycleNumber}</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-300 text-xs plan-table">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 p-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">
-                      Week
-                    </th>
-                    {cycle.lifts.map((lift) => (
-                      <th
-                        key={lift.key}
-                        className="border border-gray-200 p-2 text-left text-xs font-semibold whitespace-nowrap"
-                        colSpan={3}
-                      >
-                        <div className="font-semibold leading-tight">{lift.label}</div>
-                        <div className="text-[11px] text-gray-500 leading-tight">
-                          Starting 1RM: {formatWeightValue(lift.starting1Rm)}{" "}
-                          {unitLabel(unit)}
-                        </div>
-                      </th>
-                    ))}
-                    <th className="border border-gray-200 p-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">
-                      Date
-                    </th>
-                  </tr>
-                  <tr className="bg-gray-100">
-                    {[
-                      <th
-                        key="week-label"
-                        className="border border-gray-200 p-2 text-left text-[11px] uppercase tracking-wide whitespace-nowrap"
-                      >
-                        Week
-                      </th>,
-                      ...cycle.lifts.flatMap((lift) =>
-                        ["Set One", "Set Two", "Set Three"].map((title, idx) => (
-                          <th
-                            key={`${lift.key}-${idx}`}
-                            className="border border-gray-200 p-2 text-left text-[11px] uppercase tracking-wide whitespace-nowrap"
-                          >
-                            {title}
-                          </th>
-                        ))
-                      ),
-                      <th
-                        key="date-label"
-                        className="border border-gray-200 p-2 text-left text-[11px] uppercase tracking-wide whitespace-nowrap"
-                      >
-                        Date
-                      </th>,
-                    ]}
-                  </tr>
-                </thead>
-                <tbody>
-                  {WEEK_ORDER.map((week) => {
-                    const isSelected =
-                      cycle.cycleNumber === selectedCycle && week === selectedWeek;
-                    return (
-                      <tr
-                        key={week}
-                        className={isSelected ? "bg-indigo-50" : "bg-white"}
-                      >
-                        <td className="border border-gray-200 p-2 text-xs font-semibold whitespace-nowrap">
-                          {WEEK_META[week].short}
-                        </td>
-                        {cycle.lifts.flatMap((lift) =>
-                          (lift.weeks[week] ?? []).map((set, idx) => (
-                            <td
-                              key={`${cycle.cycleNumber}-${lift.key}-${week}-${idx}`}
-                              className="border border-gray-200 p-2 text-xs whitespace-nowrap"
-                            >
-                              {formatSet(set, unit)}
-                            </td>
-                          ))
-                        )}
-                        <td className="border border-gray-200 p-2 align-top">
-                          <input className="field w-full text-xs" type="date" />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        ) : (
+          profile ? (
+            <SingleSheet
+              profile={profile}
+              cycle={selectedCycle}
+              week={selectedWeek}
+              unit={unit}
+              roundStep={roundStep}
+            />
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+               Loading profile...
             </div>
-          </section>
-        ))}
-
-      <div className="flex flex-wrap gap-6 text-xs text-gray-600">
-        <div>
-          <span className="font-semibold">Units:</span> {unitLabel(unit)}
-        </div>
-        <div>
-          <span className="font-semibold">Round to:</span>{" "}
-          {formatWeightValue(effectiveRoundStep)} {unitLabel(unit)}
-        </div>
-        <div>
-          <span className="font-semibold">Cycle increases:</span>{" "}
-          {`+${incrementSummary.lower} ${unitLabel(unit)} (squat/deadlift), +${incrementSummary.upper} ${unitLabel(unit)} (bench)`}
-        </div>
+          )
+        )}
       </div>
-
+      
       <style>
         {`
-        .no-print {
-          --tw-shadow: none;
-        }
-        .field {
-          border: 1px solid rgba(107,114,128,0.4);
-          border-radius: 0.75rem;
-          padding: 0.5rem 0.75rem;
-        }
-        @media print {
-          .no-print {
-            display: none !important;
+          @media print {
+            @page { margin: 0.5cm; }
+            body { background: white; }
+            .no-print { display: none !important; }
+            .container { max-width: none; padding: 0; }
+            .print\\:break-after-page { break-after: page; page-break-after: always; }
           }
-          .plan-card {
-            box-shadow: none !important;
-            border-color: #111827 !important;
-          }
-          .plan-table th,
-          .plan-table td {
-            border-color: #111827 !important;
-          }
-          input.field {
-            border: 1px solid #111827 !important;
-          }
-          section.plan-card {
-            page-break-inside: avoid;
-          }
-        }
-      `}
+        `}
       </style>
     </div>
   );

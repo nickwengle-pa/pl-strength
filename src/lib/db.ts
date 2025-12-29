@@ -164,7 +164,7 @@ export function getTeamDefinition(team?: Team | string | null): TeamDefinition |
   return TEAM_DEFINITIONS.find((definition) => definition.id === key);
 }
 
-export function formatTeamLabel(team?: Team | string | null, fallback = "Not set"): string {
+export function formatTeamLabel(team?: Team | string | null, fallback = "Not Set"): string {
   if (!team) return fallback;
   const definition = getTeamDefinition(team);
   if (definition) {
@@ -2556,4 +2556,58 @@ export async function deleteSession(uid: string, sessionId: string): Promise<voi
   if (!database) throw new Error("Firebase is required to delete sessions.");
   const ref = doc(database, "athletes", uid, "sessions", sessionId);
   await deleteDoc(ref);
+}
+
+export async function fetchTeamProfiles(
+  team: Team,
+  options?: { excludeRoles?: string[] }
+): Promise<Profile[]> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return [];
+  
+  const cg = collectionGroup(database, "profile");
+  const snap = await getDocs(cg);
+  
+  const profiles: Profile[] = [];
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const pTeam = normalizeTeam(data.team);
+    if (pTeam === team) {
+       profiles.push({
+         uid: data.uid || docSnap.ref.path.split("/")[1],
+         firstName: data.firstName || "",
+         lastName: data.lastName || "",
+         unit: (data.unit as Unit) || "lb",
+         team: pTeam,
+         tm: data.tm || {},
+         oneRm: data.oneRm || {},
+         accessCode: data.accessCode,
+         equipment: data.equipment,
+         currentWeek: data.currentWeek,
+         currentCycle: data.currentCycle,
+         liftWeeks: data.liftWeeks,
+         liftCycles: data.liftCycles,
+       } as Profile);
+    }
+  });
+
+  if (options?.excludeRoles?.length) {
+    const filtered = await Promise.all(
+      profiles.map(async (p) => {
+        try {
+          const roleSnap = await getDoc(roleRef(database, p.uid));
+          const roles = roleSnap.exists() ? normalizeRoles(roleSnap.data()) : [];
+          const hasExcluded = options.excludeRoles!.some((r) => roles.includes(r));
+          return hasExcluded ? null : p;
+        } catch (err) {
+          console.warn(`Failed to check roles for ${p.uid}`, err);
+          return p;
+        }
+      })
+    );
+    return filtered.filter((p): p is Profile => p !== null);
+  }
+
+  return profiles;
 }

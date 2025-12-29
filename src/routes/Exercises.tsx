@@ -130,12 +130,12 @@ export default function Exercises() {
     let trimmedUrl = newUrl.trim();
     
     if (!trimmedName) {
-      alert("Please enter an exercise name");
+      alert("Please Enter An Exercise Name");
       return;
     }
     
     if (!trimmedUrl) {
-      alert("Please enter a YouTube URL");
+      alert("Please Enter A YouTube URL");
       return;
     }
     
@@ -146,7 +146,7 @@ export default function Exercises() {
     
     // Check if URL is a valid YouTube URL
     if (!trimmedUrl.includes("youtube.com") && !trimmedUrl.includes("youtu.be")) {
-      alert("Please enter a valid YouTube URL");
+      alert("Please Enter A Valid YouTube URL");
       return;
     }
     
@@ -154,13 +154,13 @@ export default function Exercises() {
     try {
       new URL(trimmedUrl);
     } catch {
-      alert("Please enter a valid URL");
+      alert("Please Enter A Valid URL");
       return;
     }
     
     // Check for duplicate names
     if (exercises.some(ex => ex.name.toLowerCase() === trimmedName.toLowerCase())) {
-      alert("An exercise with this name already exists");
+      alert("An Exercise With This Name Already Exists");
       return;
     }
     
@@ -178,7 +178,7 @@ export default function Exercises() {
   if (loading) {
     return (
       <div className="container py-6">
-        <div className="card text-sm text-gray-600">Loading exercises...</div>
+        <div className="card text-sm text-gray-600">Loading Exercises...</div>
       </div>
     );
   }
@@ -189,7 +189,7 @@ export default function Exercises() {
         <div>
           <h1 className="text-2xl font-semibold">Exercise Library</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Quick refreshers for key lifts. Watch the technique video before you coach or train the movement.
+            Quick Refreshers For Key Lifts. Watch The Technique Video Before You Coach Or Train The Movement.
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export default function Exercises() {
             className={`btn btn-sm ${editMode ? "btn-secondary" : ""}`}
             onClick={() => setEditMode((prev) => !prev)}
           >
-            {editMode ? "Done editing" : "Edit exercises"}
+            {editMode ? "Done Editing" : "Edit Exercises"}
           </button>
         )}
       </div>
@@ -232,7 +232,7 @@ export default function Exercises() {
                 onChange={(e) => setNewUrl(e.target.value)}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Supports full URLs, shorts, and youtu.be links
+                Supports Full URLs, Shorts, And youtu.be Links
               </p>
             </div>
             <button
@@ -279,7 +279,7 @@ export default function Exercises() {
                 rel="noopener noreferrer"
                 className="text-sm font-semibold text-brand-600 hover:text-brand-700"
               >
-                Open on YouTube
+                Open On YouTube
               </a>
             </div>
           );
@@ -289,7 +289,7 @@ export default function Exercises() {
       <ConfirmModal
         isOpen={deleteConfirm !== null}
         title="Delete Exercise"
-        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
+        message={`Are You Sure You Want To Delete "${deleteConfirm?.name}"? This Cannot Be Undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         variant="danger"

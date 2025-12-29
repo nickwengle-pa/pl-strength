@@ -193,7 +193,7 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
               ))
             ) : (
               <div className="text-sm text-gray-400 italic pl-2">
-                {hasTarget ? "Bar only" : "Enter target weight"}
+                {hasTarget ? "Bar Only" : "Enter Target Weight"}
               </div>
             )}
           </div>
@@ -249,11 +249,11 @@ export function PlateCalculatorDisplay({ targetWeight, unit, equipment }: PlateC
   const planDifference = platePlan?.difference ?? 0;
   const planSummary = platePlan
     ? platePlan.isPossible
-      ? `Load ${formatNumber(perSideTotal)} ${unit} per side on the ${formatNumber(
+      ? `Load ${formatNumber(perSideTotal)} ${unit} Per Side On The ${formatNumber(
           activeBarWeight
-        )} ${unit} bar.`
-      : `You are short ${formatNumber(Math.abs(planDifference))} ${unit} with the current plates.`
-    : "Enter a target weight to calculate plates.";
+        )} ${unit} Bar.`
+      : `You Are Short ${formatNumber(Math.abs(planDifference))} ${unit} With The Current Plates.`
+    : "Enter A Target Weight To Calculate Plates.";
 
   return (
     <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-900 p-4 text-white">
@@ -291,7 +291,7 @@ export function PlateCalculatorDisplay({ targetWeight, unit, equipment }: PlateC
         {planSummary}
         {platePlan && !platePlan.isPossible && (
           <div className="mt-1 text-xs">
-            Add smaller plates or adjust the target weight.
+            Add Smaller Plates Or Adjust The Target Weight.
           </div>
         )}
       </div>

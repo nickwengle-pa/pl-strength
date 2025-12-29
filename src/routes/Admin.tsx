@@ -97,24 +97,24 @@ export default function Admin() {
       <div className="space-y-1">
         <h3 className="text-xl font-semibold">Team Admin</h3>
         <p className="text-sm text-gray-600">
-          Quick status of your account and instructions for managing coach access.
+          Quick Status Of Your Account And Instructions For Managing Coach Access.
         </p>
       </div>
 
       {!configured && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          Firebase isn't configured. Set env vars or window.__FBCONFIG__ and reload.
+          Firebase Isn't Configured. Set Env Vars Or window.__FBCONFIG__ And Reload.
         </div>
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-        Signed-in user UID: <code>{uid}</code>
+        Signed-In User UID: <code>{uid}</code>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
-        <div className="font-medium text-gray-700">Current roles</div>
+        <div className="font-medium text-gray-700">Current Roles</div>
         {loading ? (
-          <div>loading</div>
+          <div>Loading</div>
         ) : roles.length ? (
           <ul className="list-disc pl-5 space-y-1">
             {roles.map((role) => (
@@ -122,11 +122,11 @@ export default function Admin() {
             ))}
           </ul>
         ) : (
-          <div>No roles assigned yet.</div>
+          <div>No Roles Assigned Yet.</div>
         )}
         <div className="text-xs text-gray-500">
-          Coaches automatically get the <code>coach</code> role when they sign in with the shared passcode.
-          Admins have both <code>admin</code> and <code>coach</code>.
+          Coaches Automatically Get The <code>coach</code> Role When They Sign In With The Shared Passcode.
+          Admins Have Both <code>admin</code> And <code>coach</code>.
         </div>
       </div>
 
@@ -136,7 +136,7 @@ export default function Admin() {
           {accessHistory.length > 0 && (
             <button
               onClick={async () => {
-                if (window.confirm("Are you sure you want to clear all access history?")) {
+                if (window.confirm("Are You Sure You Want To Clear All Access History?")) {
                   await clearAccessHistory();
                   setAccessHistory([]);
                 }
@@ -155,7 +155,7 @@ export default function Admin() {
                   {entry.code === "1357" ? "Admin Access" : "Coach Access"}
                 </span>
                 <span className="text-xs text-gray-500">
-                  Last used: {new Date(entry.lastUsed.toMillis()).toLocaleDateString()}
+                  Last Used: {new Date(entry.lastUsed.toMillis()).toLocaleDateString()}
                 </span>
               </div>
               <div className="text-xs text-gray-600">
@@ -163,29 +163,29 @@ export default function Admin() {
               </div>
               {entry.teamScopes.length > 0 && (
                 <div className="text-xs text-gray-600">
-                  Team scopes: {entry.teamScopes.map(team => formatTeamLabel(team)).join(", ")}
+                  Team Scopes: {entry.teamScopes.map(team => formatTeamLabel(team)).join(", ")}
                 </div>
               )}
             </div>
           ))}
           {!accessHistory.length && (
-            <div className="text-gray-500">No access history found.</div>
+            <div className="text-gray-500">No Access History Found.</div>
           )}
         </div>
       </div>
 
       {admin ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-          You have admin rights. If you need to elevate another adult to admin, add their UID to Firestore at{" "}
-          <code>{"roles/{uid}"}</code> with <code>{"{ roles: [\"admin\",\"coach\"] }"}</code>.
+          You Have Admin Rights. If You Need To Elevate Another Adult To Admin, Add Their UID To Firestore At{" "}
+          <code>{"roles/{uid}"}</code> With <code>{"{ roles: [\"admin\",\"coach\"] }"}</code>.
         </div>
       ) : coach ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-          You have coach access. Reach out to an admin if you need higher privileges.
+          You Have Coach Access. Reach Out To An Admin If You Need Higher Privileges.
         </div>
       ) : (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-          You're currently in athlete mode. Have an admin share the coach passcode so you can log in via the Coach tab.
+          You're Currently In Athlete Mode. Have An Admin Share The Coach Passcode So You Can Log In Via The Coach Tab.
         </div>
       )}
     </div>

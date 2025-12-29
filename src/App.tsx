@@ -19,7 +19,7 @@ import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
 // App version - keep in sync with main.tsx
-export const APP_VERSION = '1.1.3';
+export const APP_VERSION = '1.1.4';
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
@@ -40,7 +40,7 @@ export default function App() {
   if (initializing || signingInWithLink) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-600">
-        Loading your account…
+        Loading Your Account…
       </div>
     );
   }
@@ -52,8 +52,10 @@ export default function App() {
   return (
     <ActiveAthleteProvider>
       <div className="min-h-full flex flex-col">
-        <Nav />
-        <ActiveAthleteBanner />
+        <div className="print:hidden">
+          <Nav />
+          <ActiveAthleteBanner />
+        </div>
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
@@ -71,7 +73,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        <footer className="py-2 text-center text-xs text-gray-400">
+        <footer className="py-2 text-center text-xs text-gray-400 print:hidden">
           v{APP_VERSION}
         </footer>
       </div>

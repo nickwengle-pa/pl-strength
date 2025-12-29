@@ -4,7 +4,7 @@ type Props = { values: number[]; unit: 'lb'|'kg' };
 
 export default function TrendMini({ values, unit }: Props) {
   if (!values || values.length === 0) {
-    return <div className="text-sm text-gray-500">No history yet.</div>;
+    return <div className="text-sm text-gray-500">No History Yet.</div>;
     }
   const w = 300, h = 80, pad = 6;
   const min = Math.min(...values), max = Math.max(...values);
@@ -24,7 +24,7 @@ export default function TrendMini({ values, unit }: Props) {
         <path d={path} strokeWidth="2" fill="none" stroke="currentColor"/>
       </svg>
       <div className="text-xs text-gray-700">
-        Trend: {delta>0?'+':''}{delta} {unit} across {values.length} sessions
+        Trend: {delta>0?'+':''}{delta} {unit} Across {values.length} Sessions
       </div>
     </div>
   );

@@ -77,7 +77,7 @@ const formatLastWorkout = (timestamp?: number): { text: string; isRecent: boolea
   // Within last 7 days
   if (diff < 7 * dayInMs) {
     const daysAgo = Math.floor(diff / dayInMs);
-    return { text: `${daysAgo}d ago`, isRecent: true };
+    return { text: `${daysAgo}d Ago`, isRecent: true };
   }
   
   // Older - show date
@@ -211,7 +211,7 @@ export default function Attendance() {
           return next;
         });
       } catch (err: any) {
-        const message = err?.message ?? "Could not load attendance sheets.";
+        const message = err?.message ?? "Could Not Load Attendance Sheets.";
         setLoadError(message);
       } finally {
         setLoading(false);
@@ -246,14 +246,14 @@ export default function Attendance() {
               }
             } catch (err) {
               // Silently skip athletes we can't load
-              console.debug(`Could not load sessions for ${athlete.uid}`);
+              console.debug(`Could Not Load Sessions For ${athlete.uid}`);
             }
           })
         );
         
         setLastWorkoutDates(workoutDates);
       } catch (err) {
-        console.debug('Could not load workout dates', err);
+        console.debug('Could Not Load Workout Dates', err);
       }
     })();
   }, [authLoading, isCoach, visibleTeams, selectedTeam]);
@@ -346,7 +346,7 @@ export default function Attendance() {
       return;
     }
     if (sheets[team].dates.some((date, idx) => date === next && idx !== index)) {
-      handleSetError(team, "That date already exists on this sheet.");
+      handleSetError(team, "That Date Already Exists On This Sheet.");
       return;
     }
     updateSheet(team, (current) => {
@@ -380,7 +380,7 @@ export default function Attendance() {
   };
 
   const handleRemoveAthlete = (team: Team, athleteId: string) => {
-    const confirmDelete = window.confirm("Remove this athlete from the sheet?");
+    const confirmDelete = window.confirm("Remove This Athlete From The Sheet?");
     if (!confirmDelete) return;
     updateSheet(team, (current) => {
       const nextAthletes = current.athletes.filter((a) => a.id !== athleteId);
@@ -388,7 +388,7 @@ export default function Attendance() {
       delete nextRecords[athleteId];
       return { ...current, athletes: nextAthletes, records: nextRecords };
     });
-    setFlash("Athlete removed from attendance.");
+    setFlash("Athlete Removed From Attendance.");
   };
 
   const handleAddAthlete = (event: React.FormEvent) => {
@@ -397,7 +397,7 @@ export default function Attendance() {
     const last = formDraft.lastName.trim();
     const level = formDraft.level;
     if (!first && !last) {
-      handleSetError(level, "Enter at least a first or last name.");
+      handleSetError(level, "Enter At Least A First Or Last Name.");
       return;
     }
     const id = createId();
@@ -415,7 +415,7 @@ export default function Attendance() {
       return { ...current, athletes: nextAthletes, records: nextRecords };
     });
     setFormDraft({ firstName: "", lastName: "", level: selectedTeam });
-    setFlash(`Added ${first || last || "athlete"} to ${level}.`);
+    setFlash(`Added ${first || last || "Athlete"} To ${level}.`);
     handleSetError(level, null);
   };
 
@@ -445,14 +445,14 @@ export default function Attendance() {
             : line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
           
           if (parts.length < 2) {
-            errors.push(`Line ${i + 1}: Need at least first and last name`);
+            errors.push(`Line ${i + 1}: Need At Least First And Last Name`);
             continue;
           }
           
           const [firstName, lastName, levelStr] = parts;
           
           if (!firstName || !lastName) {
-            errors.push(`Line ${i + 1}: Missing name`);
+            errors.push(`Line ${i + 1}: Missing Name`);
             continue;
           }
           
@@ -477,7 +477,7 @@ export default function Attendance() {
         const totalCount = Object.values(athletesByLevel).reduce((sum, arr) => sum + arr.length, 0);
         
         if (totalCount === 0) {
-          setFlash(errors.length > 0 ? errors.join('; ') : 'No valid athletes found in CSV');
+          setFlash(errors.length > 0 ? errors.join('; ') : 'No Valid Athletes Found In CSV');
           event.target.value = '';
           return;
         }
@@ -505,17 +505,17 @@ export default function Attendance() {
           .map(([level, athletes]) => `${athletes.length} to ${formatTeamLabel(level as Team)}`)
           .join(', ');
         
-        setFlash(`Imported ${totalCount} athletes: ${summary}${errors.length > 0 ? `. ${errors.length} errors` : ''}`);
+        setFlash(`Imported ${totalCount} Athletes: ${summary}${errors.length > 0 ? `. ${errors.length} Errors` : ''}`);
         
       } catch (err: any) {
-        setFlash(`CSV import error: ${err.message}`);
+        setFlash(`CSV Import Error: ${err.message}`);
       }
       
       event.target.value = '';
     };
     
     reader.onerror = () => {
-      setFlash('Failed to read file');
+      setFlash('Failed To Read File');
       event.target.value = '';
     };
     
@@ -533,10 +533,10 @@ export default function Attendance() {
         [team]: fresh,
       }));
       setDirty((prev) => ({ ...prev, [team]: false }));
-      setFlash(`Saved ${formatTeamLabel(team)} attendance.`);
+      setFlash(`Saved ${formatTeamLabel(team)} Attendance.`);
     } catch (err: any) {
       const message =
-        err?.message ?? "Could not save attendance. Try again shortly.";
+        err?.message ?? "Could Not Save Attendance. Try Again Shortly.";
       handleSetError(team, message);
     } finally {
       setSaving((prev) => ({ ...prev, [team]: false }));
@@ -546,7 +546,7 @@ export default function Attendance() {
   if (authLoading || loading) {
     return (
       <div className="container py-10">
-        <div className="card text-center text-gray-600">Loading attendance�?�</div>
+        <div className="card text-center text-gray-600">Loading Attendance…</div>
       </div>
     );
   }
@@ -555,9 +555,9 @@ export default function Attendance() {
     return (
       <div className="container py-10">
         <div className="card space-y-3">
-          <h2 className="text-xl font-semibold text-gray-800">Coach access required</h2>
+          <h2 className="text-xl font-semibold text-gray-800">Coach Access Required</h2>
           <p className="text-sm text-gray-600">
-            Sign in with the coach passcode to manage attendance.
+            Sign In With The Coach Passcode To Manage Attendance.
           </p>
         </div>
       </div>
@@ -571,7 +571,7 @@ export default function Attendance() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Attendance</h1>
             <p className="text-sm text-gray-600">
-              Track lift day attendance separately for each football team.
+              Track Lift Day Attendance Separately For Each Football Team.
             </p>
           </div>
           <div className="flex gap-2">
@@ -613,7 +613,7 @@ export default function Attendance() {
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">
-            {formatTeamLabel(selectedTeam)} attendance sheet
+            {formatTeamLabel(selectedTeam)} Attendance Sheet
           </h2>
           <div className="flex gap-2">
             <button
@@ -622,7 +622,7 @@ export default function Attendance() {
               onClick={() => handleAddDate(selectedTeam)}
               disabled={selectedSaving}
             >
-              Add date
+              Add Date
             </button>
             <button
               type="button"
@@ -630,7 +630,7 @@ export default function Attendance() {
               onClick={() => handleSave(selectedTeam)}
               disabled={!selectedDirty || selectedSaving}
             >
-              {selectedSaving ? "Saving…" : "Save attendance"}
+              {selectedSaving ? "Saving…" : "Save Attendance"}
             </button>
           </div>
         </div>
@@ -641,7 +641,7 @@ export default function Attendance() {
             <div className="flex items-center gap-2">
               <span className="text-amber-600 text-lg">⚠️</span>
               <span className="text-sm font-medium text-amber-800">
-                You have unsaved changes. Don't forget to click "Save attendance" before leaving!
+                You Have Unsaved Changes. Don't Forget To Click "Save Attendance" Before Leaving!
               </span>
             </div>
             <button
@@ -649,7 +649,7 @@ export default function Attendance() {
               className="btn btn-primary text-sm px-3 py-1"
               onClick={() => handleSave(selectedTeam)}
             >
-              Save now
+              Save Now
             </button>
           </div>
         )}
@@ -696,7 +696,7 @@ export default function Attendance() {
                     colSpan={selectedSheet.dates.length + 3}
                     className="px-3 py-5 text-center text-sm text-gray-500"
                   >
-                    No athletes added yet. Use the form below to add someone.
+                    No Athletes Added Yet. Use The Form Below To Add Someone.
                   </td>
                 </tr>
               ) : (
@@ -743,10 +743,10 @@ export default function Attendance() {
         </div>
 
         <form className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-3" onSubmit={handleAddAthlete}>
-          <h3 className="text-sm font-semibold text-gray-700">Add athlete to attendance</h3>
+          <h3 className="text-sm font-semibold text-gray-700">Add Athlete To Attendance</h3>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="flex flex-col text-xs font-medium text-gray-600 gap-1">
-              First name
+              First Name
               <input
                 className="field"
                 value={formDraft.firstName}
@@ -757,7 +757,7 @@ export default function Attendance() {
               />
             </label>
             <label className="flex flex-col text-xs font-medium text-gray-600 gap-1">
-              Last name
+              Last Name
               <input
                 className="field"
                 value={formDraft.lastName}
@@ -789,16 +789,16 @@ export default function Attendance() {
           </label>
           <div className="flex justify-end">
             <button type="submit" className="btn btn-primary">
-              Add athlete
+              Add Athlete
             </button>
           </div>
         </form>
         
         {/* CSV Import Section */}
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-blue-900">Import from CSV/Excel</h3>
+          <h3 className="text-sm font-semibold text-blue-900">Import From CSV/Excel</h3>
           <p className="text-xs text-blue-700">
-            Upload a CSV file with columns: <strong>FirstName, LastName</strong> (optional: Level/Team)
+            Upload A CSV File With Columns: <strong>FirstName, LastName</strong> (Optional: Level/Team)
           </p>
           <div className="flex items-center gap-3">
             <label className="btn btn-secondary cursor-pointer">
@@ -811,11 +811,11 @@ export default function Attendance() {
               />
             </label>
             <span className="text-xs text-blue-600">
-              Supports comma or tab-separated values
+              Supports Comma Or Tab-Separated Values
             </span>
           </div>
           <details className="text-xs text-blue-700">
-            <summary className="cursor-pointer font-medium">Example CSV format</summary>
+            <summary className="cursor-pointer font-medium">Example CSV Format</summary>
             <pre className="mt-2 bg-white p-2 rounded border border-blue-200 text-[10px] overflow-x-auto">
 FirstName,LastName,Level
 John,Smith,varsity-football-coed
@@ -823,9 +823,9 @@ Jane,Doe,jh-football-coed
 Mike,Johnson
             </pre>
             <p className="mt-1 text-[10px]">
-              • First row can be a header (will be auto-detected)<br />
-              • Level/Team is optional (uses selected team if not provided)<br />
-              • Supports Excel CSV exports
+              • First Row Can Be A Header (Will Be Auto-Detected)<br />
+              • Level/Team Is Optional (Uses Selected Team If Not Provided)<br />
+              • Supports Excel CSV Exports
             </p>
           </details>
         </div>

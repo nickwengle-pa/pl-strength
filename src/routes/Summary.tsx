@@ -12,10 +12,31 @@ import {
   type Unit,
   type SessionRecord,
 } from "../lib/db";
+import { roundToPlate, weekPercents, warmupPercents } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
 type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
+
+const LIFTS: Lift[] = ["squat", "bench", "deadlift"];
+
+const cycleIncrement = (lift: Lift, unit: Unit): number => {
+  const upperIncrement = unit === "kg" ? 2.5 : 5;
+  const lowerIncrement = unit === "kg" ? 5 : 10;
+  return lift === "bench" ? upperIncrement : lowerIncrement;
+};
+
+const deriveBaseTm = (profile: Profile | null, lift: Lift): number => {
+  const fromTm = profile?.tm?.[lift];
+  if (typeof fromTm === "number" && Number.isFinite(fromTm) && fromTm > 0) {
+    return fromTm;
+  }
+  const fromOneRm = profile?.oneRm?.[lift];
+  if (typeof fromOneRm === "number" && Number.isFinite(fromOneRm) && fromOneRm > 0) {
+    return fromOneRm * 0.9;
+  }
+  return 100;
+};
 
 const PCT: Record<Week, Array<[number,string]>> = {
   1: [[0.65,"x5"], [0.75,"x5"], [0.85,"x5+"]],
@@ -35,6 +56,7 @@ export default function Summary() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [lift, setLift] = useState<Lift>("bench");
   const [week, setWeek] = useState<Week>(1);
+  const [cycle, setCycle] = useState<number>(1);
   const [tm, setTm] = useState<number | "">( "");
   const [completedLifts, setCompletedLifts] = useState<Set<Lift>>(new Set());
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -181,22 +203,32 @@ export default function Summary() {
       notifyProfileChange();
     } catch (err) {
       console.warn("Failed to save training max", err);
-      alert("Unable to save the training max right now. Please try again.");
+      alert("Unable To Save The Training Max Right Now. Please Try Again.");
     }
   };
 
-  const sets = typeof tm === "number"
-    ? PCT[week].map(([p, reps]) => ({
-        pct: Math.round(p * 100),
-        weight: roundWeight(tm * p, unit),
-        reps
-      }))
-    : [];
+  const sessionPlan = typeof tm === "number"
+    ? (() => {
+        const increment = cycleIncrement(lift, unit);
+        const cycleTm = tm + (cycle - 1) * increment;
+        const warmups = warmupPercents().map((p) => ({
+          pct: Math.round(p * 100),
+          weight: roundWeight(cycleTm * p, unit),
+          reps: "5"
+        }));
+        const work = PCT[week].map(([p, reps]) => ({
+          pct: Math.round(p * 100),
+          weight: roundWeight(cycleTm * p, unit),
+          reps
+        }));
+        return { warmups, work };
+      })()
+    : { warmups: [], work: [] };
 
   if (coachLoading) {
     return (
       <div className="container py-6">
-        <div className="card text-sm text-gray-600">Loading coach tools...</div>
+        <div className="card text-sm text-gray-600">Loading Coach Tools...</div>
       </div>
     );
   }
@@ -207,7 +239,7 @@ export default function Summary() {
 
       {isCoach && !targetUid ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          No athlete selected. You can still review the template numbers, or choose an athlete from the roster for personalized data.
+          No Athlete Selected. You Can Still Review The Template Numbers, Or Choose An Athlete From The Roster For Personalized Data.
         </div>
       ) : null}
 
@@ -267,7 +299,7 @@ export default function Summary() {
           </button>
         ) : (
           <div className="text-center py-4 text-gray-600">
-            Set a Training Max for {cap(lift)} below to start your workout
+            Set A Training Max For {cap(lift)} Below To Start Your Workout
           </div>
         )}
       </div>
@@ -281,6 +313,15 @@ export default function Summary() {
         ))}
       </div>
 
+      <div className="flex items-center gap-3">
+        <div className="btn">Cycle</div>
+        {[1,2,3].map(c => (
+          <button key={c}
+            className={`btn ${cycle===c ? "btn-primary" : ""}`}
+            onClick={() => setCycle(c)}>{c}</button>
+        ))}
+      </div>
+
       <div className="card space-y-3">
         <div className="text-lg font-semibold">Training Max</div>
         <div className="flex items-center gap-3">
@@ -288,26 +329,37 @@ export default function Summary() {
             className="border rounded-xl px-3 py-2 w-40"
             type="number" min={0} step="1" value={tm as any}
             onChange={(e)=> setTm(e.target.value==="" ? "" : Number(e.target.value))}
-            placeholder={`TM in ${unit}`}
+            placeholder={`TM In ${unit}`}
           />
           <button className="btn btn-primary" onClick={saveTM}>Save TM</button>
           <div className="badge">Units: {unit}</div>
         </div>
         <p className="text-sm text-gray-600">
-          TM = heavy single you could hit for ~2-3 reps. We"ll do simple math and round plates.
+          TM = Heavy Single You Could Hit For ~2-3 Reps. We'll Do Simple Math And Round Plates.
         </p>
       </div>
 
       {typeof tm === "number" && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="card">
-            <h3 className="mb-2">Warm up ➜ Work sets</h3>
+            <h3 className="mb-2 font-bold text-gray-500 uppercase text-sm">Warm Up Sets</h3>
+            <ul className="space-y-2 mb-6">
+              {sessionPlan.warmups.map((s,i) => (
+                <li key={i} className="flex items-center justify-between border rounded-xl px-3 py-2 bg-gray-50">
+                  <div className="font-medium text-gray-500">{s.pct}%</div>
+                  <div className="text-gray-500">{s.reps}</div>
+                  <div className="text-xl font-bold text-gray-700">{s.weight} {unit}</div>
+                </li>
+              ))}
+            </ul>
+
+            <h3 className="mb-2 font-bold text-brand-600 uppercase text-sm">Work Sets</h3>
             <ul className="space-y-2">
-              {sets.map((s,i) => (
-                <li key={i} className="flex items-center justify-between border rounded-xl px-3 py-2">
-                  <div className="font-medium">{s.pct}%</div>
-                  <div className="text-gray-600">{s.reps}</div>
-                  <div className="text-xl font-bold">{s.weight} {unit}</div>
+              {sessionPlan.work.map((s,i) => (
+                <li key={i} className="flex items-center justify-between border-2 border-brand-100 rounded-xl px-3 py-2 bg-white">
+                  <div className="font-medium text-brand-600">{s.pct}%</div>
+                  <div className="text-brand-600 font-bold">{s.reps}</div>
+                  <div className="text-xl font-bold text-black">{s.weight} {unit}</div>
                 </li>
               ))}
             </ul>
@@ -315,11 +367,62 @@ export default function Summary() {
           <div className="card">
             <h3 className="mb-2">Coach Tips</h3>
             <ul className="list-disc pl-5 text-sm space-y-1">
-              <li>Move fast. Rest 2-3 min on the big sets.</li>
-              <li>"+" means stop with 1-2 reps in the tank. No grinders.</li>
-              <li>After Week 3, adjust TMs and start the next cycle.</li>
+              <li>Move Fast. Rest 2-3 Min On The Big Sets.</li>
+              <li>"+" Means Stop With 1-2 Reps In The Tank. No Grinders.</li>
+              <li>After Week 3, Adjust TMs And Start The Next Cycle.</li>
             </ul>
           </div>
+        </div>
+      )}
+
+      {/* Program Projection Tables */}
+      {profile && (
+        <div className="mt-12 space-y-8">
+          <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">Program Projection</h2>
+          
+          {LIFTS.map((liftKey) => {
+            const baseTm = deriveBaseTm(profile, liftKey);
+            
+            const increment = cycleIncrement(liftKey, unit);
+            const roundStep = unit === "kg" ? 2.5 : 5;
+
+            return (
+              <div key={liftKey} className="card overflow-hidden">
+                <h3 className="text-lg font-bold uppercase mb-4 text-brand-700">{liftKey}</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                      <tr>
+                        <th className="px-4 py-3">Cycle</th>
+                        <th className="px-4 py-3">TM</th>
+                        <th className="px-4 py-3">Week 1 (5+)</th>
+                        <th className="px-4 py-3">Week 2 (3+)</th>
+                        <th className="px-4 py-3">Week 3 (1+)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {[1, 2, 3].map((cycle) => {
+                        const cycleTm = baseTm + (cycle - 1) * increment;
+                        const w1Top = roundToPlate(cycleTm * 0.85, unit, roundStep);
+                        const w2Top = roundToPlate(cycleTm * 0.90, unit, roundStep);
+                        const w3Top = roundToPlate(cycleTm * 0.95, unit, roundStep);
+                        
+                        return (
+                          <tr key={cycle} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium">Cycle {cycle}</td>
+                            <td className="px-4 py-3 text-gray-600">{Math.round(cycleTm)}</td>
+                            <td className="px-4 py-3 font-bold">{w1Top} <span className="text-xs font-normal text-gray-500">x5+</span></td>
+                            <td className="px-4 py-3 font-bold">{w2Top} <span className="text-xs font-normal text-gray-500">x3+</span></td>
+                            <td className="px-4 py-3 font-bold">{w3Top} <span className="text-xs font-normal text-gray-500">x1+</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
