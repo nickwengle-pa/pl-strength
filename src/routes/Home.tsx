@@ -1,60 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile, type Team } from "../lib/db";
+import { roundToPlate } from "../lib/tm";
 import OnboardingWizard from "../components/OnboardingWizard";
-
-const PAGE_LINKS = [
-  { to: "/summary", label: "Quick Summary" },
-  { to: "/progress", label: "Progress" },
-  { to: "/calculator", label: "Calculator" },
-  { to: "/sheets", label: "Sheets" },
-  { to: "/program-outline", label: "Program" },
-  { to: "/exercises", label: "Exercises" },
-  { to: "/roster", label: "Roster" },
-  { to: "/attendance", label: "Attendance" },
-  { to: "/session", label: "Session" },
-  { to: "/profile", label: "Profile" },
-  { to: "/admin", label: "Admin", hideOnMobile: true },
-];
-
-const FEATURE_LINKS = [
-  {
-    to: "/summary",
-    label: "Quick Summary",
-    message: "Simple plan for today. Big buttons. No fluff.",
-    badge: "QS",
-    accent: "from-amber-400/90 to-orange-500/90",
-  },
-  {
-    to: "/progress",
-    label: "Progress Tracking",
-    message: "Charts, PRs, and stats. See your gains over time.",
-    badge: "PR",
-    accent: "from-purple-400/90 to-purple-600/90",
-  },
-  {
-    to: "/calculator",
-    label: "Calculator / Table",
-    message: "Auto-calc warm-ups and work sets with rounding.",
-    badge: "CT",
-    accent: "from-sky-400/90 to-sky-600/90",
-  },
-  {
-    to: "/sheets",
-    label: "Printable / Fillable Sheets",
-    message: "Week 1-3 or blank sheets. Print or fill and save.",
-    badge: "SH",
-    accent: "from-emerald-400/90 to-emerald-600/90",
-  },
-  {
-    to: "/roster",
-    label: "Roster",
-    message: "Coaches: names, teams, units. Clean and fast.",
-    badge: "RS",
-    accent: "from-fuchsia-400/90 to-fuchsia-600/90",
-  },
-];
 
 const ABBREVIATIONS = [
   {
@@ -240,51 +188,15 @@ export default function Home() {
         <OnboardingWizard onComplete={handleOnboardingComplete} unit={profile.unit} />
       )}
       
-      <section className="relative isolate overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white shadow-lg">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_55%)]" />
-        <div className="container relative px-4 py-4 md:py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-xl md:text-2xl font-semibold">PL Strength</h1>
-              <p className="text-xs md:text-sm text-white/80 mt-1">
-                {isCoach ? "Quick access to all tools" : "Your strength training companion"}
-              </p>
-            </div>
-            {/* Only show quick access links for coaches */}
-            {isCoach && (
-              <div className="flex flex-wrap gap-2">
-                {PAGE_LINKS.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`inline-flex items-center rounded-lg bg-white/15 px-3 py-1.5 text-xs md:text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/25 ${
-                      link.hideOnMobile ? "hidden md:inline-flex" : ""
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       <div className="container mt-8 space-y-10">
         {/* Team Dashboard for Coaches */}
         {isCoach && (
-          <div className="rounded-3xl border-2 border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
+          <div className="coach-dashboard rounded-3xl border-2 border-brand-200 bg-gradient-to-br from-brand-50 to-white p-6 shadow-xl">
+            <div className="flex flex-col gap-1 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-brand-800">Team Dashboard</h2>
                 <p className="text-sm text-brand-600 mt-1">Weekly activity and performance</p>
               </div>
-              <Link
-                to="/roster"
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition"
-              >
-                View Roster →
-              </Link>
             </div>
 
             {loadingActivity ? (
@@ -337,7 +249,7 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="text-sm font-semibold text-green-700">
-                            Est 1RM: {Math.round(pr.session.est1rm || 0)} {pr.session.unit}
+                            Est 1RM: {roundToPlate(pr.session.est1rm || 0, pr.session.unit, pr.session.unit === "lb" ? 5 : 2.5)} {pr.session.unit}
                           </div>
                         </div>
                       ))}
@@ -426,7 +338,7 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-blue-800">
                   Welcome{profile.firstName ? `, ${profile.firstName}` : ''}! 👋
                 </h2>
-                <p className="text-sm text-blue-600 mt-1">Quick links to get you started</p>
+                <p className="text-sm text-blue-600 mt-1">Set your current week and open the tutorial anytime.</p>
               </div>
               
               <div className="flex items-center gap-3">
@@ -461,65 +373,8 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            
-            <div className="grid md:grid-cols-3 gap-3">
-              <Link
-                to="/calculator"
-                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
-              >
-                <div className="text-3xl mb-2">🧮</div>
-                <div className="font-semibold text-gray-900">Calculator</div>
-                <div className="text-xs text-gray-600 mt-1">Calculate your Training Max</div>
-              </Link>
-              
-              <Link
-                to="/profile"
-                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
-              >
-                <div className="text-3xl mb-2">⚙️</div>
-                <div className="font-semibold text-gray-900">Profile</div>
-                <div className="text-xs text-gray-600 mt-1">Set your TM & preferences</div>
-              </Link>
-              
-              <Link
-                to="/session"
-                className="card text-center bg-white/80 hover:bg-white hover:shadow-md transition"
-              >
-                <div className="text-3xl mb-2">💪</div>
-                <div className="font-semibold text-gray-900">Today's Workout</div>
-                <div className="text-xs text-gray-600 mt-1">Log your training session</div>
-              </Link>
-            </div>
           </div>
         )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {FEATURE_LINKS.map((feature) => (
-            <Link
-              key={feature.label}
-              to={feature.to}
-              className="card group relative overflow-hidden bg-white transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div
-                className={`absolute -right-16 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full blur-3xl opacity-60 transition-opacity duration-200 group-hover:opacity-90 ${feature.accent}`}
-                aria-hidden="true"
-              />
-              <div className="relative z-10 space-y-3">
-                <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  {feature.badge}
-                </span>
-                <h3 className="text-2xl font-semibold text-gray-900">
-                  {feature.label}
-                </h3>
-                <p className="text-sm text-gray-600">{feature.message}</p>
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">
-                  Open {feature.label}
-                  <span aria-hidden="true">-&gt;</span>
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
 
         <div className="card bg-white/95 shadow-xl ring-1 ring-gray-100/80">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

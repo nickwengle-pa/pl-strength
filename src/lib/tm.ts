@@ -10,6 +10,6 @@ export function estimate1RM(weight: number, reps: number): number {
   return weight * (1 + 0.0333 * reps);
 }
 export function roundToPlate(x:number, unit:'lb'|'kg', step:number): number {
-  const s = step || (unit === 'lb' ? 5 : 2.5);
+  const s = unit === "lb" ? 5 : (step || 2.5);
   return Math.round(x / s) * s;
 }

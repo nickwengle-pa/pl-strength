@@ -8,11 +8,17 @@ import {
   type Team,
   type SessionRecord,
   type Profile,
+  type Unit,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { estimate1RM } from "../lib/tm";
+import { estimate1RM, roundToPlate } from "../lib/tm";
 
 type Lift = "bench" | "squat" | "deadlift";
+
+const roundEstimate = (value: number, unit: Unit): number => {
+  if (!Number.isFinite(value)) return 0;
+  return roundToPlate(value, unit, unit === "lb" ? 5 : 2.5);
+};
 
 export default function Progress() {
   const [uid, setUid] = useState<string>("");
@@ -94,14 +100,17 @@ export default function Progress() {
     })();
   }, [uid, selectedLift, targetUid, sessionTeam]);
 
-  const unit = profile?.unit || "lb";
+  const unit = (profile?.unit || "lb") as Unit;
   const currentTM = profile?.tm?.[selectedLift] || 0;
   const liftWeek = profile?.liftWeeks?.[selectedLift] ?? profile?.currentWeek ?? 1;
   const liftCycle = profile?.liftCycles?.[selectedLift] ?? profile?.currentCycle ?? 1;
 
   // Calculate stats
   const prSessions = sessions.filter(s => s.pr);
-  const maxEst1RM = sessions.length > 0 ? Math.max(...sessions.map(s => s.est1rm || 0)) : 0;
+  const maxEst1RM =
+    sessions.length > 0
+      ? Math.max(...sessions.map((s) => roundEstimate(s.est1rm || 0, unit)))
+      : 0;
   const avgAMRAP = sessions.length > 0 
     ? sessions.reduce((sum, s) => sum + (s.amrap?.reps || 0), 0) / sessions.length 
     : 0;
@@ -121,7 +130,7 @@ export default function Progress() {
     
     setSaving(true);
     try {
-      const est1rm = estimate1RM(weight, reps);
+      const est1rm = roundEstimate(estimate1RM(weight, reps), unit);
       
       const record: SessionRecord = {
         lift: selectedLift,
@@ -222,7 +231,7 @@ export default function Progress() {
         <div className="card text-center">
           <div className="text-sm text-gray-600 mb-1">Max Est. 1RM</div>
           <div className="text-3xl font-bold text-purple-600">
-            {maxEst1RM ? Math.round(maxEst1RM) : "—"}
+            {maxEst1RM ? roundEstimate(maxEst1RM, unit) : "—"}
           </div>
           <div className="text-xs text-gray-500">{unit}</div>
         </div>
@@ -274,31 +283,81 @@ export default function Progress() {
 
           {/* PR Timeline */}
           <div className="card">
-            <h2 className="text-xl font-bold mb-4">🏆 PR Timeline</h2>
+            <h2 className="text-xl font-bold mb-4">dY?+ PR Timeline</h2>
             {prSessions.length === 0 ? (
               <div className="text-center text-gray-600 py-4">
                 No PRs yet. Keep pushing!
               </div>
             ) : (
-              <div className="space-y-2">
-                {prSessions.reverse().map((session, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between border rounded-xl px-4 py-3 bg-green-50 border-green-200"
-                  >
-                    <div>
-                      <div className="font-semibold">
-                        Cycle {session.cycle ?? 1} / Week {session.week} - {session.amrap?.reps || 0} reps @ {session.amrap?.weight || 0} {unit}
+              <div className="space-y-3">
+                {prSessions.slice().reverse().map((session, idx) => {
+                  const amrapReps = session.amrap?.reps ?? 0;
+                  const amrapWeight = session.amrap?.weight ?? 0;
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-green-200 bg-green-50 px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Date
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {formatDate(session.createdAt)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Cycle / Week
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            Cycle {session.cycle ?? 1} / Week {session.week}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        Est 1RM: {Math.round(session.est1rm || 0)} {unit}
+                      <div className="mt-3 grid gap-3 text-xs text-gray-600 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            AMRAP
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {amrapReps} reps @ {amrapWeight} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Est 1RM
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {roundEstimate(session.est1rm || 0, unit)} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            TM
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {session.tm || 0} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            PR
+                          </div>
+                          <div className="text-sm font-semibold text-green-700">
+                            Yes
+                          </div>
+                        </div>
                       </div>
+                      {session.note && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          Note: {session.note}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {formatDate(session.createdAt)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -306,35 +365,74 @@ export default function Progress() {
           {/* Recent Sessions Table */}
           <div className="card">
             <h2 className="text-xl font-bold mb-4">Recent Sessions</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b">
-                  <tr className="text-left">
-                    <th className="pb-2">Date</th>
-                    <th className="pb-2">Cycle / Week</th>
-                    <th className="pb-2">TM</th>
-                    <th className="pb-2">AMRAP</th>
-                    <th className="pb-2">Est 1RM</th>
-                    <th className="pb-2">PR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.slice(-20).reverse().map((s, idx) => (
-                    <tr key={idx} className="border-b last:border-0">
-                      <td className="py-2">{formatDate(s.createdAt)}</td>
-                      <td className="py-2">Cycle {s.cycle ?? 1} / Week {s.week}</td>
-                      <td className="py-2">{s.tm} {unit}</td>
-                      <td className="py-2">
-                        {s.amrap?.reps || 0} @ {s.amrap?.weight || 0} {unit}
-                      </td>
-                      <td className="py-2 font-semibold">{Math.round(s.est1rm || 0)} {unit}</td>
-                      <td className="py-2">
-                        {s.pr && <span className="text-green-600">✓ PR</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/80">
+              <div className="divide-y divide-gray-200">
+                {sessions.slice(-20).reverse().map((s, idx) => {
+                  const amrapReps = s.amrap?.reps ?? 0;
+                  const amrapWeight = s.amrap?.weight ?? 0;
+                  return (
+                    <div key={idx} className="px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Date
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {formatDate(s.createdAt)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Cycle / Week
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            Cycle {s.cycle ?? 1} / Week {s.week}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-3 text-xs text-gray-600 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            TM
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {s.tm || 0} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            AMRAP
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {amrapReps} reps @ {amrapWeight} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            Est 1RM
+                          </div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {roundEstimate(s.est1rm || 0, unit)} {unit}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                            PR
+                          </div>
+                          <div className={`text-sm font-semibold ${s.pr ? "text-green-700" : "text-gray-500"}`}>
+                            {s.pr ? "Yes" : "No"}
+                          </div>
+                        </div>
+                      </div>
+                      {s.note && (
+                        <div className="mt-2 text-xs text-gray-600">
+                          Note: {s.note}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </>
@@ -402,7 +500,7 @@ export default function Progress() {
               {prWeight && prReps && (
                 <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                   Est. 1RM: <span className="font-semibold text-gray-900">
-                    {estimate1RM(Number(prWeight), Number(prReps)).toFixed(1)} {unit}
+                    {roundEstimate(estimate1RM(Number(prWeight), Number(prReps)), unit)} {unit}
                   </span>
                 </div>
               )}
@@ -483,8 +581,8 @@ function TMChart({ sessions, unit, currentTM }: { sessions: SessionRecord[]; uni
   );
 }
 
-function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: string }) {
-  const est1RMs = sessions.map(s => s.est1rm || 0);
+function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: Unit }) {
+  const est1RMs = sessions.map((s) => roundEstimate(s.est1rm || 0, unit));
   const max = Math.max(...est1RMs);
   const min = Math.min(...est1RMs);
   const range = max - min || 1;
@@ -494,7 +592,8 @@ function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: stri
       <div className="relative h-64 border rounded-xl p-4 bg-gray-50">
         {sessions.map((s, idx) => {
           const x = (idx / Math.max(sessions.length - 1, 1)) * 100;
-          const y = 100 - (((s.est1rm || 0) - min) / range) * 80 - 10;
+          const rounded = roundEstimate(s.est1rm || 0, unit);
+          const y = 100 - ((rounded - min) / range) * 80 - 10;
           const isPR = s.pr;
           
           return (
@@ -504,14 +603,14 @@ function Est1RMChart({ sessions, unit }: { sessions: SessionRecord[]; unit: stri
                 isPR ? "bg-green-500 ring-2 ring-green-300" : "bg-purple-500"
               }`}
               style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${Math.round(s.est1rm || 0)} ${unit} ${isPR ? "(PR)" : ""} on ${formatDate(s.createdAt)}`}
+              title={`${roundEstimate(s.est1rm || 0, unit)} ${unit} ${isPR ? "(PR)" : ""} on ${formatDate(s.createdAt)}`}
             />
           );
         })}
       </div>
       <div className="flex justify-between text-xs text-gray-600">
-        <span>Min: {Math.round(min)} {unit}</span>
-        <span className="font-semibold">Max: {Math.round(max)} {unit}</span>
+        <span>Min: {roundEstimate(min, unit)} {unit}</span>
+        <span className="font-semibold">Max: {roundEstimate(max, unit)} {unit}</span>
       </div>
     </div>
   );

@@ -373,6 +373,9 @@ export type Profile = {
   firstName: string;
   lastName: string;
   unit: Unit;
+  height?: number;
+  weight?: number;
+  graduationYear?: number;
   team?: Team;
   teamScopes?: Team[];
   teamAnchor?: Team;
@@ -523,6 +526,27 @@ const normalizeCycle = (value: unknown): number | undefined => {
   const rounded = Math.floor(parsed);
   return rounded >= 1 ? rounded : undefined;
 };
+
+const normalizeScalar = (
+  value: unknown,
+  options: { min?: number; max?: number; integer?: boolean } = {}
+): number | undefined => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  const normalized = options.integer ? Math.floor(parsed) : parsed;
+  if (typeof options.min === "number" && normalized < options.min) return undefined;
+  if (typeof options.max === "number" && normalized > options.max) return undefined;
+  return normalized;
+};
+
+const normalizeHeight = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 1, max: 999 });
+
+const normalizeWeight = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 1, max: 2000 });
+
+const normalizeGraduationYear = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 1900, max: 2100, integer: true });
 
 const LIFT_KEYS: LiftKey[] = ["bench", "squat", "deadlift"];
 
@@ -939,6 +963,9 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
   const legacyOneRm = normalizeLiftMap(data.oneRm);
   const legacyLiftWeeks = normalizeLiftWeekMap(data.liftWeeks);
   const legacyLiftCycles = normalizeLiftCycleMap(data.liftCycles);
+  const height = normalizeHeight(data.height);
+  const weight = normalizeWeight(data.weight);
+  const graduationYear = normalizeGraduationYear(data.graduationYear);
   const liftWeeks =
     activeState?.liftWeeks && Object.keys(activeState.liftWeeks).length
       ? activeState.liftWeeks
@@ -953,6 +980,9 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     firstName: data.firstName || "",
     lastName: data.lastName || "",
     unit: (data.unit || "lb") as Unit,
+    height,
+    weight,
+    graduationYear,
     team: resolvedTeam,
     teamScopes,
     teamAnchor: teamAnchor ?? resolvedTeam,
@@ -975,6 +1005,9 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
   const handles = resolveHandles();
   const database = handles?.db;
   const normalizedEquipment = normalizeEquipment(p.equipment);
+  const normalizedHeight = normalizeHeight(p.height);
+  const normalizedWeight = normalizeWeight(p.weight);
+  const normalizedGraduationYear = normalizeGraduationYear(p.graduationYear);
   const normalizedTeam = normalizeTeam(p.team);
   const normalizedAnchor = normalizeTeam(p.teamAnchor ?? p.team);
   const baseTeamScopes = sanitizeTeamScopeArray(p.teamScopes);
@@ -1001,6 +1034,9 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     teamAnchor: normalizedAnchor ?? resolvedTeam,
     teamScopes: mergedScopes,
     teamData: mergedTeamData,
+    height: normalizedHeight,
+    weight: normalizedWeight,
+    graduationYear: normalizedGraduationYear,
     liftWeeks: normalizeLiftWeekMap(p.liftWeeks),
     liftCycles: normalizeLiftCycleMap(p.liftCycles),
     tm: normalizeLiftMap(p.tm),
@@ -1021,6 +1057,9 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     firstName: normalizedProfile.firstName || "",
     lastName: normalizedProfile.lastName || "",
     unit: normalizedProfile.unit || "lb",
+    height: normalizedHeight ?? null,
+    weight: normalizedWeight ?? null,
+    graduationYear: normalizedGraduationYear ?? null,
     team: normalizedProfile.team || null,
     tm: normalizedProfile.tm || {},
     oneRm: normalizedProfile.oneRm || {},

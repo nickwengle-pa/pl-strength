@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   formatTeamLabel,
@@ -254,7 +255,6 @@ export default function Nav() {
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/sheets", label: "Sheets" },
-    { to: "/summary", label: "Summary" },
     { to: "/exercises", label: "Exercises" },
   ];
 
@@ -377,9 +377,89 @@ export default function Nav() {
   const gearLinks = [
     { to: "/profile", label: "Profile" },
     ...(coach || admin
-      ? [{ to: "/admin", label: admin ? "Admin" : "Team" }]
+      ? [
+          { to: "/summary", label: "Summary" },
+          { to: "/admin", label: admin ? "Admin" : "Team" },
+        ]
       : []),
   ];
+
+  const settingsDialog =
+    settingsOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="false">
+            <div
+              className="absolute inset-0 bg-black/80"
+              onClick={closeSettings}
+            />
+            <div
+              className="absolute left-1/2 top-1/2 w-[min(90vw,22rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200 bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Settings</div>
+                  {friendlyName && (
+                    <div className="text-xs text-gray-500">{friendlyName}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-brand-200 hover:text-brand-700"
+                  onClick={closeSettings}
+                >
+                  <span className="sr-only">Close settings</span>
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="max-h-[calc(100vh-7rem)] space-y-4 overflow-y-auto px-4 py-4">
+                {(admin || coach) && (
+                  <div className="flex flex-wrap gap-2">
+                    {admin && (
+                      <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                        Admin
+                      </span>
+                    )}
+                    {coach && !admin && (
+                      <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
+                        Coach
+                      </span>
+                    )}
+                  </div>
+                )}
+                {gearLinks.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      Quick Links
+                    </div>
+                    {gearLinks.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        className={({ isActive }) => drawerLinkClass(isActive)}
+                        onClick={closeSettings}
+                      >
+                        {link.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {renderTeamPicker("mobile")}
+                  {renderThemeToggle("mobile")}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <header className="relative z-50 border-b border-gray-200/70 bg-white/90 backdrop-blur">
@@ -490,82 +570,7 @@ export default function Nav() {
           )}
         </div>
       </div>
-      {settingsOpen && (
-        <div
-          className="fixed inset-0 z-[60]"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={closeSettings}
-          />
-          <div
-            className="absolute right-0 top-0 h-full w-full max-w-sm border-l border-gray-200 bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <div>
-                <div className="text-sm font-semibold text-gray-900">Settings</div>
-                {friendlyName && (
-                  <div className="text-xs text-gray-500">{friendlyName}</div>
-                )}
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-gray-200 p-2 text-gray-600 transition hover:border-brand-200 hover:text-brand-700"
-                onClick={closeSettings}
-              >
-                <span className="sr-only">Close settings</span>
-                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4 px-5 py-4">
-              {(admin || coach) && (
-                <div className="flex flex-wrap gap-2">
-                  {admin && (
-                    <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                      Admin
-                    </span>
-                  )}
-                  {coach && !admin && (
-                    <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
-                      Coach
-                    </span>
-                  )}
-                </div>
-              )}
-              {gearLinks.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    Quick Links
-                  </div>
-                  {gearLinks.map((link) => (
-                    <NavLink
-                      key={link.to}
-                      to={link.to}
-                      className={({ isActive }) => drawerLinkClass(isActive)}
-                      onClick={closeSettings}
-                    >
-                      {link.label}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-              <div className="space-y-3">
-                {renderTeamPicker("mobile")}
-                {renderThemeToggle("mobile")}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {settingsDialog}
       {isMobile && (
         <div
           id="mobile-navigation"

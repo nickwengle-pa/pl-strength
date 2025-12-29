@@ -44,6 +44,7 @@ export default function Calculator() {
   const [roundStepText, setRoundStepText] = useState<string>(
     String(defaultStep("lb"))
   );
+  const [calcSettingsOpen, setCalcSettingsOpen] = useState(false);
   const [lift, setLift] = useState<Lift>("bench");
   const [useEstimator, setUseEstimator] = useState(false);
   const [measured1rm, setMeasured1rm] = useState<number | "">("");
@@ -52,6 +53,7 @@ export default function Calculator() {
   const [saving, setSaving] = useState(false);
   const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
   const [targetWeight, setTargetWeight] = useState<number | "">("");
+  const [targetLocked, setTargetLocked] = useState(false);
   const [equipmentDirty, setEquipmentDirty] = useState(false);
   const [equipmentSaving, setEquipmentSaving] = useState(false);
   const [equipmentMessage, setEquipmentMessage] = useState<string | null>(null);
@@ -218,10 +220,19 @@ export default function Calculator() {
   useEffect(() => {
     if (!profile) return;
     const stored = profile.tm?.[lift];
-    if (typeof stored === "number" && stored > 0 && targetWeight === "") {
+    if (
+      typeof stored === "number" &&
+      stored > 0 &&
+      targetWeight === "" &&
+      !targetLocked
+    ) {
       setTargetWeight(stored);
     }
-  }, [profile, lift, targetWeight]);
+  }, [profile, lift, targetWeight, targetLocked]);
+
+  useEffect(() => {
+    setTargetLocked(false);
+  }, [lift, unit, targetUid, teamSelection]);
 
   const estimated1rm = useMemo(() => {
     if (useEstimator) {
@@ -293,10 +304,10 @@ export default function Calculator() {
     : "Enter a target weight to calculate plates.";
 
   useEffect(() => {
-    if (targetWeight === "" && trainingMax !== null) {
+    if (!targetLocked && trainingMax !== null) {
       setTargetWeight(trainingMax);
     }
-  }, [trainingMax, targetWeight]);
+  }, [trainingMax, targetLocked]);
 
   useEffect(() => {
     if (!equipmentMessage) return;
@@ -309,6 +320,7 @@ export default function Calculator() {
     setUnit(next);
     setRoundStep(step);
     setRoundStepText(String(step));
+    setTargetLocked(false);
   }
 
   function handleRoundStepInput(value: string) {
@@ -339,6 +351,7 @@ export default function Calculator() {
   const handleTargetWeightChange = (value: string) => {
     const parsed = parseNumeric(value);
     if (parsed === "" || (typeof parsed === "number" && parsed >= 0)) {
+      setTargetLocked(true);
       setTargetWeight(parsed);
     }
   };
@@ -465,8 +478,8 @@ export default function Calculator() {
     }
 
     const nextOneRm = estimated1rm
-      ? Number(estimated1rm.toFixed(1))
-      : Number((trainingMax / 0.9).toFixed(1));
+      ? estimated1rm
+      : roundToPlate(trainingMax / 0.9, unit, unit === "lb" ? 5 : 2.5);
 
     const nextProfile: Profile = {
       ...profile,
@@ -520,47 +533,75 @@ export default function Calculator() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <div className="space-y-6">
           <div className="card space-y-5">
-          <h2 className="text-xl font-semibold">Training Max Calculator</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Training Max Calculator</h2>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
+              onClick={() => setCalcSettingsOpen((prev) => !prev)}
+              aria-expanded={calcSettingsOpen}
+              aria-label="Calculator settings"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.5 1.75h5l.73 2.2a7.5 7.5 0 012 .84l2.19-.79 2.5 4.33-1.85 1.33a7.6 7.6 0 010 2.68l1.85 1.33-2.5 4.33-2.19-.79a7.5 7.5 0 01-2 .84l-.73 2.2h-5l-.73-2.2a7.5 7.5 0 01-2-.84l-2.19.79-2.5-4.33 1.85-1.33a7.6 7.6 0 010-2.68l-1.85-1.33 2.5-4.33 2.19.79a7.5 7.5 0 012-.84l.73-2.2Z"
+                />
+                <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          {calcSettingsOpen && (
+            <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  <span>Units</span>
+                  <select
+                    className="field"
+                    value={unit}
+                    onChange={(e) => handleUnitChange(e.target.value as Unit)}
+                  >
+                    <option value="lb">lb</option>
+                    <option value="kg">kg</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  <span>Plate rounding step</span>
+                  <input
+                    className="field"
+                    inputMode="decimal"
+                    value={roundStepText}
+                    onChange={(e) => handleRoundStepInput(e.target.value)}
+                    onBlur={handleRoundStepBlur}
+                    placeholder={String(defaultStep(unit))}
+                    disabled={!isCoach}
+                  />
+                </label>
+              </div>
+              {!isCoach && (
+                <div className="text-xs text-gray-500">
+                  Plate rounding is coach-only.
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                <span>Lift</span>
-                <select
-                  className="field"
-                  value={lift}
-                  onChange={(e) => setLift(e.target.value as Lift)}
-                >
-                  {lifts.map((l) => (
-                    <option key={l} value={l}>
-                      {l.charAt(0).toUpperCase() + l.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                <span>Units</span>
-                <select
-                  className="field"
-                  value={unit}
-                  onChange={(e) => handleUnitChange(e.target.value as Unit)}
-                >
-                  <option value="lb">lb</option>
-                  <option value="kg">kg</option>
-                </select>
-              </label>
-            </div>
-
             <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-              <span>Plate rounding step</span>
-              <input
+              <span>Lift</span>
+              <select
                 className="field"
-                inputMode="decimal"
-                value={roundStepText}
-                onChange={(e) => handleRoundStepInput(e.target.value)}
-                onBlur={handleRoundStepBlur}
-                placeholder={String(defaultStep(unit))}
-              />
+                value={lift}
+                onChange={(e) => setLift(e.target.value as Lift)}
+              >
+                {lifts.map((l) => (
+                  <option key={l} value={l}>
+                    {l.charAt(0).toUpperCase() + l.slice(1)}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -619,7 +660,7 @@ export default function Calculator() {
               Estimated 1RM
             </div>
             <div className="text-2xl font-bold text-gray-900">
-              {estimated1rm ? `${estimated1rm.toFixed(1)} ${unit}` : "-"}
+              {estimated1rm ? `${formatNumber(estimated1rm)} ${unit}` : "-"}
             </div>
             <div className="text-sm text-gray-600">
               Training Max (90%):{" "}
@@ -832,7 +873,10 @@ export default function Calculator() {
                     : "border-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
                 onClick={() => {
-                  if (trainingMax !== null) setTargetWeight(trainingMax);
+                  if (trainingMax !== null) {
+                    setTargetLocked(false);
+                    setTargetWeight(trainingMax);
+                  }
                 }}
                 disabled={trainingMax === null}
               >
@@ -846,8 +890,10 @@ export default function Calculator() {
                     : "border-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
                 onClick={() => {
-                  if (estimated1rm)
+                  if (estimated1rm) {
+                    setTargetLocked(true);
                     setTargetWeight(roundToPlate(estimated1rm, unit, roundStep));
+                  }
                 }}
                 disabled={!estimated1rm}
               >
@@ -856,14 +902,17 @@ export default function Calculator() {
               <button
                 type="button"
                 className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                onClick={() => setTargetWeight("")}
+                onClick={() => {
+                  setTargetLocked(true);
+                  setTargetWeight("");
+                }}
               >
                 Clear
               </button>
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div className="grid gap-3">
             <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
               <span>Target weight ({unit})</span>
               <input
@@ -874,22 +923,6 @@ export default function Calculator() {
                 placeholder={unit === "lb" ? "225" : "100"}
               />
             </label>
-            <div className="flex gap-2">
-              {(["lb", "kg"] as Unit[]).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                    unit === opt
-                      ? "border-brand-400 bg-brand-50 text-brand-700"
-                      : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                  }`}
-                  onClick={() => handleUnitChange(opt)}
-                >
-                  {opt.toUpperCase()}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className="space-y-1 text-sm text-gray-600">

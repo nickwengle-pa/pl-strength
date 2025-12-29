@@ -97,6 +97,7 @@ export default function Session() {
   const [unit, setUnit] = useState<Unit>("lb");
   const [tm, setTm] = useState<number | null>(null);
   const [mobileMode, setMobileMode] = useState(false);
+  const [sessionSettingsOpen, setSessionSettingsOpen] = useState(false);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
@@ -238,7 +239,7 @@ export default function Session() {
       return;
     }
     const estimate = estimate1RM(lastWorkWeight, amrapReps);
-    setEst(Number(estimate.toFixed(1)));
+    setEst(roundToPlate(estimate, unit, step));
   }, [amrapReps, work, tm, lastWorkWeight]);
 
   useEffect(() => {
@@ -355,7 +356,7 @@ export default function Session() {
 
     setSaving(true);
     try {
-      const est1rm = Number(estimate1RM(lastWorkWeight, amrapReps).toFixed(1));
+      const est1rm = roundToPlate(estimate1RM(lastWorkWeight, amrapReps), unit, step);
       const best = await bestEst1RM(lift, 20, targetUid, sessionTeam);
       const pr = est1rm > best;
 
@@ -487,8 +488,16 @@ export default function Session() {
   }, [history, profile, lift, cycle, week]);
 
   const estSeries = history
-    .map((row) => row.est1rm)
-    .filter((value: number) => typeof value === "number" && !Number.isNaN(value));
+    .map((row) =>
+      typeof row.est1rm === "number"
+        ? roundToPlate(
+            row.est1rm,
+            row.unit,
+            row.unit === "lb" ? 5 : 2.5
+          )
+        : undefined
+    )
+    .filter((value): value is number => typeof value === "number" && !Number.isNaN(value));
   const prevBest = estSeries.length ? Math.max(...estSeries) : 0;
 
   // Rest timer countdown
@@ -563,7 +572,37 @@ export default function Session() {
     const isAMRAPSet = currentSet?.phase === 'work' && currentSetIndex === allSets.length - 1;
     
     return (
-      <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col overflow-hidden">
+      <>
+        {plateCalcTarget !== null && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setPlateCalcTarget(null)}
+          >
+            <div
+              className="w-full max-w-2xl rounded-3xl bg-gray-900 p-1 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="rounded-[20px] bg-gray-900 p-6 space-y-4 border border-gray-800">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-white">Plate Math</h3>
+                  <button
+                    onClick={() => setPlateCalcTarget(null)}
+                    className="text-gray-400 hover:text-white px-3 py-1 rounded-lg hover:bg-gray-800"
+                  >
+                    Close
+                  </button>
+                </div>
+                <PlateCalculatorDisplay
+                  targetWeight={plateCalcTarget}
+                  unit={unit}
+                  equipment={profile?.equipment ?? defaultEquipment()}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 flex-shrink-0">
           <div>
@@ -598,6 +637,15 @@ export default function Session() {
                   {currentSet.weight}
                 </div>
                 <div className="text-2xl opacity-90">{unit}</div>
+                {Number.isFinite(currentSet.weight) && currentSet.weight > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPlateCalcTarget(currentSet.weight)}
+                    className="mx-auto inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/25"
+                  >
+                    Plate Calc
+                  </button>
+                )}
                 <div className="text-xl mt-2">
                   {currentSet.phase === 'warm' 
                     ? `${warmRepLabels[currentSet.index]} reps`
@@ -739,7 +787,8 @@ export default function Session() {
             </>
           )}
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -939,11 +988,37 @@ export default function Session() {
                     No athlete selected. Log your own session or pick someone from the roster to load their plan.
                   </span>
                 ) : null}
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
+                  onClick={() => setSessionSettingsOpen((prev) => !prev)}
+                  aria-expanded={sessionSettingsOpen}
+                  aria-label="Session settings"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.5 1.75h5l.73 2.2a7.5 7.5 0 012 .84l2.19-.79 2.5 4.33-1.85 1.33a7.6 7.6 0 010 2.68l1.85 1.33-2.5 4.33-2.19-.79a7.5 7.5 0 01-2 .84l-.73 2.2h-5l-.73-2.2a7.5 7.5 0 01-2-.84l-2.19.79-2.5-4.33 1.85-1.33a7.6 7.6 0 010-2.68l-1.85-1.33 2.5-4.33 2.19.79a7.5 7.5 0 012-.84l.73-2.2Z"
+                    />
+                    <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               </div>
             </div>
 
+            {sessionSettingsOpen && (
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-600 shadow-inner">
+                <div className="text-[11px] uppercase tracking-wide text-gray-500">Units</div>
+                <div className="mt-1 flex items-center justify-between text-sm font-semibold text-gray-900">
+                  <span>{unit.toUpperCase()}</span>
+                  <span className="text-xs uppercase text-gray-400">auto</span>
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 shadow-inner">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-4">
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                   <span className="text-xs uppercase tracking-wide text-gray-500">Lift</span>
                   <select
@@ -961,37 +1036,31 @@ export default function Session() {
                   </select>
                 </label>
 
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span className="text-xs uppercase tracking-wide text-gray-500">Week</span>
-                  <select
-                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                    value={week}
-                    onChange={(event) => handleWeekChange(Number(event.target.value) as Week)}
-                  >
-                    <option value={1}>Week 1 — 65/75/85%</option>
-                    <option value={2}>Week 2 — 70/80/90%</option>
-                    <option value={3}>Week 3 — 75/85/95%</option>
-                  </select>
-                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Cycle</span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      value={cycle}
+                      onChange={(event) => handleCycleChange(Number(event.target.value))}
+                    />
+                  </label>
 
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span className="text-xs uppercase tracking-wide text-gray-500">Cycle</span>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-                    value={cycle}
-                    onChange={(event) => handleCycleChange(Number(event.target.value))}
-                  />
-                </label>
-
-                <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span className="text-xs uppercase tracking-wide text-gray-500">Units</span>
-                  <div className="inline-flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm">
-                    <span>{unit.toUpperCase()}</span>
-                    <span className="text-xs uppercase text-gray-500">auto</span>
-                  </div>
+                  <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                    <span className="text-xs uppercase tracking-wide text-gray-500">Week</span>
+                    <select
+                      className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      value={week}
+                      onChange={(event) => handleWeekChange(Number(event.target.value) as Week)}
+                    >
+                      <option value={1}>Week 1 - 65/75/85%</option>
+                      <option value={2}>Week 2 - 70/80/90%</option>
+                      <option value={3}>Week 3 - 75/85/95%</option>
+                    </select>
+                  </label>
                 </div>
 
                 <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
@@ -1009,19 +1078,18 @@ export default function Session() {
                 </div>
               </div>
             </div>
-
             {/* Visual confirmation of what's being logged */}
-            <div className="rounded-2xl border-2 border-brand-200 bg-gradient-to-r from-brand-50 to-brand-100 p-4 shadow-sm">
-              <div className="flex items-center justify-between">
+            <div className="rounded-2xl border border-brand-900/40 bg-gradient-to-br from-brand-900 via-slate-950 to-slate-900 p-4 shadow-lg">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="session-now-label text-xs font-semibold uppercase tracking-wide text-brand-600">Now Logging</div>
-                  <div className="text-xl font-bold text-brand-800">
+                  <div className="session-now-label text-xs font-semibold uppercase tracking-wide text-sky-200">Now Logging</div>
+                  <div className="text-xl font-bold text-white">
                     {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
                   </div>
-                  <div className="text-sm text-brand-600">{WEEK_THEMES[week].focus}</div>
+                  <div className="text-sm text-slate-200">{WEEK_THEMES[week].focus}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-black text-brand-700">
+                  <div className="text-3xl font-black text-white">
                     {week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
                   </div>
                 </div>
@@ -1176,7 +1244,13 @@ export default function Session() {
                         C{cycleLabel} W{session.week}
                       </span>
                       <span className="font-semibold text-gray-900">
-                        {session.est1rm ? `est1RM ${session.est1rm} ${session.unit}` : "Logged"}
+                        {session.est1rm
+                          ? `est1RM ${roundToPlate(
+                              session.est1rm,
+                              session.unit,
+                              session.unit === "lb" ? 5 : 2.5
+                            )} ${session.unit}`
+                          : "Logged"}
                       </span>
                     </div>
                     {session.pr ? (

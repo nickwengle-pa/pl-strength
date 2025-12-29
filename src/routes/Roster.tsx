@@ -27,6 +27,7 @@ import {
   type SessionRecord,
   type Team,
 } from "../lib/db";
+import { roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { StatCardSkeleton } from "../components/LoadingSkeleton";
 
@@ -1124,7 +1125,13 @@ export default function Roster() {
                         </td>
                         <td className="p-2">
                           {summary.bestEst
-                            ? `${formatWeight(summary.bestEst.value)} ${summary.bestEst.unit}`
+                            ? `${formatWeight(
+                                roundToPlate(
+                                  summary.bestEst.value,
+                                  summary.bestEst.unit,
+                                  summary.bestEst.unit === "lb" ? 5 : 2.5
+                                )
+                              )} ${summary.bestEst.unit}`
                             : "-"}
                         </td>
                         <td className="p-2">
@@ -1306,7 +1313,11 @@ export default function Roster() {
                           </td>
                           <td className="p-2 font-semibold">
                             {session.est1rm
-                              ? `${session.est1rm} ${session.unit}`
+                              ? `${roundToPlate(
+                                  session.est1rm,
+                                  session.unit,
+                                  session.unit === "lb" ? 5 : 2.5
+                                )} ${session.unit}`
                               : "-"}
                           </td>
                           <td className="p-2 text-green-600">

@@ -127,7 +127,7 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
   }));
 
   return (
-    <div className="relative overflow-x-auto rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 p-6 text-white shadow-2xl">
+    <div className="relative overflow-x-auto overflow-y-visible rounded-xl bg-gradient-to-b from-slate-800 to-slate-900 p-6 text-white shadow-2xl">
       {/* Center bar */}
       <div className="absolute left-4 right-4 top-1/2 h-3 -translate-y-1/2">
         <div className="h-full w-full rounded-full bg-gradient-to-b from-slate-500 to-slate-600 shadow-lg" style={{
@@ -165,7 +165,7 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
           <div className="flex items-center gap-1.5">
             {plateData.length ? (
               plateData.map((plate) => (
-                <div key={plate.key} className="flex flex-col items-center gap-1.5">
+                <div key={plate.key} className="relative flex items-center">
                   <div
                     className="rounded-lg border-2 border-slate-900 relative"
                     style={{
@@ -186,7 +186,7 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
                       boxShadow: "inset 0 2px 4px rgba(0,0,0,0.8)"
                     }} />
                   </div>
-                  <span className="text-[11px] font-bold text-gray-100 bg-slate-800/50 px-1.5 py-0.5 rounded">
+                  <span className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 rounded bg-slate-800/60 px-1.5 py-0.5 text-[11px] font-bold text-gray-100">
                     {formatNumber(plate.weight)}
                   </span>
                 </div>

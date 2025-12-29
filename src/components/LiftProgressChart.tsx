@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { recentSessions, type SessionRecord } from "../lib/db";
+import { roundToPlate } from "../lib/tm";
 
 type Lift = "bench" | "squat" | "deadlift";
 
@@ -27,6 +28,11 @@ type Props = {
   unit: "lb" | "kg";
 };
 
+const roundEstimate = (value: number, unit: "lb" | "kg"): number => {
+  if (!Number.isFinite(value)) return 0;
+  return roundToPlate(value, unit, unit === "lb" ? 5 : 2.5);
+};
+
 export default function LiftProgressChart({ lift, unit }: Props) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +45,7 @@ export default function LiftProgressChart({ lift, unit }: Props) {
         .filter((s) => s.est1rm && s.createdAt)
         .map((s) => ({
           date: new Date(s.createdAt!),
-          est1rm: s.est1rm,
+          est1rm: roundEstimate(s.est1rm, unit),
           pr: s.pr || false,
           week: s.week,
         }))
@@ -47,7 +53,7 @@ export default function LiftProgressChart({ lift, unit }: Props) {
       setData(points);
       setLoading(false);
     })();
-  }, [lift]);
+  }, [lift, unit]);
 
   if (loading) {
     return (

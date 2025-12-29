@@ -47,6 +47,17 @@ export default function ProfilePage() {
   const update = (patch: Partial<ProfileModel>) =>
     setP(prev => ({ ...(prev as ProfileModel), ...(patch as any) }));
 
+  const parseOptionalNumber = (
+    value: string,
+    options: { integer?: boolean } = {}
+  ): number | undefined => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return undefined;
+    return options.integer ? Math.floor(parsed) : parsed;
+  };
+
   const save = async () => {
     if (!p) return;
     await saveProfile(p);
@@ -60,6 +71,8 @@ export default function ProfilePage() {
   };
 
   if (!p) return null;
+
+  const heightUnit = p.unit === "kg" ? "cm" : "in";
 
   return (
     <div className="container py-6 space-y-4">
@@ -143,6 +156,51 @@ export default function ProfilePage() {
               ))}
 
             </select>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Height ({heightUnit})</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.height ?? ""}
+                onChange={(e) =>
+                  update({ height: parseOptionalNumber(e.target.value) })
+                }
+                placeholder={heightUnit === "in" ? "e.g., 70" : "e.g., 178"}
+              />
+            </label>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Weight ({p.unit})</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.weight ?? ""}
+                onChange={(e) =>
+                  update({ weight: parseOptionalNumber(e.target.value) })
+                }
+                placeholder={p.unit === "lb" ? "e.g., 180" : "e.g., 82"}
+              />
+            </label>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Graduation year</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="numeric"
+                value={p.graduationYear ?? ""}
+                onChange={(e) =>
+                  update({ graduationYear: parseOptionalNumber(e.target.value, { integer: true }) })
+                }
+                placeholder="e.g., 2026"
+              />
+            </label>
           </div>
         </div>
 

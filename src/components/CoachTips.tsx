@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDevice } from "../lib/device";
+import { roundToPlate } from "../lib/tm";
 
 type Props = {
   week: 1 | 2 | 3;
@@ -12,7 +13,10 @@ type Props = {
   lift: "bench" | "squat" | "deadlift";
 };
 
-const round = (value: number) => Math.round(value * 10) / 10;
+const roundEstimate = (value: number, unit: "lb" | "kg"): number => {
+  if (!Number.isFinite(value)) return 0;
+  return roundToPlate(value, unit, unit === "lb" ? 5 : 2.5);
+};
 
 export default function CoachTips({
   week,
@@ -70,14 +74,14 @@ export default function CoachTips({
     }
 
     if (est1rm && prevBest > 0) {
-      if (est1rm > prevBest) {
+      const roundedEst = roundEstimate(est1rm, unit);
+      const roundedPrev = roundEstimate(prevBest, unit);
+      if (roundedEst > roundedPrev) {
         list.push(
-          `New PR on estimated 1RM: ${round(est1rm)} ${unit} (previous ${round(
-            prevBest
-          )}). Keep TM steady until next cycle.`
+          `New PR on estimated 1RM: ${roundedEst} ${unit} (previous ${roundedPrev}). Keep TM steady until next cycle.`
         );
       } else {
-        const delta = round(prevBest - est1rm);
+        const delta = roundedPrev - roundedEst;
         list.push(
           `No PR today (-${delta} ${unit}). Normal variance - tighten technique and recovery.`
         );
