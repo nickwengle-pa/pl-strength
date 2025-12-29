@@ -9,7 +9,7 @@ type Props = {
   est1rm: number | null;
   prevBest: number;
   lastWeight: number;
-  lift: "bench" | "squat" | "deadlift" | "press";
+  lift: "bench" | "squat" | "deadlift";
 };
 
 const round = (value: number) => Math.round(value * 10) / 10;
@@ -95,7 +95,6 @@ export default function CoachTips({
         bench: "Bench: lats tight, feet planted, consistent touch. No bounce.",
         squat: "Squat: big air, knees over toes, drive hard from the hole.",
         deadlift: "Deadlift: take the slack, wedge in, push the floor away.",
-        press: "Press: glutes tight, ribcage down, head through at lockout.",
       }[lift] ?? "";
 
     if (cue) {

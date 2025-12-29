@@ -195,6 +195,8 @@ export default function SignIn() {
       oneRm: base?.oneRm ?? {},
       accessCode: base?.accessCode ?? null,
       equipment: base?.equipment,
+      liftWeeks: base?.liftWeeks,
+      liftCycles: base?.liftCycles,
       currentWeek: base?.currentWeek ?? 1,
       currentCycle: base?.currentCycle ?? 1,
     });

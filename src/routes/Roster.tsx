@@ -5,6 +5,7 @@ import {
   assignAthleteAccessCode,
   createAthleteAccount,
   deleteAthlete,
+  deleteSession,
   defaultEquipment,
   fetchAthleteSessions,
   formatTeamLabel,
@@ -29,15 +30,33 @@ import {
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { StatCardSkeleton } from "../components/LoadingSkeleton";
 
-const LIFT_KEYS = ["bench", "squat", "deadlift", "press"] as const;
+const LIFT_KEYS = ["bench", "squat", "deadlift"] as const;
 type LiftKey = (typeof LIFT_KEYS)[number];
+type Week = 1 | 2 | 3;
 
 const emptyTmDraft = (): Record<LiftKey, string> => ({
   bench: "",
   squat: "",
   deadlift: "",
-  press: "",
 });
+
+const emptyLiftWeekDraft = (): Record<LiftKey, Week> => ({
+  bench: 1,
+  squat: 1,
+  deadlift: 1,
+});
+
+const emptyLiftCycleDraft = (): Record<LiftKey, number> => ({
+  bench: 1,
+  squat: 1,
+  deadlift: 1,
+});
+
+const resolveLiftWeek = (profile: Profile | null, lift: LiftKey): Week =>
+  (profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1) as Week;
+
+const resolveLiftCycle = (profile: Profile | null, lift: LiftKey): number =>
+  profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
 
 const formatWeight = (value: number): string => {
   if (!Number.isFinite(value)) return "-";
@@ -96,12 +115,19 @@ export default function Roster() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [tmDraft, setTmDraft] = useState<Record<LiftKey, string>>(() => emptyTmDraft());
+  const [liftWeekDraft, setLiftWeekDraft] = useState<Record<LiftKey, Week>>(() =>
+    emptyLiftWeekDraft()
+  );
+  const [liftCycleDraft, setLiftCycleDraft] = useState<Record<LiftKey, number>>(() =>
+    emptyLiftCycleDraft()
+  );
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const [cycleAdvancing, setCycleAdvancing] = useState(false);
   const [tmSuggestions, setTmSuggestions] = useState<Record<string, number> | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionDraft, setEditSessionDraft] = useState<Partial<SessionRecord>>({});
   const [sessionSaving, setSessionSaving] = useState(false);
+  const [sessionDeleting, setSessionDeleting] = useState<string | null>(null);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
@@ -459,6 +485,8 @@ export default function Roster() {
   useEffect(() => {
     if (!detailProfile) {
       setTmDraft(emptyTmDraft());
+      setLiftWeekDraft(emptyLiftWeekDraft());
+      setLiftCycleDraft(emptyLiftCycleDraft());
       return;
     }
     setTmDraft(() => {
@@ -471,10 +499,33 @@ export default function Roster() {
       }
       return draft;
     });
+    setLiftWeekDraft(() => {
+      const draft = emptyLiftWeekDraft();
+      for (const lift of LIFT_KEYS) {
+        draft[lift] = resolveLiftWeek(detailProfile, lift);
+      }
+      return draft;
+    });
+    setLiftCycleDraft(() => {
+      const draft = emptyLiftCycleDraft();
+      for (const lift of LIFT_KEYS) {
+        draft[lift] = resolveLiftCycle(detailProfile, lift);
+      }
+      return draft;
+    });
   }, [detailProfile]);
 
   const handleTmDraftChange = (lift: LiftKey, value: string) => {
     setTmDraft((prev) => ({ ...prev, [lift]: value }));
+  };
+
+  const handleLiftWeekChange = (lift: LiftKey, value: Week) => {
+    setLiftWeekDraft((prev) => ({ ...prev, [lift]: value }));
+  };
+
+  const handleLiftCycleChange = (lift: LiftKey, value: number) => {
+    const next = Number.isFinite(value) && value >= 1 ? Math.floor(value) : 1;
+    setLiftCycleDraft((prev) => ({ ...prev, [lift]: next }));
   };
 
   const handleSaveTm = async (lift: LiftKey) => {
@@ -483,6 +534,16 @@ export default function Roster() {
     const nextValue = raw === "" ? null : Number(raw);
     if (nextValue !== null && (!Number.isFinite(nextValue) || Number.isNaN(nextValue) || nextValue < 0)) {
       setFlash({ kind: "error", text: "Enter a valid training max before saving." });
+      return;
+    }
+    const nextWeek = liftWeekDraft[lift] ?? 1;
+    const nextCycle = liftCycleDraft[lift] ?? 1;
+    if (nextWeek !== 1 && nextWeek !== 2 && nextWeek !== 3) {
+      setFlash({ kind: "error", text: "Week must be 1, 2, or 3." });
+      return;
+    }
+    if (!Number.isFinite(nextCycle) || nextCycle < 1) {
+      setFlash({ kind: "error", text: "Cycle must be 1 or higher." });
       return;
     }
     setTmSaving(lift);
@@ -494,9 +555,17 @@ export default function Roster() {
         nextTm[lift] = nextValue;
       }
       const hasAny = LIFT_KEYS.some((key) => typeof nextTm[key] === "number" && Number.isFinite(nextTm[key] as number));
+      const nextLiftWeeks = { ...(detailProfile.liftWeeks ?? {}) };
+      const nextLiftCycles = { ...(detailProfile.liftCycles ?? {}) };
+      nextLiftWeeks[lift] = nextWeek;
+      nextLiftCycles[lift] = Math.floor(nextCycle);
       const updatedProfile: Profile = {
         ...detailProfile,
         tm: hasAny ? nextTm : undefined,
+        liftWeeks: nextLiftWeeks,
+        liftCycles: nextLiftCycles,
+        currentWeek: nextWeek,
+        currentCycle: Math.floor(nextCycle),
       };
       await saveProfile(updatedProfile, { skipLocal: true });
       setDetailProfile(updatedProfile);
@@ -518,10 +587,15 @@ export default function Roster() {
 
   const handleEditSession = (session: SessionRecord) => {
     if (!session.id) return;
+    if (!LIFT_KEYS.includes(session.lift as LiftKey)) {
+      setFlash({ kind: "error", text: "Legacy lift sessions can be deleted but not edited." });
+      return;
+    }
     setEditingSessionId(session.id);
     setEditSessionDraft({
       week: session.week,
       lift: session.lift,
+      cycle: session.cycle ?? 1,
       amrap: { ...session.amrap },
     });
   };
@@ -533,6 +607,21 @@ export default function Roster() {
 
   const handleSaveSession = async (sessionId: string) => {
     if (!detailProfile?.uid) return;
+    const nextWeek = editSessionDraft.week;
+    const nextCycle = editSessionDraft.cycle;
+    const nextLift = editSessionDraft.lift;
+    if (nextWeek && nextWeek !== 1 && nextWeek !== 2 && nextWeek !== 3) {
+      setFlash({ kind: "error", text: "Week must be 1, 2, or 3." });
+      return;
+    }
+    if (typeof nextCycle === "number" && (!Number.isFinite(nextCycle) || nextCycle < 1)) {
+      setFlash({ kind: "error", text: "Cycle must be 1 or higher." });
+      return;
+    }
+    if (nextLift && !LIFT_KEYS.includes(nextLift as LiftKey)) {
+      setFlash({ kind: "error", text: "Choose bench, squat, or deadlift." });
+      return;
+    }
     setSessionSaving(true);
     try {
       await updateSession(detailProfile.uid, sessionId, editSessionDraft);
@@ -550,12 +639,30 @@ export default function Roster() {
     }
   };
 
+  const handleDeleteSession = async (session: SessionRecord) => {
+    if (!detailProfile?.uid || !session.id) return;
+    if (!confirm("Delete this session? This cannot be undone.")) return;
+    setSessionDeleting(session.id);
+    try {
+      await deleteSession(detailProfile.uid, session.id);
+      setDetailSessions((prev) => prev.filter((entry) => entry.id !== session.id));
+      setFlash({ kind: "success", text: "Session deleted." });
+      if (editingSessionId === session.id) {
+        setEditingSessionId(null);
+        setEditSessionDraft({});
+      }
+    } catch (err: any) {
+      setFlash({ kind: "error", text: err?.message ?? "Failed to delete session." });
+    } finally {
+      setSessionDeleting(null);
+    }
+  };
+
   const liftSummaries = useMemo(() => {
     const buckets: Record<LiftKey, SessionRecord[]> = {
       bench: [],
       squat: [],
       deadlift: [],
-      press: [],
     };
     for (const session of detailSessions) {
       const lift = session.lift as LiftKey;
@@ -885,7 +992,7 @@ export default function Roster() {
                   Suggested Training Max Increases
                 </div>
                 <div className="grid gap-2 grid-cols-2 md:grid-cols-4 mb-3">
-                  {(["bench", "squat", "deadlift", "press"] as const).map((lift) => {
+                  {(["bench", "squat", "deadlift"] as const).map((lift) => {
                     const suggestion = tmSuggestions[lift];
                     if (!suggestion) return null;
                     const current = detailProfile.tm?.[lift] ?? 0;
@@ -945,6 +1052,8 @@ export default function Roster() {
                 <thead className="text-gray-600">
                   <tr>
                     <th className="p-2 text-left">Lift</th>
+                    <th className="p-2 text-left">Cycle</th>
+                    <th className="p-2 text-left">Week</th>
                     <th className="p-2 text-left">Training Max</th>
                     <th className="p-2 text-left">Best Est 1RM</th>
                     <th className="p-2 text-left">Last Session</th>
@@ -954,15 +1063,46 @@ export default function Roster() {
                 <tbody>
                   {liftSummaries.map((summary) => {
                     const draftValue = tmDraft[summary.lift];
+                    const draftWeek = liftWeekDraft[summary.lift] ?? 1;
+                    const draftCycle = liftCycleDraft[summary.lift] ?? 1;
                     const isSaving = tmSaving === summary.lift;
                     const latest = summary.latest;
                     const latestMeta = latest
-                      ? [`Week ${latest.week}`, latest.pr ? "PR" : ""].filter(Boolean).join(" / ")
+                      ? [`C${latest.cycle ?? 1} W${latest.week}`, latest.pr ? "PR" : ""]
+                          .filter(Boolean)
+                          .join(" / ")
                       : "";
                     return (
                       <tr key={summary.lift} className="border-t">
                         <td className="p-2 capitalize font-medium text-gray-800">
                           {summary.label}
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            min={1}
+                            step="1"
+                            className="w-20 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+                            value={draftCycle}
+                            onChange={(event) =>
+                              handleLiftCycleChange(summary.lift, Number(event.target.value))
+                            }
+                          />
+                        </td>
+                        <td className="p-2">
+                          <select
+                            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+                            value={draftWeek}
+                            onChange={(event) =>
+                              handleLiftWeekChange(summary.lift, Number(event.target.value) as Week)
+                            }
+                          >
+                            {[1, 2, 3].map((week) => (
+                              <option key={week} value={week}>
+                                {week}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="p-2">
                           <div className="flex items-center gap-2">
@@ -1056,6 +1196,9 @@ export default function Roster() {
                   <tbody>
                     {detailSessions.slice(0, 8).map((session) => {
                       const isEditing = editingSessionId === session.id;
+                      const isLegacyLift = !LIFT_KEYS.includes(session.lift as LiftKey);
+                      const isDeleting = sessionDeleting === session.id;
+                      const canEdit = !isLegacyLift && Boolean(session.id);
                       return (
                         <tr key={session.id ?? session.createdAt} className="border-t">
                           <td className="p-2 text-xs text-gray-600">
@@ -1087,22 +1230,37 @@ export default function Roster() {
                           </td>
                           <td className="p-2">
                             {isEditing ? (
-                              <select
-                                className="rounded border border-gray-300 px-1 py-0.5 text-xs"
-                                value={editSessionDraft.week}
-                                onChange={(e) =>
-                                  setEditSessionDraft((prev) => ({
-                                    ...prev,
-                                    week: Number(e.target.value) as any,
-                                  }))
-                                }
-                              >
-                                {[1, 2, 3].map((w) => (
-                                  <option key={w} value={w}>
-                                    Week {w}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  step={1}
+                                  className="w-12 rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                  value={editSessionDraft.cycle ?? 1}
+                                  onChange={(e) =>
+                                    setEditSessionDraft((prev) => ({
+                                      ...prev,
+                                      cycle: Number(e.target.value),
+                                    }))
+                                  }
+                                />
+                                <select
+                                  className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                                  value={editSessionDraft.week}
+                                  onChange={(e) =>
+                                    setEditSessionDraft((prev) => ({
+                                      ...prev,
+                                      week: Number(e.target.value) as any,
+                                    }))
+                                  }
+                                >
+                                  {[1, 2, 3].map((w) => (
+                                    <option key={w} value={w}>
+                                      Week {w}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             ) : (
                               `Cycle ${session.cycle ?? 1} / Week ${session.week}`
                             )}
@@ -1174,12 +1332,24 @@ export default function Roster() {
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  className="btn px-2 py-0.5 text-[10px]"
-                                  onClick={() => handleEditSession(session)}
-                                >
-                                  Edit
-                                </button>
+                                <div className="flex gap-1">
+                                  {canEdit && (
+                                    <button
+                                      className="btn px-2 py-0.5 text-[10px]"
+                                      onClick={() => handleEditSession(session)}
+                                      disabled={sessionSaving || isDeleting}
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                  <button
+                                    className="btn px-2 py-0.5 text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                    onClick={() => handleDeleteSession(session)}
+                                    disabled={sessionSaving || isDeleting}
+                                  >
+                                    {isDeleting ? "Deleting..." : "Delete"}
+                                  </button>
+                                </div>
                               )}
                             </td>
                           )}

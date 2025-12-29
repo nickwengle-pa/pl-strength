@@ -25,8 +25,8 @@ import {
   type PlatePlanResult,
 } from "../components/PlateMath";
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
-const lifts: Lift[] = ["bench", "squat", "deadlift", "press"];
+type Lift = "bench" | "squat" | "deadlift";
+const lifts: Lift[] = ["bench", "squat", "deadlift"];
 
 const defaultStep = (unit: Unit): number => (unit === "lb" ? 5 : 2.5);
 

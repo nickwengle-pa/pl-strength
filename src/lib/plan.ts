@@ -12,7 +12,7 @@ export type PlanRow = {
 };
 
 export type PlanSheet = {
-  lift: 'bench'|'squat'|'deadlift'|'press';
+  lift: 'bench'|'squat'|'deadlift';
   week: 1|2|3;
   unit: 'lb'|'kg';
   tm: number;

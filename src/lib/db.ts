@@ -352,12 +352,18 @@ export type LiftMap = {
   bench?: number;
   squat?: number;
   deadlift?: number;
-  press?: number;
 };
+
+export type LiftKey = keyof LiftMap;
+
+export type LiftWeekMap = Partial<Record<LiftKey, 1 | 2 | 3>>;
+export type LiftCycleMap = Partial<Record<LiftKey, number>>;
 
 export type TeamTrainingState = {
   tm?: LiftMap;
   oneRm?: LiftMap;
+  liftWeeks?: LiftWeekMap;
+  liftCycles?: LiftCycleMap;
   currentWeek?: 1 | 2 | 3;
   currentCycle?: number;
 };
@@ -371,6 +377,8 @@ export type Profile = {
   teamScopes?: Team[];
   teamAnchor?: Team;
   teamData?: Partial<Record<Team, TeamTrainingState>>;
+  liftWeeks?: LiftWeekMap;
+  liftCycles?: LiftCycleMap;
   tm?: LiftMap;
   oneRm?: LiftMap;
   accessCode?: string | null;
@@ -516,7 +524,7 @@ const normalizeCycle = (value: unknown): number | undefined => {
   return rounded >= 1 ? rounded : undefined;
 };
 
-const LIFT_KEYS: Array<keyof LiftMap> = ["bench", "squat", "deadlift", "press"];
+const LIFT_KEYS: LiftKey[] = ["bench", "squat", "deadlift"];
 
 const normalizeLiftMap = (value: unknown): LiftMap => {
   if (!value || typeof value !== "object") return {};
@@ -531,16 +539,46 @@ const normalizeLiftMap = (value: unknown): LiftMap => {
   return next;
 };
 
+const normalizeLiftWeekMap = (value: unknown): LiftWeekMap => {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const next: LiftWeekMap = {};
+  LIFT_KEYS.forEach((lift) => {
+    const week = normalizeWeek(source[lift]);
+    if (week) {
+      next[lift] = week;
+    }
+  });
+  return next;
+};
+
+const normalizeLiftCycleMap = (value: unknown): LiftCycleMap => {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  const next: LiftCycleMap = {};
+  LIFT_KEYS.forEach((lift) => {
+    const cycle = normalizeCycle(source[lift]);
+    if (cycle) {
+      next[lift] = cycle;
+    }
+  });
+  return next;
+};
+
 const normalizeTeamTrainingState = (value: unknown): TeamTrainingState => {
   if (!value || typeof value !== "object") return {};
   const source = value as Record<string, unknown>;
   const tm = normalizeLiftMap(source.tm);
   const oneRm = normalizeLiftMap(source.oneRm);
+  const liftWeeks = normalizeLiftWeekMap(source.liftWeeks);
+  const liftCycles = normalizeLiftCycleMap(source.liftCycles);
   const currentWeek = normalizeWeek(source.currentWeek);
   const currentCycle = normalizeCycle(source.currentCycle);
   const state: TeamTrainingState = {};
   if (Object.keys(tm).length) state.tm = tm;
   if (Object.keys(oneRm).length) state.oneRm = oneRm;
+  if (Object.keys(liftWeeks).length) state.liftWeeks = liftWeeks;
+  if (Object.keys(liftCycles).length) state.liftCycles = liftCycles;
   if (currentWeek) state.currentWeek = currentWeek;
   if (currentCycle) state.currentCycle = currentCycle;
   return state;
@@ -589,12 +627,21 @@ const resolveActiveTeam = (
   return scopes[0] ?? anchor ?? preferredTeam;
 };
 
-const buildTeamTrainingState = (profile: Partial<Profile>): TeamTrainingState => ({
-  tm: normalizeLiftMap(profile.tm),
-  oneRm: normalizeLiftMap(profile.oneRm),
-  currentWeek: normalizeWeek(profile.currentWeek) ?? 1,
-  currentCycle: normalizeCycle(profile.currentCycle) ?? 1,
-});
+const buildTeamTrainingState = (profile: Partial<Profile>): TeamTrainingState => {
+  const tm = normalizeLiftMap(profile.tm);
+  const oneRm = normalizeLiftMap(profile.oneRm);
+  const liftWeeks = normalizeLiftWeekMap(profile.liftWeeks);
+  const liftCycles = normalizeLiftCycleMap(profile.liftCycles);
+  const state: TeamTrainingState = {
+    tm,
+    oneRm,
+    currentWeek: normalizeWeek(profile.currentWeek) ?? 1,
+    currentCycle: normalizeCycle(profile.currentCycle) ?? 1,
+  };
+  if (Object.keys(liftWeeks).length) state.liftWeeks = liftWeeks;
+  if (Object.keys(liftCycles).length) state.liftCycles = liftCycles;
+  return state;
+};
 
 const mergeActiveTeamData = (
   profile: Partial<Profile>,
@@ -890,6 +937,16 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
   const activeState = activeTeam ? teamData[activeTeam] : undefined;
   const legacyTm = normalizeLiftMap(data.tm);
   const legacyOneRm = normalizeLiftMap(data.oneRm);
+  const legacyLiftWeeks = normalizeLiftWeekMap(data.liftWeeks);
+  const legacyLiftCycles = normalizeLiftCycleMap(data.liftCycles);
+  const liftWeeks =
+    activeState?.liftWeeks && Object.keys(activeState.liftWeeks).length
+      ? activeState.liftWeeks
+      : legacyLiftWeeks;
+  const liftCycles =
+    activeState?.liftCycles && Object.keys(activeState.liftCycles).length
+      ? activeState.liftCycles
+      : legacyLiftCycles;
   const resolvedTeam = teamAnchor ?? team ?? activeTeam;
   return {
     uid: targetUid,
@@ -900,6 +957,8 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     teamScopes,
     teamAnchor: teamAnchor ?? resolvedTeam,
     teamData,
+    liftWeeks: Object.keys(liftWeeks).length ? liftWeeks : undefined,
+    liftCycles: Object.keys(liftCycles).length ? liftCycles : undefined,
     tm: activeState?.tm && Object.keys(activeState.tm).length ? activeState.tm : legacyTm,
     oneRm:
       activeState?.oneRm && Object.keys(activeState.oneRm).length
@@ -942,6 +1001,8 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     teamAnchor: normalizedAnchor ?? resolvedTeam,
     teamScopes: mergedScopes,
     teamData: mergedTeamData,
+    liftWeeks: normalizeLiftWeekMap(p.liftWeeks),
+    liftCycles: normalizeLiftCycleMap(p.liftCycles),
     tm: normalizeLiftMap(p.tm),
     oneRm: normalizeLiftMap(p.oneRm),
     equipment: normalizedEquipment,
@@ -975,6 +1036,12 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
   if (normalizedProfile.teamData && Object.keys(normalizedProfile.teamData).length > 0) {
     payload.teamData = normalizedProfile.teamData;
   }
+  if (normalizedProfile.liftWeeks && Object.keys(normalizedProfile.liftWeeks).length > 0) {
+    payload.liftWeeks = normalizedProfile.liftWeeks;
+  }
+  if (normalizedProfile.liftCycles && Object.keys(normalizedProfile.liftCycles).length > 0) {
+    payload.liftCycles = normalizedProfile.liftCycles;
+  }
   if (normalizedProfile.currentWeek) {
     payload.currentWeek = normalizedProfile.currentWeek;
   }
@@ -995,9 +1062,20 @@ export async function updateAthleteWeek(uid: string, week: 1 | 2 | 3): Promise<v
   if (!profile) {
     throw new Error("Athlete profile not found.");
   }
+  const nextLiftWeeks: LiftWeekMap = { ...(profile.liftWeeks ?? {}) };
+  const nextLiftCycles: LiftCycleMap = { ...(profile.liftCycles ?? {}) };
+  const baseCycle = normalizeCycle(profile.currentCycle) ?? 1;
+  LIFT_KEYS.forEach((lift) => {
+    nextLiftWeeks[lift] = week;
+    if (!nextLiftCycles[lift]) {
+      nextLiftCycles[lift] = baseCycle;
+    }
+  });
   await saveProfile(
     {
       ...profile,
+      liftWeeks: nextLiftWeeks,
+      liftCycles: nextLiftCycles,
       currentWeek: week,
     },
     { skipLocal: true }
@@ -1009,7 +1087,6 @@ export async function calculateTMSuggestions(uid: string): Promise<{
   bench?: number;
   squat?: number;
   deadlift?: number;
-  press?: number;
 }> {
   const profile = await loadProfileRemote(uid);
   if (!profile || !profile.tm) return {};
@@ -1021,7 +1098,7 @@ export async function calculateTMSuggestions(uid: string): Promise<{
   
   const suggestions: Record<string, number> = {};
   
-  (['bench', 'squat', 'deadlift', 'press'] as const).forEach(lift => {
+  (['bench', 'squat', 'deadlift'] as const).forEach(lift => {
     const currentTM = profile.tm?.[lift];
     if (!currentTM) return;
     
@@ -1051,21 +1128,28 @@ export async function advanceCycle(uid: string, tmIncreases?: {
   bench?: number;
   squat?: number;
   deadlift?: number;
-  press?: number;
 }): Promise<void> {
   const profile = await loadProfileRemote(uid);
   if (!profile) throw new Error("Profile not found");
   
   const nextCycle = (normalizeCycle(profile.currentCycle) ?? 1) + 1;
+  const nextLiftWeeks: LiftWeekMap = { ...(profile.liftWeeks ?? {}) };
+  const nextLiftCycles: LiftCycleMap = { ...(profile.liftCycles ?? {}) };
+  LIFT_KEYS.forEach((lift) => {
+    nextLiftWeeks[lift] = 1;
+    nextLiftCycles[lift] = nextCycle;
+  });
   const updatedProfile: Profile = {
     ...profile,
+    liftWeeks: nextLiftWeeks,
+    liftCycles: nextLiftCycles,
     currentWeek: 1,
     currentCycle: nextCycle,
   };
   
   if (tmIncreases) {
     const nextTm: NonNullable<Profile["tm"]> = { ...(profile.tm ?? {}) };
-    (["bench", "squat", "deadlift", "press"] as const).forEach((lift) => {
+    (["bench", "squat", "deadlift"] as const).forEach((lift) => {
       const current = profile.tm?.[lift];
       const increment = tmIncreases[lift];
       if (typeof current === "number" && Number.isFinite(current) && typeof increment === "number") {
@@ -1195,12 +1279,16 @@ export async function signInOrCreateAthleteAccount(
   const activeState = resolvedTeam ? existingTeamData[resolvedTeam] : undefined;
   const tm = activeState?.tm ?? existingProfile?.tm ?? {};
   const oneRm = activeState?.oneRm ?? existingProfile?.oneRm ?? {};
+  const liftWeeks = activeState?.liftWeeks ?? existingProfile?.liftWeeks;
+  const liftCycles = activeState?.liftCycles ?? existingProfile?.liftCycles;
   const currentWeek = activeState?.currentWeek ?? existingProfile?.currentWeek ?? 1;
   const currentCycle = activeState?.currentCycle ?? existingProfile?.currentCycle ?? 1;
   const nextTeamData = mergeActiveTeamData(
     {
       tm,
       oneRm,
+      liftWeeks,
+      liftCycles,
       currentWeek,
       currentCycle,
       teamData: existingTeamData,
@@ -1224,6 +1312,8 @@ export async function signInOrCreateAthleteAccount(
     teamAnchor: teamAnchor ?? resolvedTeam,
     teamScopes,
     teamData: nextTeamData,
+    liftWeeks,
+    liftCycles,
     tm,
     oneRm,
     accessCode: code,
@@ -1349,12 +1439,16 @@ export async function createAthleteAccount(
   const activeState = resolvedTeam ? existingTeamData[resolvedTeam] : undefined;
   const tm = activeState?.tm ?? existingProfile?.tm ?? {};
   const oneRm = activeState?.oneRm ?? existingProfile?.oneRm ?? {};
+  const liftWeeks = activeState?.liftWeeks ?? existingProfile?.liftWeeks;
+  const liftCycles = activeState?.liftCycles ?? existingProfile?.liftCycles;
   const currentWeek = activeState?.currentWeek ?? existingProfile?.currentWeek ?? 1;
   const currentCycle = activeState?.currentCycle ?? existingProfile?.currentCycle ?? 1;
   const nextTeamData = mergeActiveTeamData(
     {
       tm,
       oneRm,
+      liftWeeks,
+      liftCycles,
       currentWeek,
       currentCycle,
       teamData: existingTeamData,
@@ -1378,6 +1472,8 @@ export async function createAthleteAccount(
     teamAnchor: teamAnchor ?? resolvedTeam,
     teamScopes,
     teamData: nextTeamData,
+    liftWeeks,
+    liftCycles,
     tm,
     oneRm,
     accessCode: code,
@@ -1882,7 +1978,7 @@ export async function ensureAdminRole(): Promise<void> {
   applyRoleCache(combined);
 }
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
+type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
 
 export type SessionSet = {
@@ -2413,4 +2509,12 @@ export async function updateSession(
     ...updates,
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function deleteSession(uid: string, sessionId: string): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) throw new Error("Firebase is required to delete sessions.");
+  const ref = doc(database, "athletes", uid, "sessions", sessionId);
+  await deleteDoc(ref);
 }

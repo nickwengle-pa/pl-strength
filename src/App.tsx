@@ -19,7 +19,7 @@ import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
 // App version - keep in sync with main.tsx
-export const APP_VERSION = '1.1.1';
+export const APP_VERSION = '1.1.2';
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();

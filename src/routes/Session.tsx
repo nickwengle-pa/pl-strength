@@ -22,11 +22,9 @@ import TrendMini from "../components/TrendMini";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PlateCalculatorDisplay } from "../components/PlateMath";
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
+type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
 type Unit = "lb" | "kg";
-
-const ALL_LIFTS: Lift[] = ["bench", "squat", "deadlift", "press"];
 
 type SetOutcome = { status: "" | "S" | "F"; actualReps: string };
 
@@ -41,23 +39,19 @@ const LIFT_LABELS: Record<Lift, string> = {
   bench: "Bench Press",
   squat: "Back Squat",
   deadlift: "Deadlift",
-  press: "Overhead Press",
 };
 
-const bumpTrainingMaxes = (
+const bumpTrainingMax = (
   tm: Profile["tm"] | undefined,
+  lift: Lift,
   unit: Unit
 ): Profile["tm"] | undefined => {
   if (!tm) return tm;
-  const next = { ...tm };
-  (["bench", "squat", "deadlift", "press"] as const).forEach((lift) => {
-    const current = tm[lift];
-    if (typeof current !== "number" || !Number.isFinite(current)) return;
-    const isLower = lift === "squat" || lift === "deadlift";
-    const increment = unit === "kg" ? (isLower ? 5 : 2.5) : (isLower ? 10 : 5);
-    next[lift] = Number((current + increment).toFixed(2));
-  });
-  return next;
+  const current = tm[lift];
+  if (typeof current !== "number" || !Number.isFinite(current)) return tm;
+  const isLower = lift === "squat" || lift === "deadlift";
+  const increment = unit === "kg" ? (isLower ? 5 : 2.5) : (isLower ? 10 : 5);
+  return { ...tm, [lift]: Number((current + increment).toFixed(2)) };
 };
 
 const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> = {
@@ -78,9 +72,28 @@ const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> 
   },
 };
 
+const resolveLiftWeek = (profile: Profile | null, lift: Lift): Week =>
+  profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1;
+
+const resolveLiftCycle = (profile: Profile | null, lift: Lift): number =>
+  profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
+
+const seedLiftWeeks = (value: Week): Record<Lift, Week> => ({
+  bench: value,
+  squat: value,
+  deadlift: value,
+});
+
+const seedLiftCycles = (value: number): Record<Lift, number> => ({
+  bench: value,
+  squat: value,
+  deadlift: value,
+});
+
 export default function Session() {
   const [lift, setLift] = useState<Lift>("bench");
   const [week, setWeek] = useState<Week>(1);
+  const [cycle, setCycle] = useState<number>(1);
   const [unit, setUnit] = useState<Unit>("lb");
   const [tm, setTm] = useState<number | null>(null);
   const [mobileMode, setMobileMode] = useState(false);
@@ -90,7 +103,6 @@ export default function Session() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [liftConfirmed, setLiftConfirmed] = useState(false);
   const [showWeekAdvancePrompt, setShowWeekAdvancePrompt] = useState(false);
-  const [liftsLoggedThisWeek, setLiftsLoggedThisWeek] = useState<Set<Lift>>(new Set());
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const autoAdvanceRef = useRef(false);
@@ -131,7 +143,6 @@ export default function Session() {
   }, []);
 
   useEffect(() => {
-    setLiftsLoggedThisWeek(new Set());
     setShowWeekAdvancePrompt(false);
     setLiftConfirmed(false);
   }, [sessionTeam]);
@@ -148,9 +159,11 @@ export default function Session() {
           setStep(nextUnit === "lb" ? 5 : 2.5);
           const tmForLift = p.tm?.[lift] ?? null;
           setTm(tmForLift ?? null);
-          // Load saved week from profile
-          if (p.currentWeek && !liftConfirmed) {
-            setWeek(p.currentWeek);
+          const nextWeek = resolveLiftWeek(p, lift);
+          const nextCycle = resolveLiftCycle(p, lift);
+          if (!liftConfirmed) {
+            setWeek(nextWeek);
+            setCycle(nextCycle);
           }
         } else {
           setProfile(null);
@@ -169,9 +182,11 @@ export default function Session() {
           setStep(nextUnit === "lb" ? 5 : 2.5);
           const tmForLift = p.tm?.[lift] ?? null;
           setTm(tmForLift ?? null);
-          // Load saved week from profile
-          if (p.currentWeek && !liftConfirmed) {
-            setWeek(p.currentWeek);
+          const nextWeek = resolveLiftWeek(p, lift);
+          const nextCycle = resolveLiftCycle(p, lift);
+          if (!liftConfirmed) {
+            setWeek(nextWeek);
+            setCycle(nextCycle);
           }
         } else {
           setProfile(null);
@@ -242,15 +257,21 @@ export default function Session() {
       // Smart Default Logic:
       // If the user hasn't manually picked a week yet (liftConfirmed is false),
       // try to guess the next week based on the most recent session for this lift.
-      if (!liftConfirmed && rows.length > 0) {
+      const hasLiftProgress =
+        typeof profile?.liftWeeks?.[lift] === "number" ||
+        typeof profile?.liftCycles?.[lift] === "number";
+      if (!liftConfirmed && rows.length > 0 && !hasLiftProgress) {
         const lastSession = rows[0]; // Newest session
         const lastWeek = lastSession.week;
+        const lastCycle = lastSession.cycle ?? 1;
         // Simple cycle logic: 1->2->3->1
         const nextWeek: Week = lastWeek === 1 ? 2 : lastWeek === 2 ? 3 : 1;
+        const nextCycle = lastWeek === 3 ? lastCycle + 1 : lastCycle;
         setWeek(nextWeek);
+        setCycle(nextCycle);
       }
     })();
-  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam]);
+  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam, profile]);
 
   const setWarmStatus = (index: number, status: "" | "S" | "F") => {
     setWarmOutcomes((prev) => {
@@ -342,7 +363,7 @@ export default function Session() {
         {
           lift,
           week,
-          cycle: cycleNumber,
+          cycle,
           team: sessionTeam,
           unit,
           tm,
@@ -362,34 +383,17 @@ export default function Session() {
       const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
       setHistory(rows.reverse());
       notifyProfileChange();
-      
-      // Track this lift as logged for current week
-      const updatedLifts = new Set(liftsLoggedThisWeek);
-      updatedLifts.add(lift);
-      setLiftsLoggedThisWeek(updatedLifts);
-      
-      // Check if all 4 main lifts are now logged for this week
-      const allLiftsLogged = ALL_LIFTS.every((l: Lift) => updatedLifts.has(l));
-      let didAutoAdvance = false;
 
-      if (profile?.currentWeek === 3) {
-        didAutoAdvance = await maybeAutoAdvanceWeek3(updatedLifts);
-      }
-
-      if (didAutoAdvance) {
+      if (week === 3) {
+        const nextCycle = cycle + 1;
+        await advanceWeek();
+        alert(
+          `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCycle}. Training max updated.`
+        );
         return;
       }
 
-      if (allLiftsLogged) {
-        // Show week advance prompt instead of just alert
-        setShowWeekAdvancePrompt(true);
-      } else {
-        alert(
-          pr
-            ? `Saved. PR! New estimated 1RM ${est1rm} ${unit}`
-            : `Saved. Estimated 1RM ${est1rm} ${unit}`
-        );
-      }
+      setShowWeekAdvancePrompt(true);
     } catch (err) {
       console.warn("Failed to save session", err);
       alert("Unable to save session right now. Please try again.");
@@ -398,79 +402,89 @@ export default function Session() {
     }
   }
 
-  // Handle week change and save to profile
-  const handleWeekChange = async (newWeek: Week, overrides?: Partial<Profile>) => {
-    setWeek(newWeek);
+  const persistLiftProgress = async (
+    nextWeek: Week,
+    nextCycle: number,
+    nextTm?: Profile["tm"]
+  ) => {
+    setWeek(nextWeek);
+    setCycle(nextCycle);
     setLiftConfirmed(true);
-    // Reset lifts logged when changing weeks
-    setLiftsLoggedThisWeek(new Set());
-    // Save to profile
-    if (profile) {
-      const updatedProfile = { ...profile, ...overrides, currentWeek: newWeek };
-      await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
-      setProfile(updatedProfile);
-      const nextTm = updatedProfile.tm?.[lift];
-      setTm(typeof nextTm === "number" && Number.isFinite(nextTm) ? nextTm : null);
-      notifyProfileChange();
-    }
+    if (!profile) return;
+    const baseWeek = profile.currentWeek ?? week;
+    const baseCycle = profile.currentCycle ?? cycle;
+    const nextLiftWeeks =
+      profile.liftWeeks && Object.keys(profile.liftWeeks).length > 0
+        ? { ...seedLiftWeeks(baseWeek), ...profile.liftWeeks }
+        : seedLiftWeeks(baseWeek);
+    nextLiftWeeks[lift] = nextWeek;
+    const nextLiftCycles =
+      profile.liftCycles && Object.keys(profile.liftCycles).length > 0
+        ? { ...seedLiftCycles(baseCycle), ...profile.liftCycles }
+        : seedLiftCycles(baseCycle);
+    nextLiftCycles[lift] = nextCycle;
+    const updatedProfile: Profile = {
+      ...profile,
+      liftWeeks: nextLiftWeeks,
+      liftCycles: nextLiftCycles,
+      currentWeek: nextWeek,
+      currentCycle: nextCycle,
+      tm: nextTm ?? profile.tm,
+    };
+    await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
+    setProfile(updatedProfile);
+    const nextTmValue = updatedProfile.tm?.[lift];
+    setTm(typeof nextTmValue === "number" && Number.isFinite(nextTmValue) ? nextTmValue : null);
+    notifyProfileChange();
+  };
+
+  // Handle week change and save to profile
+  const handleWeekChange = async (newWeek: Week) => {
+    await persistLiftProgress(newWeek, cycle);
+  };
+
+  const handleCycleChange = async (newCycle: number) => {
+    const normalized = Number.isFinite(newCycle) && newCycle >= 1 ? Math.floor(newCycle) : 1;
+    await persistLiftProgress(week, normalized);
   };
 
   // Advance to next week (1->2->3->1) and bump TMs on new cycle
   const advanceWeek = async () => {
-    const effectiveWeek: Week = profile?.currentWeek ?? week;
-    if (effectiveWeek === 3) {
-      const nextCycle = (profile?.currentCycle ?? 1) + 1;
-      const nextTm = bumpTrainingMaxes(profile?.tm, unit);
-      await handleWeekChange(1, {
-        currentCycle: nextCycle,
-        tm: nextTm ?? profile?.tm,
-      });
-    } else {
-      const nextWeek: Week = effectiveWeek === 1 ? 2 : 3;
-      await handleWeekChange(nextWeek);
-    }
-    setShowWeekAdvancePrompt(false);
-  };
-
-  const maybeAutoAdvanceWeek3 = async (loggedLifts?: Set<Lift>) => {
-    if (autoAdvanceRef.current) return false;
-    if (!profile || profile.currentWeek !== 3) return false;
-
-    const cycle = profile.currentCycle ?? 1;
-    const logged = new Set<Lift>(loggedLifts ? Array.from(loggedLifts) : []);
-    const missing = ALL_LIFTS.filter((liftKey) => !logged.has(liftKey));
-
-    if (missing.length) {
-      const results = await Promise.all(
-        missing.map(async (liftKey) => {
-          const rows = await recentSessions(liftKey, 12, targetUid, sessionTeam);
-          return rows.some(
-            (row) => row.week === 3 && (row.cycle ?? 1) === cycle
-          );
-        })
-      );
-      missing.forEach((liftKey, index) => {
-        if (results[index]) logged.add(liftKey);
-      });
-    }
-
-    if (!ALL_LIFTS.every((liftKey) => logged.has(liftKey))) return false;
-
+    if (autoAdvanceRef.current) return;
     autoAdvanceRef.current = true;
-    setShowWeekAdvancePrompt(false);
+    const effectiveWeek: Week = week;
     try {
-      await advanceWeek();
-      alert("Week 3 complete. Cycle advanced and training maxes updated.");
-      return true;
+      if (effectiveWeek === 3) {
+        const nextCycle = cycle + 1;
+        const nextTm = bumpTrainingMax(profile?.tm, lift, unit);
+        await persistLiftProgress(1, nextCycle, nextTm);
+      } else {
+        const nextWeek: Week = effectiveWeek === 1 ? 2 : 3;
+        await persistLiftProgress(nextWeek, cycle);
+      }
+      setShowWeekAdvancePrompt(false);
     } finally {
       autoAdvanceRef.current = false;
     }
   };
 
+  const maybeAutoAdvanceWeek3 = async () => {
+    if (autoAdvanceRef.current) return false;
+    if (!profile) return false;
+    const effectiveWeek = resolveLiftWeek(profile, lift);
+    const effectiveCycle = resolveLiftCycle(profile, lift);
+    if (effectiveWeek !== 3) return false;
+    const latest = history[history.length - 1];
+    if (!latest || latest.week !== 3) return false;
+    if ((latest.cycle ?? 1) !== effectiveCycle) return false;
+    setShowWeekAdvancePrompt(false);
+    await advanceWeek();
+    return true;
+  };
+
   useEffect(() => {
-    if (!profile || profile.currentWeek !== 3) return;
     void maybeAutoAdvanceWeek3();
-  }, [profile?.currentWeek, profile?.currentCycle, sessionTeam, targetUid]);
+  }, [history, profile, lift, cycle, week]);
 
   const estSeries = history
     .map((row) => row.est1rm)
@@ -517,7 +531,7 @@ export default function Session() {
 
   const theme = WEEK_THEMES[week];
   const liftLabel = LIFT_LABELS[lift];
-  const cycleNumber = profile?.currentCycle ?? 1;
+  const cycleNumber = cycle;
   const quickStats = [
     { label: "Lift", value: liftLabel },
     { label: "Week", value: `Cycle ${cycleNumber} / Week ${week} | ${theme.name}` },
@@ -553,7 +567,7 @@ export default function Session() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 flex-shrink-0">
           <div>
-            <div className="text-xs opacity-80">Week {week}</div>
+            <div className="text-xs opacity-80">Cycle {cycleNumber} · Week {week}</div>
             <div className="text-lg font-bold">{LIFT_LABELS[lift]}</div>
           </div>
           <button
@@ -739,16 +753,16 @@ export default function Session() {
               <div className="text-4xl">🎉</div>
               <h3 className="text-xl font-bold text-gray-900">Week {week} Complete!</h3>
               <p className="text-sm text-gray-600">
-                You've logged all 4 main lifts for this week. Nice work!
+                You've logged {liftLabel} for Week {week}. Nice work!
               </p>
             </div>
             <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-center">
               <p className="text-sm font-medium text-emerald-800">
-                Ready to advance to Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? cycleNumber + 1 : cycleNumber})?
+                Ready to advance {liftLabel} to Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? cycleNumber + 1 : cycleNumber})?
               </p>
               {week === 3 && (
                 <p className="mt-1 text-xs text-emerald-700">
-                  Training maxes will increase for the next cycle.
+                  Training max will increase for this lift.
                 </p>
               )}
             </div>
@@ -929,7 +943,7 @@ export default function Session() {
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 shadow-inner">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                   <span className="text-xs uppercase tracking-wide text-gray-500">Lift</span>
                   <select
@@ -944,7 +958,6 @@ export default function Session() {
                     <option value="bench">Bench Press</option>
                     <option value="squat">Back Squat</option>
                     <option value="deadlift">Deadlift</option>
-                    <option value="press">Overhead Press</option>
                   </select>
                 </label>
 
@@ -959,6 +972,18 @@ export default function Session() {
                     <option value={2}>Week 2 — 70/80/90%</option>
                     <option value={3}>Week 3 — 75/85/95%</option>
                   </select>
+                </label>
+
+                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                  <span className="text-xs uppercase tracking-wide text-gray-500">Cycle</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    value={cycle}
+                    onChange={(event) => handleCycleChange(Number(event.target.value))}
+                  />
                 </label>
 
                 <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">

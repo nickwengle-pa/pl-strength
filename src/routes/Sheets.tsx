@@ -12,14 +12,13 @@ import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { roundToPlate, weekPercents } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
-type LiftKey = "squat" | "bench" | "deadlift" | "press";
+type LiftKey = "squat" | "bench" | "deadlift";
 type Week = 1 | 2 | 3;
 
 const LIFTS: Array<{ key: LiftKey; label: string }> = [
   { key: "squat", label: "Squat" },
   { key: "bench", label: "Bench Press" },
   { key: "deadlift", label: "Deadlift" },
-  { key: "press", label: "Strict Press" },
 ];
 
 const WEEK_META: Record<
@@ -66,7 +65,7 @@ const formatSet = (entry: PlanSet | undefined, unit: Unit): string => {
 const cycleIncrement = (lift: LiftKey, unit: Unit): number => {
   const upperIncrement = unit === "kg" ? 2.5 : 5;
   const lowerIncrement = unit === "kg" ? 5 : 10;
-  return lift === "bench" || lift === "press" ? upperIncrement : lowerIncrement;
+  return lift === "bench" ? upperIncrement : lowerIncrement;
 };
 
 const deriveOneRm = (profile: Profile | null, lift: LiftKey): number => {
@@ -540,7 +539,7 @@ export default function Sheets() {
         </div>
         <div>
           <span className="font-semibold">Cycle increases:</span>{" "}
-          {`+${incrementSummary.lower} ${unitLabel(unit)} (squat/deadlift), +${incrementSummary.upper} ${unitLabel(unit)} (bench/press)`}
+          {`+${incrementSummary.lower} ${unitLabel(unit)} (squat/deadlift), +${incrementSummary.upper} ${unitLabel(unit)} (bench)`}
         </div>
       </div>
 

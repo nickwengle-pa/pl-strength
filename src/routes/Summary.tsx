@@ -14,7 +14,7 @@ import {
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
+type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
 
 const PCT: Record<Week, Array<[number,string]>> = {
@@ -129,7 +129,7 @@ export default function Summary() {
     (async () => {
       setLoadingSessions(true);
       try {
-        const allLifts: Lift[] = ["bench", "squat", "deadlift", "press"];
+        const allLifts: Lift[] = ["bench", "squat", "deadlift"];
         const completed = new Set<Lift>();
         
         // Check each lift for recent sessions matching current week
@@ -221,7 +221,7 @@ export default function Summary() {
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(["bench","squat","deadlift","press"] as Lift[]).map(liftName => {
+          {(["bench","squat","deadlift"] as Lift[]).map(liftName => {
             const isCompleted = completedLifts.has(liftName);
             const hasTM = profile?.tm?.[liftName];
             
@@ -327,7 +327,7 @@ export default function Summary() {
 }
 
 function cap(s:string){ return s[0].toUpperCase()+s.slice(1); }
-function icon(k:Lift){ return {bench:"🧰", squat:"🦵", deadlift:"🧲", press:"🫱"}[k]; }
+function icon(k:Lift){ return {bench:"🧰", squat:"🦵", deadlift:"🧲"}[k]; }
 
 
 

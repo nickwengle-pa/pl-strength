@@ -12,7 +12,7 @@ import {
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { estimate1RM } from "../lib/tm";
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
+type Lift = "bench" | "squat" | "deadlift";
 
 export default function Progress() {
   const [uid, setUid] = useState<string>("");
@@ -96,6 +96,8 @@ export default function Progress() {
 
   const unit = profile?.unit || "lb";
   const currentTM = profile?.tm?.[selectedLift] || 0;
+  const liftWeek = profile?.liftWeeks?.[selectedLift] ?? profile?.currentWeek ?? 1;
+  const liftCycle = profile?.liftCycles?.[selectedLift] ?? profile?.currentCycle ?? 1;
 
   // Calculate stats
   const prSessions = sessions.filter(s => s.pr);
@@ -123,8 +125,8 @@ export default function Progress() {
       
       const record: SessionRecord = {
         lift: selectedLift,
-        week: profile?.currentWeek || 1,
-        cycle: profile?.currentCycle || 1,
+        week: liftWeek,
+        cycle: liftCycle,
         team: sessionTeam,
         unit,
         tm: currentTM,
@@ -197,7 +199,7 @@ export default function Progress() {
 
       {/* Lift selector */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(["bench", "squat", "deadlift", "press"] as Lift[]).map((lift) => (
+        {(["bench", "squat", "deadlift"] as Lift[]).map((lift) => (
           <button
             key={lift}
             className={`btn ${selectedLift === lift ? "btn-primary" : ""}`}
@@ -559,5 +561,5 @@ function cap(s: string) {
 }
 
 function icon(k: Lift) {
-  return { bench: "🧰", squat: "🦵", deadlift: "🧲", press: "🫱" }[k];
+  return { bench: "🧰", squat: "🦵", deadlift: "🧲" }[k];
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { recentSessions, type SessionRecord } from "../lib/db";
 
-type Lift = "bench" | "squat" | "deadlift" | "press";
+type Lift = "bench" | "squat" | "deadlift";
 
 type ChartDataPoint = {
   date: Date;
@@ -14,14 +14,12 @@ const LIFT_LABELS: Record<Lift, string> = {
   bench: "Bench Press",
   squat: "Back Squat",
   deadlift: "Deadlift",
-  press: "Overhead Press",
 };
 
 const LIFT_COLORS: Record<Lift, { line: string; fill: string; pr: string }> = {
   bench: { line: "#3b82f6", fill: "#dbeafe", pr: "#f59e0b" },
   squat: { line: "#10b981", fill: "#d1fae5", pr: "#f59e0b" },
   deadlift: { line: "#8b5cf6", fill: "#ede9fe", pr: "#f59e0b" },
-  press: { line: "#f43f5e", fill: "#ffe4e6", pr: "#f59e0b" },
 };
 
 type Props = {
@@ -261,7 +259,7 @@ type AllLiftsProps = {
 };
 
 export function AllLiftsProgressCharts({ unit }: AllLiftsProps) {
-  const lifts: Lift[] = ["bench", "squat", "deadlift", "press"];
+  const lifts: Lift[] = ["bench", "squat", "deadlift"];
 
   return (
     <div className="space-y-4">
