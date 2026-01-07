@@ -148,5 +148,18 @@ service cloud.firestore {
       allow create, update: if isCoach() || isAdmin();
       allow delete: if isAdmin();
     }
+
+    // Custom quotes for NFC welcome screen
+    match /quotes/{quoteId} {
+      allow read: if true;  // Anyone can read quotes (for welcome page)
+      allow create, update: if isCoach() || isAdmin();
+      allow delete: if isCoach() || isAdmin();
+    }
+
+    // NFC tap logging for analytics
+    match /nfcTaps/{tapId} {
+      allow read: if isCoach() || isAdmin();
+      allow create: if true;  // Anyone can log a tap (unauthenticated OK)
+    }
   }
 }
