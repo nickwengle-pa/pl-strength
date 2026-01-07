@@ -2611,3 +2611,145 @@ export async function fetchTeamProfiles(
 
   return profiles;
 }
+
+// ---- Custom Quotes for NFC Welcome Screen ----
+
+export type CustomQuote = {
+  id?: string;
+  text: string;
+  author: string;
+  createdAt?: Date;
+  createdBy?: string;
+};
+
+/**
+ * Load all custom quotes from Firestore (org-level collection).
+ * Falls back to empty array if Firebase is unavailable.
+ */
+export async function loadCustomQuotes(): Promise<CustomQuote[]> {
+  const database = fb.db;
+  if (!database) return [];
+
+  try {
+    const quotesRef = collection(database, "quotes");
+    const q = query(quotesRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        text: data.text ?? "",
+        author: data.author ?? "Unknown",
+        createdAt: data.createdAt?.toDate?.() ?? undefined,
+        createdBy: data.createdBy ?? undefined,
+      };
+    });
+  } catch (err) {
+    console.warn("Failed to load custom quotes", err);
+    return [];
+  }
+}
+
+/**
+ * Save a new custom quote to Firestore.
+ * Only coaches should call this.
+ */
+export async function saveCustomQuote(
+  quote: { text: string; author: string },
+  uid?: string
+): Promise<string | null> {
+  const database = fb.db;
+  if (!database) return null;
+
+  try {
+    const quotesRef = collection(database, "quotes");
+    const docRef = await addDoc(quotesRef, {
+      text: quote.text.trim(),
+      author: quote.author.trim() || "Unknown",
+      createdAt: serverTimestamp(),
+      createdBy: uid ?? null,
+    });
+    return docRef.id;
+  } catch (err) {
+    console.warn("Failed to save custom quote", err);
+    return null;
+  }
+}
+
+/**
+ * Delete a custom quote from Firestore.
+ */
+export async function deleteCustomQuote(quoteId: string): Promise<boolean> {
+  const database = fb.db;
+  if (!database) return false;
+
+  try {
+    await deleteDoc(doc(database, "quotes", quoteId));
+    return true;
+  } catch (err) {
+    console.warn("Failed to delete custom quote", err);
+    return false;
+  }
+}
+
+// ---- NFC Tag Tap Logging ----
+
+export type NfcTapLog = {
+  tagId: string;
+  timestamp: Date;
+  uid?: string;
+};
+
+/**
+ * Log an NFC tag tap for analytics.
+ * This is fire-and-forget - failures are silent.
+ */
+export async function logNfcTap(tagId: string, uid?: string): Promise<void> {
+  const database = fb.db;
+  if (!database) return;
+
+  try {
+    const logsRef = collection(database, "nfcTaps");
+    await addDoc(logsRef, {
+      tagId,
+      timestamp: serverTimestamp(),
+      uid: uid ?? null,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    });
+  } catch (err) {
+    // Silent fail - analytics not critical
+    console.debug("NFC tap log failed", err);
+  }
+}
+
+/**
+ * Get NFC tap statistics (for admin dashboard).
+ * Returns tap counts per tag for the last N days.
+ */
+export async function getNfcTapStats(
+  days: number = 30
+): Promise<Record<string, number>> {
+  const database = fb.db;
+  if (!database) return {};
+
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    const logsRef = collection(database, "nfcTaps");
+    const q = query(logsRef, where("timestamp", ">=", cutoff));
+    const snapshot = await getDocs(q);
+    
+    const counts: Record<string, number> = {};
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const tag = data.tagId ?? "unknown";
+      counts[tag] = (counts[tag] ?? 0) + 1;
+    });
+    
+    return counts;
+  } catch (err) {
+    console.warn("Failed to get NFC tap stats", err);
+    return {};
+  }
+}

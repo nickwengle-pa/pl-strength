@@ -15,11 +15,12 @@ import Exercises from "./routes/Exercises";
 import ProgramOutline from "./routes/ProgramOutline";
 import Attendance from "./routes/Attendance";
 import SignIn from "./routes/SignIn";
+import Welcome from "./routes/Welcome";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
 // App version - keep in sync with main.tsx
-export const APP_VERSION = '1.1.4';
+export const APP_VERSION = '1.1.5';
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
@@ -27,15 +28,24 @@ export default function App() {
   const navigate = useNavigate();
   const authStateRef = useRef<"signed-in" | "signed-out" | null>(null);
 
+  // Allow /welcome route without auth redirect
+  const isWelcomePage = location.pathname === "/welcome";
+
   useEffect(() => {
     if (initializing || signingInWithLink) return;
+    if (isWelcomePage) return; // Don't redirect from welcome page
     const nextState = user ? "signed-in" : "signed-out";
     if (authStateRef.current === nextState) return;
     authStateRef.current = nextState;
     if (location.pathname !== "/") {
       navigate("/", { replace: true });
     }
-  }, [user, initializing, signingInWithLink, location.pathname, navigate]);
+  }, [user, initializing, signingInWithLink, location.pathname, navigate, isWelcomePage]);
+
+  // Welcome page is always accessible (NFC landing)
+  if (isWelcomePage) {
+    return <Welcome />;
+  }
 
   if (initializing || signingInWithLink) {
     return (

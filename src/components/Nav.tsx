@@ -12,13 +12,18 @@ import {
   loadProfileRemote,
   subscribeToRoleChanges,
   setStoredTeamSelection,
+  loadCustomQuotes,
+  saveCustomQuote,
+  deleteCustomQuote,
   type Team,
+  type CustomQuote,
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
 type Status = "checking" | "connected" | "offline";
 type Theme = "light" | "dark";
+type SettingsTab = "general" | "quotes";
 
 const THEME_STORAGE_KEY = "pl-strength-theme";
 
@@ -32,6 +37,7 @@ export default function Nav() {
   const [friendlyName, setFriendlyName] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light";
     return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"
@@ -40,6 +46,13 @@ export default function Nav() {
   });
   const [teamSelection, setTeamSelection] = useState<Team | "">("");
   const [teamScopes, setTeamScopes] = useState<Team[]>([]);
+  
+  // Quote management state (coaches only)
+  const [customQuotes, setCustomQuotes] = useState<CustomQuote[]>([]);
+  const [quotesLoading, setQuotesLoading] = useState(false);
+  const [newQuoteText, setNewQuoteText] = useState("");
+  const [newQuoteAuthor, setNewQuoteAuthor] = useState("");
+  const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -266,7 +279,59 @@ export default function Nav() {
   useEffect(() => {
     setMenuOpen(false);
     setSettingsOpen(false);
+    setSettingsTab("general");
   }, [location.pathname]);
+
+  // Load quotes when quotes tab is opened
+  useEffect(() => {
+    if (!settingsOpen || settingsTab !== "quotes" || !coach) return;
+    let active = true;
+    setQuotesLoading(true);
+    loadCustomQuotes()
+      .then((quotes) => {
+        if (active) setCustomQuotes(quotes);
+      })
+      .catch(() => {
+        if (active) setCustomQuotes([]);
+      })
+      .finally(() => {
+        if (active) setQuotesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [settingsOpen, settingsTab, coach]);
+
+  const handleSaveQuote = async () => {
+    if (!newQuoteText.trim() || savingQuote) return;
+    setSavingQuote(true);
+    try {
+      const id = await saveCustomQuote(
+        { text: newQuoteText.trim(), author: newQuoteAuthor.trim() || "Coach" },
+        user?.uid
+      );
+      if (id) {
+        setCustomQuotes((prev) => [
+          { id, text: newQuoteText.trim(), author: newQuoteAuthor.trim() || "Coach" },
+          ...prev,
+        ]);
+        setNewQuoteText("");
+        setNewQuoteAuthor("");
+      }
+    } catch (err) {
+      console.warn("Failed to save quote", err);
+    } finally {
+      setSavingQuote(false);
+    }
+  };
+
+  const handleDeleteQuote = async (quoteId: string) => {
+    if (!window.confirm("Delete this quote?")) return;
+    const success = await deleteCustomQuote(quoteId);
+    if (success) {
+      setCustomQuotes((prev) => prev.filter((q) => q.id !== quoteId));
+    }
+  };
 
   useEffect(() => {
     if (!isMobile) {
@@ -393,7 +458,7 @@ export default function Nav() {
               onClick={closeSettings}
             />
             <div
-              className="absolute left-1/2 top-1/2 w-[min(90vw,22rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200 bg-white shadow-2xl"
+              className="absolute left-1/2 top-1/2 w-[min(90vw,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-gray-200 bg-white shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -418,42 +483,148 @@ export default function Nav() {
                   </svg>
                 </button>
               </div>
-              <div className="max-h-[calc(100vh-7rem)] space-y-4 overflow-y-auto px-4 py-4">
-                {(admin || coach) && (
-                  <div className="flex flex-wrap gap-2">
-                    {admin && (
-                      <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                        Admin
-                      </span>
-                    )}
-                    {coach && !admin && (
-                      <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
-                        Coach
-                      </span>
-                    )}
-                  </div>
-                )}
-                {gearLinks.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                      Quick Links
-                    </div>
-                    {gearLinks.map((link) => (
-                      <NavLink
-                        key={link.to}
-                        to={link.to}
-                        className={({ isActive }) => drawerLinkClass(isActive)}
-                        onClick={closeSettings}
-                      >
-                        {link.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-                <div className="space-y-3">
-                  {renderTeamPicker("mobile")}
-                  {renderThemeToggle("mobile")}
+
+              {/* Tab Navigation (only show if coach) */}
+              {coach && (
+                <div className="flex border-b border-gray-200">
+                  <button
+                    type="button"
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition ${
+                      settingsTab === "general"
+                        ? "border-b-2 border-brand-600 text-brand-700"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                    onClick={() => setSettingsTab("general")}
+                  >
+                    General
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition ${
+                      settingsTab === "quotes"
+                        ? "border-b-2 border-brand-600 text-brand-700"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                    onClick={() => setSettingsTab("quotes")}
+                  >
+                    Quotes
+                  </button>
                 </div>
+              )}
+
+              <div className="max-h-[calc(100vh-10rem)] overflow-y-auto px-4 py-4">
+                {settingsTab === "general" ? (
+                  <div className="space-y-4">
+                    {(admin || coach) && (
+                      <div className="flex flex-wrap gap-2">
+                        {admin && (
+                          <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                            Admin
+                          </span>
+                        )}
+                        {coach && !admin && (
+                          <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
+                            Coach
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {gearLinks.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Quick Links
+                        </div>
+                        {gearLinks.map((link) => (
+                          <NavLink
+                            key={link.to}
+                            to={link.to}
+                            className={({ isActive }) => drawerLinkClass(isActive)}
+                            onClick={closeSettings}
+                          >
+                            {link.label}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      {renderTeamPicker("mobile")}
+                      {renderThemeToggle("mobile")}
+                    </div>
+                  </div>
+                ) : (
+                  /* Quotes Tab */
+                  <div className="space-y-4">
+                    <div className="text-xs text-gray-500">
+                      Add custom quotes to display on the NFC welcome screen. These will rotate daily with the built-in quotes.
+                    </div>
+
+                    {/* Add New Quote Form */}
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Add New Quote
+                      </div>
+                      <textarea
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-300 focus:outline-none resize-none"
+                        rows={2}
+                        placeholder="Enter your motivational quote..."
+                        value={newQuoteText}
+                        onChange={(e) => setNewQuoteText(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-300 focus:outline-none"
+                        placeholder="Author (optional, defaults to 'Coach')"
+                        value={newQuoteAuthor}
+                        onChange={(e) => setNewQuoteAuthor(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
+                        onClick={handleSaveQuote}
+                        disabled={!newQuoteText.trim() || savingQuote}
+                      >
+                        {savingQuote ? "Saving..." : "Add Quote"}
+                      </button>
+                    </div>
+
+                    {/* Existing Quotes */}
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Your Custom Quotes ({customQuotes.length})
+                      </div>
+                      {quotesLoading ? (
+                        <div className="text-sm text-gray-500 text-center py-4">Loading...</div>
+                      ) : customQuotes.length === 0 ? (
+                        <div className="text-sm text-gray-400 text-center py-4 italic">
+                          No custom quotes yet. Add one above!
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {customQuotes.map((quote) => (
+                            <div
+                              key={quote.id}
+                              className="rounded-lg border border-gray-200 bg-white p-3 text-sm group"
+                            >
+                              <div className="flex justify-between gap-2">
+                                <div className="flex-1">
+                                  <p className="text-gray-800 italic">"{quote.text}"</p>
+                                  <p className="text-xs text-gray-500 mt-1">— {quote.author}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs transition-opacity"
+                                  onClick={() => quote.id && handleDeleteQuote(quote.id)}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>,
