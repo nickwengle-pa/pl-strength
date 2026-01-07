@@ -27,6 +27,25 @@ type SettingsTab = "general" | "quotes";
 
 const THEME_STORAGE_KEY = "pl-strength-theme";
 
+/** Built-in motivational quotes (same as Welcome page) */
+const DEFAULT_QUOTES: Array<{ text: string; author: string }> = [
+  { text: "The only bad workout is the one that didn't happen.", author: "Unknown" },
+  { text: "Strength does not come from the physical capacity. It comes from an indomitable will.", author: "Mahatma Gandhi" },
+  { text: "The iron never lies to you.", author: "Henry Rollins" },
+  { text: "What hurts today makes you stronger tomorrow.", author: "Jay Cutler" },
+  { text: "The last three or four reps is what makes the muscle grow.", author: "Arnold Schwarzenegger" },
+  { text: "Success isn't always about greatness. It's about consistency.", author: "Dwayne Johnson" },
+  { text: "The pain you feel today will be the strength you feel tomorrow.", author: "Unknown" },
+  { text: "Don't count the days, make the days count.", author: "Muhammad Ali" },
+  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+  { text: "Hard work beats talent when talent doesn't work hard.", author: "Tim Notke" },
+  { text: "The body achieves what the mind believes.", author: "Napoleon Hill" },
+  { text: "No pain, no gain. Shut up and train.", author: "Unknown" },
+  { text: "Be stronger than your strongest excuse.", author: "Unknown" },
+  { text: "The only person you are destined to become is the person you decide to be.", author: "Ralph Waldo Emerson" },
+  { text: "Champions aren't made in the gym. Champions are made from something deep inside them.", author: "Muhammad Ali" },
+];
+
 export default function Nav() {
   const { user, signOut } = useAuth();
   const device = useDevice();
@@ -622,6 +641,24 @@ export default function Nav() {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Built-in Default Quotes */}
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Built-in Quotes ({DEFAULT_QUOTES.length})
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {DEFAULT_QUOTES.map((quote, index) => (
+                          <div
+                            key={index}
+                            className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm"
+                          >
+                            <p className="text-gray-600 italic">"{quote.text}"</p>
+                            <p className="text-xs text-gray-400 mt-1">— {quote.author}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
