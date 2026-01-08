@@ -15,8 +15,12 @@ import {
   loadCustomQuotes,
   saveCustomQuote,
   deleteCustomQuote,
+  setFeaturedQuote,
+  getFeaturedQuote,
+  clearFeaturedQuote,
   type Team,
   type CustomQuote,
+  type FeaturedQuote,
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
@@ -72,6 +76,7 @@ export default function Nav() {
   const [newQuoteText, setNewQuoteText] = useState("");
   const [newQuoteAuthor, setNewQuoteAuthor] = useState("");
   const [savingQuote, setSavingQuote] = useState(false);
+  const [todaysFeatured, setTodaysFeatured] = useState<FeaturedQuote | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -306,12 +311,20 @@ export default function Nav() {
     if (!settingsOpen || settingsTab !== "quotes" || !coach) return;
     let active = true;
     setQuotesLoading(true);
-    loadCustomQuotes()
-      .then((quotes) => {
-        if (active) setCustomQuotes(quotes);
+    
+    // Load both custom quotes and today's featured quote
+    Promise.all([loadCustomQuotes(), getFeaturedQuote()])
+      .then(([quotes, featured]) => {
+        if (active) {
+          setCustomQuotes(quotes);
+          setTodaysFeatured(featured);
+        }
       })
       .catch(() => {
-        if (active) setCustomQuotes([]);
+        if (active) {
+          setCustomQuotes([]);
+          setTodaysFeatured(null);
+        }
       })
       .finally(() => {
         if (active) setQuotesLoading(false);
@@ -321,26 +334,57 @@ export default function Nav() {
     };
   }, [settingsOpen, settingsTab, coach]);
 
-  const handleSaveQuote = async () => {
+  const handleSaveQuote = async (setAsToday: boolean = false) => {
     if (!newQuoteText.trim() || savingQuote) return;
     setSavingQuote(true);
     try {
-      const id = await saveCustomQuote(
-        { text: newQuoteText.trim(), author: newQuoteAuthor.trim() || "Coach" },
-        user?.uid
-      );
+      const quoteData = { text: newQuoteText.trim(), author: newQuoteAuthor.trim() || "Coach" };
+      
+      // Save to custom quotes collection
+      const id = await saveCustomQuote(quoteData, user?.uid);
       if (id) {
         setCustomQuotes((prev) => [
-          { id, text: newQuoteText.trim(), author: newQuoteAuthor.trim() || "Coach" },
+          { id, text: quoteData.text, author: quoteData.author },
           ...prev,
         ]);
-        setNewQuoteText("");
-        setNewQuoteAuthor("");
       }
+      
+      // If "Save & Set Today" was clicked, also set as featured
+      if (setAsToday) {
+        const success = await setFeaturedQuote(quoteData, user?.uid);
+        if (success) {
+          setTodaysFeatured({
+            text: quoteData.text,
+            author: quoteData.author,
+            date: new Date().toISOString().split("T")[0],
+          });
+        }
+      }
+      
+      setNewQuoteText("");
+      setNewQuoteAuthor("");
     } catch (err) {
       console.warn("Failed to save quote", err);
     } finally {
       setSavingQuote(false);
+    }
+  };
+
+  const handleSetExistingAsToday = async (quote: { text: string; author: string }) => {
+    const success = await setFeaturedQuote(quote, user?.uid);
+    if (success) {
+      setTodaysFeatured({
+        text: quote.text,
+        author: quote.author,
+        date: new Date().toISOString().split("T")[0],
+      });
+    }
+  };
+
+  const handleClearFeatured = async () => {
+    const success = await clearFeaturedQuote();
+    if (success) {
+      setTodaysFeatured(null);
     }
   };
 
@@ -577,6 +621,26 @@ export default function Nav() {
                       Add custom quotes to display on the NFC welcome screen. These will rotate daily with the built-in quotes.
                     </div>
 
+                    {/* Today's Featured Quote */}
+                    {todaysFeatured && (
+                      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                            ⭐ Today's Featured Quote
+                          </div>
+                          <button
+                            type="button"
+                            className="text-xs text-amber-600 hover:text-amber-800"
+                            onClick={handleClearFeatured}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <p className="text-sm text-amber-900 italic">"{todaysFeatured.text}"</p>
+                        <p className="text-xs text-amber-700">— {todaysFeatured.author}</p>
+                      </div>
+                    )}
+
                     {/* Add New Quote Form */}
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -596,14 +660,24 @@ export default function Nav() {
                         value={newQuoteAuthor}
                         onChange={(e) => setNewQuoteAuthor(e.target.value)}
                       />
-                      <button
-                        type="button"
-                        className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700 disabled:opacity-50"
-                        onClick={handleSaveQuote}
-                        disabled={!newQuoteText.trim() || savingQuote}
-                      >
-                        {savingQuote ? "Saving..." : "Add Quote"}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-300 disabled:opacity-50"
+                          onClick={() => handleSaveQuote(false)}
+                          disabled={!newQuoteText.trim() || savingQuote}
+                        >
+                          {savingQuote ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
+                          onClick={() => handleSaveQuote(true)}
+                          disabled={!newQuoteText.trim() || savingQuote}
+                        >
+                          Save & Set Today
+                        </button>
+                      </div>
                     </div>
 
                     {/* Existing Quotes */}
@@ -629,13 +703,22 @@ export default function Nav() {
                                   <p className="text-gray-800 italic">"{quote.text}"</p>
                                   <p className="text-xs text-gray-500 mt-1">— {quote.author}</p>
                                 </div>
-                                <button
-                                  type="button"
-                                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs transition-opacity"
-                                  onClick={() => quote.id && handleDeleteQuote(quote.id)}
-                                >
-                                  Delete
-                                </button>
+                                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    className="text-amber-600 hover:text-amber-800 text-xs"
+                                    onClick={() => handleSetExistingAsToday(quote)}
+                                  >
+                                    Set Today
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="text-red-500 hover:text-red-700 text-xs"
+                                    onClick={() => quote.id && handleDeleteQuote(quote.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -652,10 +735,21 @@ export default function Nav() {
                         {DEFAULT_QUOTES.map((quote, index) => (
                           <div
                             key={index}
-                            className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm"
+                            className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm group"
                           >
-                            <p className="text-gray-600 italic">"{quote.text}"</p>
-                            <p className="text-xs text-gray-400 mt-1">— {quote.author}</p>
+                            <div className="flex justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="text-gray-600 italic">"{quote.text}"</p>
+                                <p className="text-xs text-gray-400 mt-1">— {quote.author}</p>
+                              </div>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover:opacity-100 text-amber-600 hover:text-amber-800 text-xs transition-opacity"
+                                onClick={() => handleSetExistingAsToday(quote)}
+                              >
+                                Set Today
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

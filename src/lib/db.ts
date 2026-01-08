@@ -2753,3 +2753,96 @@ export async function getNfcTapStats(
     return {};
   }
 }
+
+// ---- Featured Quote of the Day ----
+
+export type FeaturedQuote = {
+  text: string;
+  author: string;
+  date: string; // YYYY-MM-DD format
+  setBy?: string;
+};
+
+/**
+ * Get today's date in YYYY-MM-DD format.
+ */
+function getTodayDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Get the featured quote for today (if one was set).
+ * Returns null if no featured quote or if it's from a different day.
+ */
+export async function getFeaturedQuote(): Promise<FeaturedQuote | null> {
+  const database = fb.db;
+  if (!database) return null;
+
+  try {
+    const docRef = doc(database, "settings", "featuredQuote");
+    const snapshot = await getDoc(docRef);
+    
+    if (!snapshot.exists()) return null;
+    
+    const data = snapshot.data();
+    const today = getTodayDateString();
+    
+    // Only return if it's set for today
+    if (data.date !== today) return null;
+    
+    return {
+      text: data.text ?? "",
+      author: data.author ?? "Unknown",
+      date: data.date,
+      setBy: data.setBy,
+    };
+  } catch (err) {
+    console.warn("Failed to get featured quote", err);
+    return null;
+  }
+}
+
+/**
+ * Set a quote as the featured quote for today only.
+ * Tomorrow it will automatically revert to the normal rotation.
+ */
+export async function setFeaturedQuote(
+  quote: { text: string; author: string },
+  uid?: string
+): Promise<boolean> {
+  const database = fb.db;
+  if (!database) return false;
+
+  try {
+    const docRef = doc(database, "settings", "featuredQuote");
+    await setDoc(docRef, {
+      text: quote.text.trim(),
+      author: quote.author.trim() || "Unknown",
+      date: getTodayDateString(),
+      setBy: uid ?? null,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.warn("Failed to set featured quote", err);
+    return false;
+  }
+}
+
+/**
+ * Clear the featured quote (revert to normal rotation).
+ */
+export async function clearFeaturedQuote(): Promise<boolean> {
+  const database = fb.db;
+  if (!database) return false;
+
+  try {
+    const docRef = doc(database, "settings", "featuredQuote");
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.warn("Failed to clear featured quote", err);
+    return false;
+  }
+}

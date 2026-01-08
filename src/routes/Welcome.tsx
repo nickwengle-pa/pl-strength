@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { fb, loadCustomQuotes, logNfcTap } from "../lib/db";
+import { loadCustomQuotes, logNfcTap, getFeaturedQuote, type FeaturedQuote } from "../lib/db";
 import { useAuth } from "../lib/auth";
 
 /**
@@ -42,20 +42,26 @@ export default function Welcome() {
   const [searchParams] = useSearchParams();
   const { user, initializing } = useAuth();
   const [customQuotes, setCustomQuotes] = useState<Array<{ text: string; author: string }>>([]);
+  const [featuredQuote, setFeaturedQuote] = useState<FeaturedQuote | null>(null);
   const [fadeIn, setFadeIn] = useState(false);
 
   const tagId = searchParams.get("tag") ?? undefined;
 
-  // Load custom quotes from Firestore
+  // Load custom quotes and featured quote from Firestore
   useEffect(() => {
     let active = true;
-    loadCustomQuotes()
-      .then((quotes) => {
-        if (active) setCustomQuotes(quotes);
+    
+    Promise.all([loadCustomQuotes(), getFeaturedQuote()])
+      .then(([quotes, featured]) => {
+        if (active) {
+          setCustomQuotes(quotes);
+          setFeaturedQuote(featured);
+        }
       })
       .catch(() => {
         // Fallback to defaults only
       });
+    
     return () => {
       active = false;
     };
@@ -81,7 +87,13 @@ export default function Welcome() {
     return [...DEFAULT_QUOTES, ...customQuotes];
   }, [customQuotes]);
 
-  const dailyQuote = useMemo(() => pickDailyQuote(allQuotes), [allQuotes]);
+  // Use featured quote if set for today, otherwise use daily rotation
+  const displayQuote = useMemo(() => {
+    if (featuredQuote) {
+      return { text: featuredQuote.text, author: featuredQuote.author };
+    }
+    return pickDailyQuote(allQuotes);
+  }, [featuredQuote, allQuotes]);
 
   const handleStartTraining = () => {
     navigate("/");
@@ -125,10 +137,10 @@ export default function Welcome() {
         {/* Quote */}
         <div className="space-y-4 px-2">
           <blockquote className="text-xl md:text-2xl font-medium text-white/90 leading-relaxed italic">
-            "{dailyQuote.text}"
+            "{displayQuote.text}"
           </blockquote>
           <p className="text-sm text-white/50 font-medium">
-            — {dailyQuote.author}
+            — {displayQuote.author}
           </p>
         </div>
 

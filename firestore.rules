@@ -161,5 +161,11 @@ service cloud.firestore {
       allow read: if isCoach() || isAdmin();
       allow create: if true;  // Anyone can log a tap (unauthenticated OK)
     }
+
+    // App settings (featured quote, etc.)
+    match /settings/{settingId} {
+      allow read: if true;  // Anyone can read settings (for welcome page)
+      allow create, update, delete: if isCoach() || isAdmin();
+    }
   }
 }
