@@ -20,7 +20,7 @@ import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
 // App version - keep in sync with main.tsx
-export const APP_VERSION = '1.1.7';
+export const APP_VERSION = '1.1.8';
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
@@ -28,8 +28,8 @@ export default function App() {
   const navigate = useNavigate();
   const authStateRef = useRef<"signed-in" | "signed-out" | null>(null);
 
-  // Allow /welcome route without auth redirect
-  const isWelcomePage = location.pathname === "/welcome";
+  // Allow /welcome route without auth redirect (handle optional trailing slash)
+  const isWelcomePage = location.pathname.replace(/\/$/, "") === "/welcome";
 
   useEffect(() => {
     if (initializing || signingInWithLink) return;
