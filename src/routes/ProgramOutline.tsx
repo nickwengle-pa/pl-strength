@@ -473,6 +473,16 @@ export default function ProgramOutline() {
     }
   }, [library]);
 
+  // Update library only when exiting edit mode (not on every keystroke)
+  const prevEditMode = React.useRef(editMode);
+  useEffect(() => {
+    if (prevEditMode.current && !editMode) {
+      // Just finished editing - now merge final outline into library
+      setLibrary((current) => mergeLibrary(current, outline));
+    }
+    prevEditMode.current = editMode;
+  }, [editMode, outline]);
+
   if (loading) {
     return (
       <div className="container py-6">
@@ -484,7 +494,7 @@ export default function ProgramOutline() {
   const updateOutline = (partial: Partial<ProgramOutlineData>) => {
     setOutline((prev) => {
       const next = normalizeOutline({ ...prev, ...partial });
-      setLibrary((current) => mergeLibrary(current, next));
+      // Library is now updated only when exiting edit mode, not on every keystroke
       return next;
     });
   };
