@@ -74,7 +74,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(allowedRoleKeys())
         && optionalTeamScopesAreList()
         && optionalAccessHistoryIsMap()
-        && (hasCoachPayload() || hasAdminPayload());
+        && hasCoachPayload();
     }
 
     function adminBootstrap(uid) {
@@ -107,7 +107,9 @@ service cloud.firestore {
 
     match /roles/{uid} {
       allow read: if isSignedIn() && (isSelf(uid) || isCoach() || isAdmin());
-      allow create, update: if isSelf(uid) || isAdmin();
+      // Only allow self-write if it passes strict validation (no admin role promotion)
+      allow update: if (isSelf(uid) && coachSelfWrite(uid)) || isAdmin();
+      allow create: if isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -157,7 +159,14 @@ service cloud.firestore {
     }
 
     // NFC tap logging for analytics
-    match /nfcTaps/{tapId} {
+    match /nfcTaps/{tapId} 
+        && request.resource.data.keys().hasOnly(["tagId", "timestamp", "uid", "userAgent"])
+        && request.resource.data.size() < 5;
+    }
+
+    // Trigger user deletion via Cloud Function
+    match /__deleteAuthUser__/{uid} {
+      allow create: if isAdmin();
       allow read: if isCoach() || isAdmin();
       allow create: if true;  // Anyone can log a tap (unauthenticated OK)
     }
