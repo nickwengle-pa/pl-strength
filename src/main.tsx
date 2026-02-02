@@ -6,6 +6,7 @@ import App, { APP_VERSION } from './App';
 import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { DeviceProvider } from './lib/device';
+import { syncLocalSessionsToFirebase } from './lib/db';
 
 const THEME_STORAGE_KEY = "pl-strength-theme";
 try {
@@ -71,6 +72,16 @@ root.render(
     </DeviceProvider>
   </HashRouter>
 );
+
+// Sync any orphaned local sessions to Firebase on startup
+// This handles cases where sessions were saved offline and need to sync
+syncLocalSessionsToFirebase().then((count) => {
+  if (count > 0) {
+    console.log(`Startup sync: pushed ${count} local session(s) to Firebase`);
+  }
+}).catch((err) => {
+  console.warn('Startup sync failed:', err);
+});
 
 // Register SW only in production; purge in dev to prevent CSS/JS from being served stale.
 if ('serviceWorker' in navigator) {

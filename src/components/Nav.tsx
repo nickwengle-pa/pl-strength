@@ -18,6 +18,7 @@ import {
   setFeaturedQuote,
   getFeaturedQuote,
   clearFeaturedQuote,
+  syncLocalSessionsToFirebase,
   type Team,
   type CustomQuote,
   type FeaturedQuote,
@@ -25,7 +26,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
-type Status = "checking" | "connected" | "offline";
+type Status = "checking" | "connected" | "offline" | "syncing";
 type Theme = "light" | "dark";
 type SettingsTab = "general" | "quotes";
 
@@ -119,6 +120,42 @@ export default function Nav() {
       active = false;
     };
   }, [user]);
+
+  // Listen for online/offline events and attempt sync when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      if (hasFirebase()) {
+        setStatus("syncing");
+        // Attempt to sync any local data when coming back online
+        try {
+          const count = await syncLocalSessionsToFirebase();
+          if (count > 0) {
+            console.log(`Synced ${count} session(s) after coming online`);
+          }
+        } catch (err) {
+          console.warn("Online sync failed:", err);
+        }
+        setStatus("connected");
+      }
+    };
+    
+    const handleOffline = () => {
+      setStatus("offline");
+    };
+    
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    
+    // Set initial status based on navigator.onLine
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setStatus("offline");
+    }
+    
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -252,6 +289,8 @@ export default function Nav() {
   const statusLabel =
     status === "connected"
       ? "Connected To Firebase"
+      : status === "syncing"
+      ? "Syncing..."
       : status === "checking"
       ? "Checking Firebase..."
       : "Offline Mode";
@@ -259,6 +298,8 @@ export default function Nav() {
   const statusClass =
     status === "connected"
       ? "badge badge-success"
+      : status === "syncing"
+      ? "badge badge-warning"
       : status === "checking"
       ? "badge badge-warning"
       : "badge badge-muted";
@@ -272,6 +313,17 @@ export default function Nav() {
           title="Connected To Firebase"
         >
           <span className="h-3 w-3 rounded-full bg-emerald-500" aria-hidden="true" />
+        </span>
+      );
+    }
+    if (status === "syncing") {
+      return (
+        <span
+          className="inline-flex h-3 w-3 items-center justify-center"
+          aria-label="Syncing..."
+          title="Syncing data..."
+        >
+          <span className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse" aria-hidden="true" />
         </span>
       );
     }

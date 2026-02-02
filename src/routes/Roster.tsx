@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   TEAM_DEFINITIONS,
   AthleteAuthError,
@@ -18,6 +18,7 @@ import {
   saveProfile,
   fb,
   subscribeToRoleChanges,
+  subscribeToTeamSessions,
   updateAthleteWeek,
   updateSession,
   calculateTMSuggestions,
@@ -62,6 +63,18 @@ const resolveLiftCycle = (profile: Profile | null, lift: LiftKey): number =>
 const formatWeight = (value: number): string => {
   if (!Number.isFinite(value)) return "-";
   return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+};
+
+const formatTimeAgo = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(timestamp).toLocaleDateString();
 };
 
 const normalizeRoles = (roles?: string[] | null): string[] =>
@@ -316,6 +329,45 @@ export default function Roster() {
     
     return () => { active = false; };
   }, [rows, activeTeamSelection]);
+
+  // Real-time subscription to team sessions for live activity updates
+  const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
+  
+  useEffect(() => {
+    const team = activeTeamSelection as Team | undefined;
+    if (!team) return;
+    
+    // Subscribe to last 24 hours of team sessions
+    const unsubscribe = subscribeToTeamSessions(
+      team,
+      (sessions) => {
+        setLiveSessionFeed(sessions);
+        
+        // Update activity map with new sessions
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        setActivityMap((prev) => {
+          const next = { ...prev };
+          sessions.forEach((session) => {
+            const uid = session.athleteId;
+            const createdAt = session.createdAt || 0;
+            const existing = next[uid] || { weekCount: 0 };
+            
+            // Update last workout if this is more recent
+            if (!existing.lastWorkout || createdAt > existing.lastWorkout) {
+              next[uid] = {
+                ...existing,
+                lastWorkout: createdAt,
+              };
+            }
+          });
+          return next;
+        });
+      },
+      { count: 100, since: Date.now() - 24 * 60 * 60 * 1000 }
+    );
+    
+    return unsubscribe;
+  }, [activeTeamSelection]);
 
   useEffect(() => {
     if (!flash) return;
@@ -1517,6 +1569,48 @@ export default function Roster() {
           </table>
         </div>
       </div>
+
+      {/* Live Activity Feed */}
+      {liveSessionFeed.length > 0 && (
+        <div className="card border-l-4 border-l-green-500">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+            <h3 className="text-lg font-semibold">Live Activity</h3>
+            <span className="text-xs text-gray-500">(Last 24 hours)</span>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {liveSessionFeed.slice(0, 10).map((session, idx) => {
+              const athlete = rows.find(r => r.uid === session.athleteId);
+              const name = athlete 
+                ? `${athlete.firstName} ${athlete.lastName}`.trim() 
+                : session.athleteId.slice(0, 8);
+              const timeAgo = session.createdAt 
+                ? formatTimeAgo(session.createdAt)
+                : "";
+              return (
+                <div 
+                  key={`${session.id}-${idx}`}
+                  className="flex items-center justify-between text-sm py-1 px-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-800">{name}</span>
+                    <span className="text-gray-500">•</span>
+                    <span className="capitalize text-brand-600 font-medium">{session.lift}</span>
+                    <span className="text-gray-500">Week {session.week}</span>
+                    {session.pr && (
+                      <span className="text-yellow-600 font-semibold">🏆 PR!</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">{timeAgo}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="flex flex-col gap-4">

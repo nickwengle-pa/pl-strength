@@ -2705,6 +2705,205 @@ export async function deleteSession(uid: string, sessionId: string): Promise<voi
   await deleteDoc(ref);
 }
 
+// ---- Real-time Session Subscriptions ----
+
+export type SessionListener = (sessions: SessionRecord[]) => void;
+
+/**
+ * Subscribe to real-time session updates for a specific athlete.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToAthleteSessions(
+  uid: string,
+  listener: SessionListener,
+  options?: { count?: number; team?: Team }
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const count = options?.count ?? 20;
+  const teamFilter = options?.team ? normalizeTeam(options.team) : undefined;
+
+  if (!database) {
+    // No Firebase - return empty and noop unsubscribe
+    listener([]);
+    return () => {};
+  }
+
+  const col = collection(database, "athletes", uid, "sessions");
+  const q = query(col, orderBy("createdAt", "desc"), limit(Math.max(count, 1)));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const sessions = snapshot.docs
+        .map((docSnap) =>
+          normalizeSession(docSnap.data(), {
+            id: docSnap.id,
+            uid,
+            source: "remote",
+          })
+        )
+        .filter((session) =>
+          teamFilter ? session.team === teamFilter || !session.team : true
+        );
+      listener(sessions);
+    },
+    (error) => {
+      console.warn("subscribeToAthleteSessions error:", error);
+      listener([]);
+    }
+  );
+}
+
+/**
+ * Subscribe to real-time session updates across all athletes on a team.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToTeamSessions(
+  team: Team,
+  listener: (sessions: Array<SessionRecord & { athleteId: string }>) => void,
+  options?: { count?: number; since?: number }
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const maxCount = options?.count ?? 50;
+  const sinceTime = options?.since ?? Date.now() - 24 * 60 * 60 * 1000; // Default: last 24 hours
+
+  if (!database) {
+    listener([]);
+    return () => {};
+  }
+
+  // Use collectionGroup to query all sessions subcollections
+  const cg = collectionGroup(database, "sessions");
+  const q = query(
+    cg,
+    where("team", "==", team),
+    orderBy("createdAt", "desc"),
+    limit(maxCount)
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const sessions = snapshot.docs
+        .map((docSnap) => {
+          // Extract athlete UID from the document path: athletes/{uid}/sessions/{sessionId}
+          const pathParts = docSnap.ref.path.split("/");
+          const athleteId = pathParts[1] ?? "";
+          const data = docSnap.data();
+          const createdAt = toMillis(data?.createdAt) || 0;
+          
+          // Filter by time
+          if (createdAt < sinceTime) return null;
+          
+          return {
+            ...normalizeSession(data, {
+              id: docSnap.id,
+              uid: athleteId,
+              source: "remote" as const,
+            }),
+            athleteId,
+          };
+        })
+        .filter((s): s is SessionRecord & { athleteId: string } => s !== null);
+      
+      listener(sessions);
+    },
+    (error) => {
+      console.warn("subscribeToTeamSessions error:", error);
+      listener([]);
+    }
+  );
+}
+
+/**
+ * Subscribe to a single athlete's profile for real-time updates.
+ * Useful for athletes to see coach-made changes instantly.
+ */
+export function subscribeToProfile(
+  uid: string,
+  listener: (profile: Profile | null) => void
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+
+  if (!database) {
+    listener(null);
+    return () => {};
+  }
+
+  const ref = profRef(database, uid);
+
+  return onSnapshot(
+    ref,
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        listener(null);
+        return;
+      }
+      const profile = normalizeProfile(snapshot.data(), uid);
+      listener(profile);
+    },
+    (error) => {
+      console.warn("subscribeToProfile error:", error);
+      listener(null);
+    }
+  );
+}
+
+// ---- Sync local sessions to Firebase ----
+
+/**
+ * Sync any orphaned local sessions to Firebase.
+ * Call this on app startup when Firebase is available.
+ * Returns the number of sessions synced.
+ */
+export async function syncLocalSessionsToFirebase(): Promise<number> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  
+  if (!database) return 0;
+  
+  let uid: string | null = null;
+  try {
+    uid = await getUid();
+  } catch {
+    return 0;
+  }
+  
+  if (!uid || uid === LOCAL_UID) return 0;
+  
+  const localSessions = readLocalSessions();
+  if (!localSessions.length) return 0;
+  
+  const col = collection(database, "athletes", uid, "sessions");
+  let synced = 0;
+  
+  for (const session of localSessions) {
+    try {
+      const { id, uid: sessionUid, source, createdAt, ...payload } = session;
+      await addDoc(col, {
+        ...payload,
+        createdAt: serverTimestamp(),
+        syncedFrom: "local",
+        originalCreatedAt: createdAt,
+      });
+      synced++;
+    } catch (err) {
+      console.warn("Failed to sync local session:", err);
+    }
+  }
+  
+  // Clear local sessions after successful sync
+  if (synced > 0) {
+    writeLocalSessions([]);
+    console.log(`Synced ${synced} local sessions to Firebase`);
+  }
+  
+  return synced;
+}
+
 export async function fetchTeamProfiles(
   team: Team,
   options?: { excludeRoles?: string[] }
