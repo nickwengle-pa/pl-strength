@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { ensureAnon, isCoach, isAdmin, subscribeToRoleChanges } from "../lib/db";
+import {
+  ensureAnon,
+  isCoach,
+  isAdmin,
+  subscribeToRoleChanges,
+  loadProgramOutline,
+  saveProgramOutline,
+  subscribeProgramOutline,
+  type ProgramOutlineRecord,
+} from "../lib/db";
 
 const TURF_WARMUP = [
   "Jog in place 3-4 minutes",
@@ -98,6 +107,24 @@ const DEFAULT_OUTLINE: ProgramOutlineData = {
   benchAccessory: BENCH_ACCESSORY.map((item) => ({ ...item })),
   squatAccessory: SQUAT_ACCESSORY.map((item) => ({ ...item })),
 };
+
+function recordToOutline(record: ProgramOutlineRecord | null | undefined): ProgramOutlineData {
+  return normalizeOutline(record ?? DEFAULT_OUTLINE);
+}
+
+function outlineToRecord(outline: ProgramOutlineData): ProgramOutlineRecord {
+  return {
+    turfWarmup: [...outline.turfWarmup],
+    hipMobility: { ...outline.hipMobility },
+    plyometrics: [...outline.plyometrics],
+    plyoDays: [...outline.plyoDays],
+    coreWarmup: [...outline.coreWarmup],
+    liftWeeks: outline.liftWeeks.map((week) => ({ week: week.week, days: [...week.days] })),
+    deadliftAccessory: outline.deadliftAccessory.map((item) => ({ ...item })),
+    benchAccessory: outline.benchAccessory.map((item) => ({ ...item })),
+    squatAccessory: outline.squatAccessory.map((item) => ({ ...item })),
+  };
+}
 
 const OUTLINE_STORAGE_KEY = "pl-strength.program-outline";
 const OUTLINE_LIBRARY_STORAGE_KEY = "pl-strength.program-outline.library";
@@ -422,14 +449,23 @@ export default function ProgramOutline() {
   const [library, setLibrary] = useState<OutlineLibrary>(() =>
     mergeLibrary(loadStoredLibrary(), loadStoredOutline())
   );
+  const pendingRemoteRef = React.useRef<ProgramOutlineData | null>(null);
+  const editModeRef = React.useRef(editMode);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         await ensureAnon();
-        const [coachFlag, adminFlag] = await Promise.all([isCoach(), isAdmin()]);
+        const [outlineRecord, coachFlag, adminFlag] = await Promise.all([
+          loadProgramOutline(),
+          isCoach(),
+          isAdmin(),
+        ]);
         if (!active) return;
+        const nextOutline = recordToOutline(outlineRecord);
+        setOutline(nextOutline);
+        setLibrary((current) => mergeLibrary(current, nextOutline));
         setCoach(coachFlag || adminFlag);
         setAdmin(adminFlag);
       } catch (err) {
@@ -456,13 +492,17 @@ export default function ProgramOutline() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(OUTLINE_STORAGE_KEY, JSON.stringify(outline));
-    } catch (err) {
-      console.warn("Failed to persist program outline", err);
-    }
-  }, [outline]);
+    const unsubscribe = subscribeProgramOutline((record) => {
+      const nextOutline = recordToOutline(record);
+      if (editModeRef.current) {
+        pendingRemoteRef.current = nextOutline;
+        return;
+      }
+      setOutline(nextOutline);
+      setLibrary((current) => mergeLibrary(current, nextOutline));
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -476,12 +516,21 @@ export default function ProgramOutline() {
   // Update library only when exiting edit mode (not on every keystroke)
   const prevEditMode = React.useRef(editMode);
   useEffect(() => {
+    editModeRef.current = editMode;
     if (prevEditMode.current && !editMode) {
-      // Just finished editing - now merge final outline into library
       setLibrary((current) => mergeLibrary(current, outline));
+      if (admin) {
+        void saveProgramOutline(outlineToRecord(outline));
+      }
+      if (pendingRemoteRef.current) {
+        const next = pendingRemoteRef.current;
+        pendingRemoteRef.current = null;
+        setOutline(next);
+        setLibrary((current) => mergeLibrary(current, next));
+      }
     }
     prevEditMode.current = editMode;
-  }, [editMode, outline]);
+  }, [editMode, outline, admin]);
 
   if (loading) {
     return (
@@ -494,6 +543,9 @@ export default function ProgramOutline() {
   const updateOutline = (partial: Partial<ProgramOutlineData>) => {
     setOutline((prev) => {
       const next = normalizeOutline({ ...prev, ...partial });
+      if (admin && editMode) {
+        void saveProgramOutline(outlineToRecord(next));
+      }
       // Library is now updated only when exiting edit mode, not on every keystroke
       return next;
     });
@@ -529,7 +581,7 @@ export default function ProgramOutline() {
 
       {admin && editMode && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-          Editing Mode Is On. Changes Save Automatically In This Browser For All Coaches.
+          Editing Mode Is On. Changes Sync Automatically Across Coach Accounts.
         </div>
       )}
 

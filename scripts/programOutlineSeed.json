@@ -1,0 +1,113 @@
+{
+  "turfWarmup": [
+    "Jog in place 3-4 minutes",
+    "Jumping jacks 1 minute",
+    "Kickbacks",
+    "Walking knee tucks",
+    "Frankensteins",
+    "Alternating side squats",
+    "Inchworms",
+    "Hip flexor (static)"
+  ],
+  "hipMobility": {
+    "note": "Follow along with the video for 3 sets of 8 per movement.",
+    "url": "https://youtube.com/shorts/O3Dudt2-OQ4?si=B5WIiAZfI0OaBBQF",
+    "embed": "https://www.youtube.com/embed/O3Dudt2-OQ4"
+  },
+  "plyometrics": [
+    "2 foot pogo jumps",
+    "1 foot pogo jumps",
+    "Ski jumps (land with little time on ground as possible)",
+    "Jumps (no more than 20 per session)"
+  ],
+  "plyoDays": [
+    "Monday - Broad jumps",
+    "Tuesday - Box jumps",
+    "Thursday - 1/2 broad 1/2 box"
+  ],
+  "coreWarmup": [
+    "1 x 5 @ 40%",
+    "1 x 5 @ 60%",
+    "1 x 3 @ 80%"
+  ],
+  "liftWeeks": [
+    {
+      "week": "Week 1",
+      "days": [
+        "Monday - Squat",
+        "Tuesday - Bench",
+        "Thursday - Deadlift"
+      ]
+    },
+    {
+      "week": "Week 2",
+      "days": [
+        "Monday - Squat",
+        "Tuesday - Bench",
+        "Thursday - Bench"
+      ]
+    },
+    {
+      "week": "Week 3",
+      "days": [
+        "Monday - Bench",
+        "Tuesday - Squat",
+        "Thursday - Deadlift"
+      ]
+    }
+  ],
+  "deadliftAccessory": [
+    {
+      "name": "Norwegian Curls",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Goblet Squat",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Hanging Leg Raise",
+      "prescription": "5 x 20"
+    },
+    {
+      "name": "Alternating Lunge",
+      "prescription": "5 x 20"
+    }
+  ],
+  "benchAccessory": [
+    {
+      "name": "Military",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Skull Crushers",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Lat Pulldown",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Assisted Pullups",
+      "prescription": "5 x 10-20"
+    }
+  ],
+  "squatAccessory": [
+    {
+      "name": "Good Mornings",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Bulgarian Split Squats",
+      "prescription": "5 x 10-20"
+    },
+    {
+      "name": "Spiderman Pushups",
+      "prescription": "5 x 15"
+    },
+    {
+      "name": "Assisted Pullups",
+      "prescription": "5 x 10-20"
+    }
+  ]
+}

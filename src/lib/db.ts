@@ -22,6 +22,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  onSnapshot,
   type DocumentReference,
   type DocumentSnapshot,
   type Firestore,
@@ -225,6 +226,152 @@ export function resolveTeamScopes(team?: Team | string | null): Team[] {
 }
 
 const TEAM_SCOPES_STORAGE_KEY = "pl-strength-team-scopes";
+
+const PROGRAM_OUTLINE_STORAGE_KEY = "pl-strength.program-outline";
+const PROGRAM_OUTLINE_COLLECTION = "config";
+const PROGRAM_OUTLINE_DOC_ID = "programOutline";
+
+const programOutlineRef = (database: Firestore) =>
+  doc(database, PROGRAM_OUTLINE_COLLECTION, PROGRAM_OUTLINE_DOC_ID);
+
+export type ProgramOutlineAccessory = {
+  name?: string;
+  prescription?: string;
+};
+
+export type ProgramOutlineRecord = {
+  turfWarmup?: string[];
+  hipMobility?: {
+    note?: string;
+    url?: string;
+    embed?: string;
+  };
+  plyometrics?: string[];
+  plyoDays?: string[];
+  coreWarmup?: string[];
+  liftWeeks?: Array<{
+    week?: string;
+    days?: string[];
+  }>;
+  deadliftAccessory?: ProgramOutlineAccessory[];
+  benchAccessory?: ProgramOutlineAccessory[];
+  squatAccessory?: ProgramOutlineAccessory[];
+  updatedAt?: Timestamp;
+  createdAt?: Timestamp;
+};
+
+const readProgramOutlineFromStorage = (): ProgramOutlineRecord | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PROGRAM_OUTLINE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return parsed as ProgramOutlineRecord;
+    }
+  } catch (err) {
+    console.warn("Failed to read program outline from storage", err);
+  }
+  return null;
+};
+
+const writeProgramOutlineToStorage = (outline: ProgramOutlineRecord | null): void => {
+  if (typeof window === "undefined") return;
+  try {
+    if (!outline) {
+      window.localStorage.removeItem(PROGRAM_OUTLINE_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(PROGRAM_OUTLINE_STORAGE_KEY, JSON.stringify(outline));
+    }
+  } catch (err) {
+    console.warn("Failed to persist program outline locally", err);
+  }
+};
+
+export async function loadProgramOutline(): Promise<ProgramOutlineRecord | null> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    return readProgramOutlineFromStorage();
+  }
+  try {
+    const snapshot = await getDoc(programOutlineRef(database));
+    if (!snapshot.exists()) {
+      return readProgramOutlineFromStorage();
+    }
+    const data = snapshot.data() as ProgramOutlineRecord;
+    writeProgramOutlineToStorage(data);
+    return data;
+  } catch (err) {
+    console.warn("Failed to load program outline", err);
+    return readProgramOutlineFromStorage();
+  }
+}
+
+export async function saveProgramOutline(outline: ProgramOutlineRecord): Promise<void> {
+  writeProgramOutlineToStorage(outline);
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return;
+  try {
+    const payload: Record<string, unknown> = {
+      ...outline,
+      updatedAt: serverTimestamp(),
+    };
+    if (!outline?.createdAt) {
+      payload.createdAt = serverTimestamp();
+    }
+    await setDoc(programOutlineRef(database), payload, { merge: true });
+  } catch (err) {
+    console.warn("Failed to save program outline", err);
+  }
+}
+
+export function subscribeProgramOutline(
+  listener: (outline: ProgramOutlineRecord | null) => void
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    const initial = readProgramOutlineFromStorage();
+    listener(initial);
+    if (typeof window === "undefined") {
+      return () => undefined;
+    }
+    const handler = (event: StorageEvent) => {
+      if (event.key === PROGRAM_OUTLINE_STORAGE_KEY) {
+        listener(readProgramOutlineFromStorage());
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+    };
+  }
+
+  try {
+    return onSnapshot(
+      programOutlineRef(database),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          listener(null);
+          return;
+        }
+        const data = snapshot.data() as ProgramOutlineRecord;
+        writeProgramOutlineToStorage(data);
+        listener(data);
+      },
+      (error) => {
+        console.warn("Program outline subscription error", error);
+        listener(readProgramOutlineFromStorage());
+      }
+    );
+  } catch (err) {
+    console.warn("Failed to subscribe to program outline", err);
+    listener(readProgramOutlineFromStorage());
+    return () => undefined;
+  }
+}
 
 export function getStoredTeamScopes(): Team[] {
   if (typeof window === "undefined") return [];

@@ -176,5 +176,12 @@ service cloud.firestore {
       allow read: if true;  // Anyone can read settings (for welcome page)
       allow create, update, delete: if isCoach() || isAdmin();
     }
+
+    // Global config (program outline, etc.)
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }
