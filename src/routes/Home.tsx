@@ -338,34 +338,35 @@ export default function Home() {
           </div>
         )}
 
-        {/* Athlete View */}
+        {/* Athlete View - Simplified for Mobile */}
         {!isCoach && profile && (
-          <div className="space-y-8">
-            {/* Hero */}
-            <div className="text-center py-2">
-              <h1 className="text-3xl font-bold text-gray-900">
-                Let's Get To Work, {profile.firstName || 'Athlete'}.
+          <div className="space-y-6">
+            {/* Hero - Shorter */}
+            <div className="text-center py-1">
+              <h1 className="text-2xl font-bold text-gray-900">
+                👋 {profile.firstName || 'Athlete'}
               </h1>
-              <p className="text-gray-500 mt-2 text-lg">Select A Lift To Start Your Session.</p>
+              <p className="text-gray-500 mt-1">Tap a lift to start</p>
             </div>
 
-            {/* Lift Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* Lift Cards - BIG BUTTONS for mobile */}
+            <div className="grid gap-3">
               {(['squat', 'bench', 'deadlift'] as Lift[]).map(lift => {
                 const { week, cycle } = getLiftStatus(lift);
-                const liftName = lift === 'bench' ? 'Bench Press' : lift === 'squat' ? 'Back Squat' : 'Deadlift';
-                const liftColor = lift === 'bench' ? 'blue' : lift === 'squat' ? 'brand' : 'purple';
+                const liftName = lift === 'bench' ? 'Bench' : lift === 'squat' ? 'Squat' : 'Deadlift';
                 const hasTm = (profile?.tm?.[lift] ?? 0) > 0;
+                const tmValue = profile?.tm?.[lift] ?? 0;
                 
-                // Dynamic classes based on lift type for visual variety
-                const borderClass = lift === 'bench' ? 'hover:border-blue-300' : lift === 'squat' ? 'hover:border-brand-300' : 'hover:border-purple-300';
-                const bgBadge = lift === 'bench' ? 'bg-blue-50 text-blue-700' : lift === 'squat' ? 'bg-brand-50 text-brand-700' : 'bg-purple-50 text-purple-700';
-                const btnClass = lift === 'bench' ? 'bg-blue-600 hover:bg-blue-700' : lift === 'squat' ? 'bg-brand-600 hover:bg-brand-700' : 'bg-purple-600 hover:bg-purple-700';
+                // Emoji for each lift
+                const liftEmoji = lift === 'bench' ? '🏋️' : lift === 'squat' ? '🦵' : '💪';
+                
+                // Colors per lift
+                const bgClass = lift === 'bench' ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800' : lift === 'squat' ? 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800' : 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800';
 
                 return (
-                  <div 
+                  <button 
                     key={lift} 
-                    className={`card relative overflow-hidden border-2 border-transparent transition-all duration-200 group cursor-pointer shadow-md hover:shadow-xl ${borderClass}`}
+                    className={`w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] ${bgClass}`}
                     onClick={() => {
                       if (hasTm) {
                         navigate('/session', { state: { lift } });
@@ -374,64 +375,79 @@ export default function Home() {
                       }
                     }}
                   >
-                    <div className="absolute -top-6 -right-6 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
-                      <span className="text-9xl font-black uppercase tracking-tighter">{lift[0]}</span>
-                    </div>
-                    
-                    <div className="relative z-10 p-2">
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-2xl font-bold capitalize text-gray-900">{liftName}</h3>
+                    <div className="flex items-center gap-4">
+                      <span className="text-3xl">{liftEmoji}</span>
+                      <div className="text-left">
+                        <div className="text-xl font-bold">{liftName}</div>
+                        {hasTm && (
+                          <div className="text-sm opacity-80">
+                            Week {week} • TM: {tmValue} {profile.unit}
+                          </div>
+                        )}
                       </div>
-                      
-                      <div className="flex items-center gap-3 text-sm mb-6">
-                        <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-semibold">Cycle {cycle}</span>
-                        <span className={`${bgBadge} px-3 py-1 rounded-full font-semibold`}>Week {week}</span>
-                      </div>
-                      
-                      <button className={`w-full py-3 rounded-xl text-white font-bold shadow-sm transition-transform active:scale-95 ${btnClass}`}>
-                        {hasTm ? "Start Session" : "Set Max"}
-                      </button>
                     </div>
-                  </div>
+                    <div className="text-right">
+                      {hasTm ? (
+                        <span className="text-lg">GO →</span>
+                      ) : (
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Set Up</span>
+                      )}
+                    </div>
+                  </button>
                 )
               })}
             </div>
 
-            {/* Cheat Sheet (Collapsible) */}
-            <div className="card bg-gray-50/50 border-gray-200">
-              <details className="group">
-                <summary className="flex items-center justify-between cursor-pointer list-none p-2">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 text-xl">❓</div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800">Decoding The Lingo</h3>
-                      <p className="text-xs text-gray-500">What Do TM, RPE, And 1RM Mean?</p>
-                    </div>
+            {/* Quick Links - only show if TMs are set */}
+            {(profile?.tm?.squat || profile?.tm?.bench || profile?.tm?.deadlift) && (
+              <div className="flex flex-wrap gap-2 justify-center pt-2">
+                <button 
+                  onClick={() => navigate('/progress')}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                >
+                  📊 Progress
+                </button>
+                <button 
+                  onClick={() => navigate('/calculator')}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                >
+                  🧮 Calculator
+                </button>
+                <button 
+                  onClick={() => navigate('/program-outline')}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                >
+                  📋 Daily Lifts
+                </button>
+                <button 
+                  onClick={() => navigate('/exercises')}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                >
+                  🎬 Videos
+                </button>
+              </div>
+            )}
+
+            {/* Cheat Sheet - Hidden by default, moved to bottom */}
+            <details className="group mt-8">
+              <summary className="flex items-center justify-center gap-2 cursor-pointer list-none text-sm text-gray-400 hover:text-gray-600 py-2">
+                <span>❓ What do TM, AMRAP, 1RM mean?</span>
+                <svg className="w-4 h-4 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </summary>
+              <div className="mt-3 grid gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                {ABBREVIATIONS.slice(0, 4).map((item) => (
+                  <div
+                    key={item.code}
+                    className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                  >
+                    <span className="text-base font-bold text-brand-600 min-w-[50px]">
+                      {item.code}
+                    </span>
+                    <span className="text-sm text-gray-600">{item.detail}</span>
                   </div>
-                  <span className="transition-transform duration-200 group-open:rotate-180 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                  </span>
-                </summary>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {ABBREVIATIONS.map((item) => (
-                    <div
-                      key={item.code}
-                      className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm"
-                    >
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-lg font-bold text-brand-700">
-                          {item.code}
-                        </span>
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {item.title}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-600 leading-relaxed">{item.detail}</p>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            </div>
+                ))}
+              </div>
+            </details>
           </div>
         )}
       </div>
