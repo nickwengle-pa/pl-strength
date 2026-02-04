@@ -22,6 +22,7 @@ import CoachTips from "../components/CoachTips";
 import TrendMini from "../components/TrendMini";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PlateCalculatorDisplay } from "../components/PlateMath";
+import { useDevice } from "../lib/device";
 
 type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
@@ -151,6 +152,8 @@ export default function Session() {
   const [warmOutcomes, setWarmOutcomes] = useState<SetOutcome[]>([]);
   const [workOutcomes, setWorkOutcomes] = useState<SetOutcome[]>([]);
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
+  const device = useDevice();
+  const isMobileDevice = device.isMobile || (device.isTouch && !device.isDesktop);
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
   const activeAthleteName = activeAthlete
     ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ") || activeAthlete.uid
@@ -1002,34 +1005,51 @@ export default function Session() {
       </div>
 
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-lg ring-1 ring-gray-100/80 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-gray-900">Let's Train</h1>
-            <p className="text-sm font-semibold text-gray-700">
-              Cycle {cycleNumber} - Week {week} - {theme.name}
-            </p>
-            <p className="text-sm text-gray-600">{theme.focus}</p>
-            <p className="text-xs text-gray-500">{theme.blurb}</p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
-            {heroBadge}
-          </span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {quickStats.map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 shadow-inner"
-            >
-              <div className="text-[11px] uppercase tracking-wide text-gray-500">
-                {stat.label}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-gray-900">
-                {stat.value}
+        {/* Condensed header for mobile in Full mode */}
+        {isMobileDevice ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl font-bold text-gray-900">{liftLabel}</h1>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">C{cycleNumber} W{week}</span>
+                <span className="text-gray-500">TM: {tm ?? '—'} {unit}</span>
+                <span className="text-gray-500">Best: {prevBest > 0 ? `${prevBest}` : '—'} {unit}</span>
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          /* Full header for desktop */
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold text-gray-900">Let's Train</h1>
+                <p className="text-sm font-semibold text-gray-700">
+                  Cycle {cycleNumber} - Week {week} - {theme.name}
+                </p>
+                <p className="text-sm text-gray-600">{theme.focus}</p>
+                <p className="text-xs text-gray-500">{theme.blurb}</p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">
+                {heroBadge}
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {quickStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 shadow-inner"
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                    {stat.label}
+                  </div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900">
+                    {stat.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -1044,26 +1064,36 @@ export default function Session() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {/* Simple/Full Mode Toggle */}
-                <div className="inline-flex items-center rounded-full bg-gray-100 p-1">
+                <div className="inline-flex items-center rounded-full bg-gray-100 p-1" title="Simple = step-by-step, Full = all details">
                   <button
                     onClick={() => sessionMode !== "simple" && toggleSessionMode()}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                    className={`p-2 rounded-full transition-all ${
                       sessionMode === "simple"
                         ? "bg-brand-600 text-white shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
+                        : "text-gray-500 hover:text-gray-900"
                     }`}
+                    title="Simple Mode (Step-by-step)"
                   >
-                    Simple
+                    {/* Phone icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                      <line x1="12" y1="18" x2="12" y2="18"/>
+                    </svg>
                   </button>
                   <button
                     onClick={() => sessionMode !== "full" && toggleSessionMode()}
-                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                    className={`p-2 rounded-full transition-all ${
                       sessionMode === "full"
                         ? "bg-brand-600 text-white shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
+                        : "text-gray-500 hover:text-gray-900"
                     }`}
+                    title="Full Mode (All details)"
                   >
-                    Full
+                    {/* Laptop icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                      <line x1="2" y1="20" x2="22" y2="20"/>
+                    </svg>
                   </button>
                 </div>
                 {targetUid ? (
