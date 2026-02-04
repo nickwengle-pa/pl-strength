@@ -1201,40 +1201,51 @@ export default function Session() {
                 </div>
               </div>
             </div>
-            {/* Visual confirmation of what's being logged */}
-            <div className="rounded-2xl border border-brand-900/40 bg-gradient-to-br from-brand-900 via-slate-950 to-slate-900 p-4 shadow-lg">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="session-now-label text-xs font-semibold uppercase tracking-wide text-sky-200">Now Logging</div>
-                  <div className="text-xl font-bold text-white">
-                    {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
+            {/* Visual confirmation of what's being logged - desktop only */}
+            {!isMobileDevice && (
+              <div className="rounded-2xl border border-brand-900/40 bg-gradient-to-br from-brand-900 via-slate-950 to-slate-900 p-4 shadow-lg">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="session-now-label text-xs font-semibold uppercase tracking-wide text-sky-200">Now Logging</div>
+                    <div className="text-xl font-bold text-white">
+                      {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
+                    </div>
+                    <div className="text-sm text-slate-200">{WEEK_THEMES[week].focus}</div>
                   </div>
-                  <div className="text-sm text-slate-200">{WEEK_THEMES[week].focus}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-black text-white">
-                    {week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-white">
+                      {week === 1 ? "65/75/85" : week === 2 ? "70/80/90" : "75/85/95"}%
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-xs text-gray-600 shadow-inner">
-              <span className="font-semibold text-gray-700">Set Status Legend:</span> S = Completed All Prescribed Reps. F = Stopped Early - Record The Reps Completed.
-            </div>
+            {/* Set Status Legend - desktop only */}
+            {!isMobileDevice && (
+              <div className="rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 text-xs text-gray-600 shadow-inner">
+                <span className="font-semibold text-gray-700">Set Status Legend:</span> S = Completed All Prescribed Reps. F = Stopped Early - Record The Reps Completed.
+              </div>
+            )}
 
             <div className="space-y-4">
-              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-sky-900">Warm-Up Ramp</p>
-                    <p className="text-xs text-sky-800/80">Prime The Groove With Smooth Sets.</p>
+              {/* Warm-Up Sets */}
+              <div className={`rounded-2xl border border-sky-100 bg-sky-50 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-sm`}>
+                {!isMobileDevice && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-sky-900">Warm-Up Ramp</p>
+                      <p className="text-xs text-sky-800/80">Prime The Groove With Smooth Sets.</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+                      Warm-Up
+                    </span>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-700">
-                    Warm-Up
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2">
+                )}
+                {isMobileDevice && (
+                  <div className="text-xs font-semibold text-sky-700 uppercase tracking-wide mb-2">Warm-Up</div>
+                )}
+                <div className={isMobileDevice ? "space-y-1.5" : "space-y-2"}>
                   {warm.map((set, index) => (
                     <SetRow
                       key={`warm-${index}`}
@@ -1248,6 +1259,7 @@ export default function Session() {
                       onActualChange={(value) => setWarmActual(index, value)}
                       onPlateCalc={(w) => setPlateCalcTarget(w)}
                       showActualInput
+                      compact={isMobileDevice}
                     />
                   ))}
                   {warm.length === 0 && (
@@ -1258,22 +1270,28 @@ export default function Session() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-brand-700">Main Work</p>
-                    <p className="text-xs text-brand-600">Own Each Top Set And Log How It Felt.</p>
+              {/* Work Sets */}
+              <div className={`rounded-2xl border border-brand-100 bg-brand-50 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-sm`}>
+                {!isMobileDevice && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-brand-700">Main Work</p>
+                      <p className="text-xs text-brand-600">Own Each Top Set And Log How It Felt.</p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
+                      Work Sets
+                    </span>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-700">
-                    Work Sets
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2">
+                )}
+                {isMobileDevice && (
+                  <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-2">Work Sets</div>
+                )}
+                <div className={isMobileDevice ? "space-y-1.5" : "space-y-2"}>
                   {work.map((set, index) => (
                     <SetRow
                       key={`work-${index}`}
                       phase="Work"
-                      index={index}
+                      index={index + warm.length}
                       set={set}
                       unit={unit}
                       repsLabel={set.repsDisplay}
@@ -1282,6 +1300,7 @@ export default function Session() {
                       onActualChange={(value) => setWorkActual(index, value)}
                       onPlateCalc={(w) => setPlateCalcTarget(w)}
                       showActualInput
+                      compact={isMobileDevice}
                     />
                   ))}
                   {work.length === 0 && (
@@ -1427,6 +1446,7 @@ type SetRowProps = {
   onActualChange: (value: string) => void;
   onPlateCalc: (weight: number) => void;
   showActualInput?: boolean;
+  compact?: boolean;
 };
 
 function SetRow({
@@ -1440,11 +1460,73 @@ function SetRow({
   onActualChange,
   onPlateCalc,
   showActualInput = false,
+  compact = false,
 }: SetRowProps) {
   const status = outcome?.status ?? "";
   const weightLabel =
-    set.weight && Number.isFinite(set.weight) ? `${set.weight} ${unit}` : "-";
+    set.weight && Number.isFinite(set.weight) ? `${set.weight}` : "-";
   const percentLabel = `${Math.round(set.pct * 100)}%`;
+
+  // Compact mobile layout - single row
+  if (compact) {
+    const bgColor = phase === "Work" ? "bg-brand-50" : "bg-sky-50";
+    const borderColor = phase === "Work" ? "border-brand-200" : "border-sky-200";
+    return (
+      <div className={`flex items-center justify-between gap-2 rounded-xl border ${borderColor} ${bgColor} px-3 py-2`}>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-gray-700 w-6">{index + 1}</span>
+          <button
+            type="button"
+            onClick={() => onPlateCalc(set.weight)}
+            className="text-base font-bold text-gray-900 hover:text-brand-600"
+          >
+            {weightLabel} <span className="text-gray-500 font-normal">{unit}</span>
+          </button>
+          <span className="text-sm text-gray-600">× {repsLabel}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onStatusChange(status === "S" ? "" : "S")}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
+              status === "S"
+                ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                : "border-gray-300 bg-white text-gray-400"
+            }`}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => onStatusChange(status === "F" ? "" : "F")}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold transition ${
+              status === "F"
+                ? "border-rose-500 bg-rose-100 text-rose-700"
+                : "border-gray-300 bg-white text-gray-400"
+            }`}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        {showActualInput && status === "F" && (
+          <input
+            className="w-14 rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+            type="number"
+            min={0}
+            value={outcome?.actualReps ?? ""}
+            onChange={(event) => onActualChange(event.target.value)}
+            placeholder="#"
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Full desktop layout
   const accentClass =
     phase === "Work"
       ? "border-l-4 border-brand-300 bg-white shadow-sm"
