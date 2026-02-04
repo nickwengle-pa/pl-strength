@@ -129,7 +129,7 @@ export default function Session() {
   const [cycle, setCycle] = useState<number>(1);
   const [unit, setUnit] = useState<Unit>("lb");
   const [tm, setTm] = useState<number | null>(null);
-  const [mobileMode, setMobileMode] = useState(false);
+  const [sessionMode, setSessionMode] = useState<"simple" | "full">("simple");
   const [sessionSettingsOpen, setSessionSettingsOpen] = useState(false);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [restTimer, setRestTimer] = useState(0);
@@ -199,6 +199,10 @@ export default function Session() {
             setWeek(nextWeek);
             setCycle(nextCycle);
           }
+          // Load saved session mode preference
+          if (p.sessionMode) {
+            setSessionMode(p.sessionMode);
+          }
         } else {
           setProfile(null);
           setUnit("lb");
@@ -221,6 +225,10 @@ export default function Session() {
           if (!liftConfirmed) {
             setWeek(nextWeek);
             setCycle(nextCycle);
+          }
+          // Load saved session mode preference
+          if (p.sessionMode) {
+            setSessionMode(p.sessionMode);
           }
         } else {
           setProfile(null);
@@ -476,6 +484,21 @@ export default function Session() {
     notifyProfileChange();
   };
 
+  // Toggle and save session mode preference
+  const toggleSessionMode = async () => {
+    const newMode = sessionMode === "simple" ? "full" : "simple";
+    setSessionMode(newMode);
+    setCurrentSetIndex(0); // Reset to first set when switching modes
+    
+    // Save to profile so it syncs across devices
+    if (profile) {
+      const updatedProfile: Profile = { ...profile, sessionMode: newMode };
+      await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
+      setProfile(updatedProfile);
+      notifyProfileChange();
+    }
+  };
+
   // Handle week change and save to profile
   const handleWeekChange = async (newWeek: Week) => {
     await persistLiftProgress(newWeek, cycle);
@@ -608,8 +631,8 @@ export default function Session() {
     );
   }
 
-  // Mobile Workout Mode - Full screen simplified UI
-  if (mobileMode && tm) {
+  // Simple Mode - Full screen step-by-step wizard UI
+  if (sessionMode === "simple" && tm) {
     const currentSet = allSets[currentSetIndex];
     const isLastSet = currentSetIndex === allSets.length - 1;
     const isAMRAPSet = currentSet?.phase === 'work' && currentSetIndex === allSets.length - 1;
@@ -653,10 +676,10 @@ export default function Session() {
             <div className="text-lg font-bold">{LIFT_LABELS[lift]}</div>
           </div>
           <button
-            onClick={() => setMobileMode(false)}
+            onClick={toggleSessionMode}
             className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-semibold text-sm"
           >
-            Exit
+            Full View
           </button>
         </div>
 
@@ -814,18 +837,35 @@ export default function Session() {
               </div>
 
               {isLastSet && isAMRAPSet && (
-                <button
-                  onClick={() => {
-                    const reps = prompt('How Many AMRAP Reps Did You Get?');
-                    if (reps) {
-                      setAmrapReps(Number(reps));
-                      setMobileMode(false);
-                    }
-                  }}
-                  className="w-full py-5 bg-yellow-500 hover:bg-yellow-600 rounded-xl font-bold text-xl shadow-lg"
-                >
-                  Log AMRAP & Finish
-                </button>
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <div className="text-sm opacity-80 mb-2">AMRAP Reps Completed</div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
+                        className="w-14 h-14 rounded-full bg-white/20 text-2xl font-bold"
+                      >
+                        −
+                      </button>
+                      <div className="text-6xl font-black w-24 text-center">{amrapReps}</div>
+                      <button
+                        onClick={() => setAmrapReps(prev => prev + 1)}
+                        className="w-14 h-14 rounded-full bg-white/20 text-2xl font-bold"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  {amrapReps > 0 && (
+                    <button
+                      onClick={save}
+                      disabled={saving}
+                      className="w-full py-5 bg-green-500 hover:bg-green-600 disabled:bg-green-400 rounded-xl font-bold text-xl shadow-lg"
+                    >
+                      {saving ? "Saving..." : "✓ Save Session"}
+                    </button>
+                  )}
+                </div>
               )}
             </>
           )}
@@ -1003,22 +1043,29 @@ export default function Session() {
                 <h3 className="text-2xl font-semibold text-gray-900">Let's Train - {liftLabel}</h3>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {tm ? (
+                {/* Simple/Full Mode Toggle */}
+                <div className="inline-flex items-center rounded-full bg-gray-100 p-1">
                   <button
-                    onClick={() => {
-                      setCurrentSetIndex(0);
-                      setMobileMode(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-sm font-bold text-white shadow-lg hover:from-brand-600 hover:to-brand-700"
+                    onClick={() => sessionMode !== "simple" && toggleSessionMode()}
+                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                      sessionMode === "simple"
+                        ? "bg-brand-600 text-white shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
                   >
-                    📱 Mobile Workout Mode
+                    Simple
                   </button>
-                ) : (
-                  <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500">
-                    📱 Mobile Workout Mode
-                    <span className="text-xs">(Set TM First)</span>
-                  </div>
-                )}
+                  <button
+                    onClick={() => sessionMode !== "full" && toggleSessionMode()}
+                    className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                      sessionMode === "full"
+                        ? "bg-brand-600 text-white shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Full
+                  </button>
+                </div>
                 {targetUid ? (
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
                     Viewing {activeAthleteName}

@@ -535,6 +535,7 @@ export type Profile = {
   equipment?: EquipmentSettings;
   currentWeek?: 1 | 2 | 3;
   currentCycle?: number;
+  sessionMode?: "simple" | "full";
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
