@@ -1004,22 +1004,9 @@ export default function Session() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-lg ring-1 ring-gray-100/80 space-y-4">
-        {/* Condensed header for mobile in Full mode */}
-        {isMobileDevice ? (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900">{liftLabel}</h1>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">C{cycleNumber} W{week}</span>
-                <span className="text-gray-500">TM: {tm ?? '—'} {unit}</span>
-                <span className="text-gray-500">Best: {prevBest > 0 ? `${prevBest}` : '—'} {unit}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Full header for desktop */
-          <>
+      <div className={`rounded-3xl border border-gray-100 bg-white p-6 shadow-lg ring-1 ring-gray-100/80 space-y-4 ${isMobileDevice ? 'hidden' : ''}`}>
+        {/* Full header for desktop only */}
+        <>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-1">
                 <h1 className="text-2xl font-semibold text-gray-900">Let's Train</h1>
@@ -1049,35 +1036,74 @@ export default function Session() {
               ))}
             </div>
           </>
-        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
-            <div className="flex flex-col gap-3 border-b border-gray-100 pb-4">
-              <div className="space-y-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-600">
-                  Session Builder
-                </span>
-                <h3 className="text-2xl font-semibold text-gray-900">Let's Train - {liftLabel}</h3>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Simple/Full Mode Toggle */}
-                <div className="inline-flex items-center rounded-full bg-gray-100 p-1" title="Simple = step-by-step, Full = all details">
-                  <button
-                    onClick={() => sessionMode !== "simple" && toggleSessionMode()}
-                    className={`p-2 rounded-full transition-all ${
-                      sessionMode === "simple"
-                        ? "bg-brand-600 text-white shadow-sm"
-                        : "text-gray-500 hover:text-gray-900"
-                    }`}
-                    title="Simple Mode (Step-by-step)"
-                  >
-                    {/* Phone icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-                      <line x1="12" y1="18" x2="12" y2="18"/>
+            <div className={`flex flex-col gap-3 border-b border-gray-100 ${isMobileDevice ? 'pb-3' : 'pb-4'}`}>
+              {/* Mobile: Combined header with lift name, stats, and toggle */}
+              {isMobileDevice ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg font-bold text-gray-900">{liftLabel}</h2>
+                    <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full text-xs font-medium">C{cycleNumber} W{week}</span>
+                    <span className="text-xs text-gray-500">TM:{tm ?? '—'}</span>
+                    <span className="text-xs text-gray-500">Best:{prevBest > 0 ? prevBest : '—'}</span>
+                  </div>
+                  {/* Mobile toggle */}
+                  <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5">
+                    <button
+                      onClick={() => sessionMode !== "simple" && toggleSessionMode()}
+                      className={`p-1.5 rounded-full transition-all ${
+                        sessionMode === "simple" ? "bg-brand-600 text-white shadow-sm" : "text-gray-500"
+                      }`}
+                      title="Simple"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                        <line x1="12" y1="18" x2="12" y2="18"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => sessionMode !== "full" && toggleSessionMode()}
+                      className={`p-1.5 rounded-full transition-all ${
+                        sessionMode === "full" ? "bg-brand-600 text-white shadow-sm" : "text-gray-500"
+                      }`}
+                      title="Full"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="2" y1="20" x2="22" y2="20"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Desktop: Original header */
+                <>
+                  <div className="space-y-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-600">
+                      Session Builder
+                    </span>
+                    <h3 className="text-2xl font-semibold text-gray-900">Let's Train - {liftLabel}</h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Simple/Full Mode Toggle */}
+                    <div className="inline-flex items-center rounded-full bg-gray-100 p-1" title="Simple = step-by-step, Full = all details">
+                      <button
+                        onClick={() => sessionMode !== "simple" && toggleSessionMode()}
+                        className={`p-2 rounded-full transition-all ${
+                          sessionMode === "simple"
+                            ? "bg-brand-600 text-white shadow-sm"
+                            : "text-gray-500 hover:text-gray-900"
+                        }`}
+                        title="Simple Mode (Step-by-step)"
+                      >
+                        {/* Phone icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                          <line x1="12" y1="18" x2="12" y2="18"/>
                     </svg>
                   </button>
                   <button
@@ -1126,7 +1152,9 @@ export default function Session() {
                     <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {sessionSettingsOpen && (
@@ -1312,120 +1340,172 @@ export default function Session() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                  <span className="text-xs uppercase tracking-wide text-amber-700">Last Set AMRAP Reps</span>
-                  <input
-                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                    type="number"
-                    min={0}
-                    value={amrapReps}
-                    onChange={(event) => setAmrapReps(Number(event.target.value) || 0)}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
-                  <span className="text-xs uppercase tracking-wide text-amber-700">Session Notes</span>
-                  <input
-                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="Form Cues, RPE, Reminders"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div
-              className={`rounded-2xl px-4 py-4 text-white shadow-lg ${
-                est ? "bg-gradient-to-r from-emerald-500 to-emerald-600" : "bg-slate-500/90"
-              }`}
-            >
-              <div className="text-xs uppercase tracking-wide text-white/80">Estimated 1RM</div>
-              <div className="text-3xl font-bold">
-                {est ? `${est} ${unit}` : "Log Reps To Calculate"}
-              </div>
-              {prFlag && (
-                <div className="mt-1 text-sm font-medium text-white">
-                  New PR Unlocked! Record It Before You Forget.
+            {/* Mobile: Combined AMRAP + Save Section */}
+            {isMobileDevice ? (
+              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-4 shadow-lg space-y-4">
+                <div className="text-center">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Last Set AMRAP</div>
+                  <div className="text-sm text-amber-800 mb-3">How many reps did you get on your final set?</div>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
+                      className="w-12 h-12 rounded-full bg-white border-2 border-amber-300 text-2xl font-bold text-amber-700 shadow-sm active:scale-95"
+                    >
+                      −
+                    </button>
+                    <div className="text-5xl font-black text-amber-900 w-20 text-center">{amrapReps}</div>
+                    <button
+                      onClick={() => setAmrapReps(prev => prev + 1)}
+                      className="w-12 h-12 rounded-full bg-white border-2 border-amber-300 text-2xl font-bold text-amber-700 shadow-sm active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <button
-              className="btn btn-primary w-full justify-center py-3 text-base"
-              onClick={save}
-              disabled={saving || !tm || amrapReps <= 0}
-            >
-              {saving ? "Saving..." : "Save Session"}
-            </button>
-          </div>
-        </div>
-
-        <div className="card space-y-5 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Sessions</h3>
-            <span className="text-xs uppercase tracking-wide text-gray-400">{liftLabel}</span>
-          </div>
-          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
-            <TrendMini values={estSeries} unit={unit} />
-          </div>
-          <ul className="space-y-3 text-sm text-gray-700">
-            {history.slice(-5).map((session, index) => {
-              const weekColors: Record<number, string> = {
-                1: "bg-blue-100 text-blue-700 border-blue-200",
-                2: "bg-emerald-100 text-emerald-700 border-emerald-200",
-                3: "bg-amber-100 text-amber-700 border-amber-200",
-              };
-              const cycleLabel = session.cycle ?? 1;
-              return (
-                <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
-                        C{cycleLabel} W{session.week}
-                      </span>
-                      <span className="font-semibold text-gray-900">
-                        {session.est1rm
-                          ? `est1RM ${roundToPlate(
-                              session.est1rm,
-                              session.unit,
-                              session.unit === "lb" ? 5 : 2.5
-                            )} ${session.unit}`
-                          : "Logged"}
-                      </span>
+                
+                {amrapReps > 0 && (
+                  <div className={`rounded-xl p-3 text-center ${est ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
+                    <div className="text-xs uppercase tracking-wide opacity-80">Est. 1RM</div>
+                    <div className="text-2xl font-bold">
+                      {est ? `${est} ${unit}` : "—"}
+                      {prFlag && <span className="ml-2 text-yellow-300">🏆 PR!</span>}
                     </div>
-                    {session.pr ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                        PR
-                      </span>
-                    ) : null}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
+                )}
+
+                <button
+                  className="w-full py-4 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all"
+                  onClick={save}
+                  disabled={saving || !tm || amrapReps <= 0}
+                >
+                  {saving ? "Saving..." : amrapReps > 0 ? "✓ Save Session" : "Enter Reps Above"}
+                </button>
+              </div>
+            ) : (
+              /* Desktop: Original separate sections */
+              <>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                      <span className="text-xs uppercase tracking-wide text-amber-700">Last Set AMRAP Reps</span>
+                      <input
+                        className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-amber-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        type="number"
+                        min={0}
+                        value={amrapReps}
+                        onChange={(event) => setAmrapReps(Number(event.target.value) || 0)}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-sm font-medium text-amber-900">
+                      <span className="text-xs uppercase tracking-wide text-amber-700">Session Notes</span>
+                      <input
+                        className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        value={note}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder="Form Cues, RPE, Reminders"
+                      />
+                    </label>
                   </div>
-                </li>
-              );
-            })}
-            {history.length === 0 && (
-              <li className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500">
-                Log Your First Session To See Trends Here.
-              </li>
+                </div>
+
+                <div
+                  className={`rounded-2xl px-4 py-4 text-white shadow-lg ${
+                    est ? "bg-gradient-to-r from-emerald-500 to-emerald-600" : "bg-slate-500/90"
+                  }`}
+                >
+                  <div className="text-xs uppercase tracking-wide text-white/80">Estimated 1RM</div>
+                  <div className="text-3xl font-bold">
+                    {est ? `${est} ${unit}` : "Log Reps To Calculate"}
+                  </div>
+                  {prFlag && (
+                    <div className="mt-1 text-sm font-medium text-white">
+                      New PR Unlocked! Record It Before You Forget.
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  className="btn btn-primary w-full justify-center py-3 text-base"
+                  onClick={save}
+                  disabled={saving || !tm || amrapReps <= 0}
+                >
+                  {saving ? "Saving..." : "Save Session"}
+                </button>
+              </>
             )}
-          </ul>
+          </div>
         </div>
+
+        {/* Recent Sessions - desktop only */}
+        {!isMobileDevice && (
+          <div className="card space-y-5 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Sessions</h3>
+              <span className="text-xs uppercase tracking-wide text-gray-400">{liftLabel}</span>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+              <TrendMini values={estSeries} unit={unit} />
+            </div>
+            <ul className="space-y-3 text-sm text-gray-700">
+              {history.slice(-5).map((session, index) => {
+                const weekColors: Record<number, string> = {
+                  1: "bg-blue-100 text-blue-700 border-blue-200",
+                  2: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                  3: "bg-amber-100 text-amber-700 border-amber-200",
+                };
+                const cycleLabel = session.cycle ?? 1;
+                return (
+                  <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
+                          C{cycleLabel} W{session.week}
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {session.est1rm
+                            ? `est1RM ${roundToPlate(
+                                session.est1rm,
+                                session.unit,
+                                session.unit === "lb" ? 5 : 2.5
+                              )} ${session.unit}`
+                            : "Logged"}
+                        </span>
+                      </div>
+                      {session.pr ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                          PR
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
+                    </div>
+                  </li>
+                );
+              })}
+              {history.length === 0 && (
+                <li className="rounded-2xl border border-dashed border-gray-300 px-3 py-3 text-sm text-gray-500">
+                  Log Your First Session To See Trends Here.
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
 
-      <CoachTips
-        week={week}
-        amrapReps={amrapReps}
-        unit={unit}
-        tm={tm}
-        est1rm={est}
-        prevBest={prevBest}
-        lastWeight={lastWorkWeight || 0}
-        lift={lift}
-      />
+      {/* Coach Tips - desktop only */}
+      {!isMobileDevice && (
+        <CoachTips
+          week={week}
+          amrapReps={amrapReps}
+          unit={unit}
+          tm={tm}
+          est1rm={est}
+          prevBest={prevBest}
+          lastWeight={lastWorkWeight || 0}
+          lift={lift}
+        />
+      )}
     </div>
   );
 
@@ -1471,18 +1551,19 @@ function SetRow({
   if (compact) {
     const bgColor = phase === "Work" ? "bg-brand-50" : "bg-sky-50";
     const borderColor = phase === "Work" ? "border-brand-200" : "border-sky-200";
+    const textColor = phase === "Work" ? "text-brand-900" : "text-sky-900";
     return (
       <div className={`flex items-center justify-between gap-2 rounded-xl border ${borderColor} ${bgColor} px-3 py-2`}>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-gray-700 w-6">{index + 1}</span>
+          <span className={`text-sm font-bold ${textColor} w-6`}>{index + 1}</span>
           <button
             type="button"
             onClick={() => onPlateCalc(set.weight)}
-            className="text-base font-bold text-gray-900 hover:text-brand-600"
+            className={`text-base font-bold ${textColor} hover:text-brand-600`}
           >
-            {weightLabel} <span className="text-gray-500 font-normal">{unit}</span>
+            {weightLabel} <span className={`${phase === "Work" ? "text-brand-700" : "text-sky-700"} font-normal`}>{unit}</span>
           </button>
-          <span className="text-sm text-gray-600">× {repsLabel}</span>
+          <span className={`text-sm font-medium ${phase === "Work" ? "text-brand-700" : "text-sky-700"}`}>× {repsLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <button

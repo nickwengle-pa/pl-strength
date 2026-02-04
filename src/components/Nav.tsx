@@ -19,16 +19,23 @@ import {
   getFeaturedQuote,
   clearFeaturedQuote,
   syncLocalSessionsToFirebase,
+  defaultEquipment,
+  normalizeEquipment,
+  saveProfile,
   type Team,
   type CustomQuote,
   type FeaturedQuote,
+  type EquipmentSettings,
+  type BarOption,
+  type Profile,
+  type Unit,
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 
 type Status = "checking" | "connected" | "offline" | "syncing";
 type Theme = "light" | "dark";
-type SettingsTab = "general" | "quotes";
+type SettingsTab = "general" | "quotes" | "equipment";
 
 const THEME_STORAGE_KEY = "pl-strength-theme";
 
@@ -78,6 +85,16 @@ export default function Nav() {
   const [newQuoteAuthor, setNewQuoteAuthor] = useState("");
   const [savingQuote, setSavingQuote] = useState(false);
   const [todaysFeatured, setTodaysFeatured] = useState<FeaturedQuote | null>(null);
+
+  // Equipment management state
+  const [equipmentProfile, setEquipmentProfile] = useState<Profile | null>(null);
+  const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
+  const [equipmentUnit, setEquipmentUnit] = useState<Unit>("lb");
+  const [equipmentDirty, setEquipmentDirty] = useState(false);
+  const [equipmentSaving, setEquipmentSaving] = useState(false);
+  const [newPlateWeight, setNewPlateWeight] = useState("");
+  const [newBarLabel, setNewBarLabel] = useState("");
+  const [newBarWeight, setNewBarWeight] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -349,6 +366,8 @@ export default function Nav() {
 
   const baseLinks = coach ? coachLinks : athleteLinks;
   const links = baseLinks;
+  // For mobile, filter out Calculator (shown as icon instead)
+  const mobileLinks = baseLinks.filter(l => l.to !== "/calculator");
 
   const isMobile = device.isMobile || (device.isTouch && !device.isDesktop);
 
@@ -448,6 +467,116 @@ export default function Nav() {
     }
   };
 
+  // Load equipment when equipment tab is opened
+  useEffect(() => {
+    if (!settingsOpen || settingsTab !== "equipment") return;
+    let active = true;
+    
+    loadProfileRemote()
+      .then((profile) => {
+        if (!active) return;
+        if (profile) {
+          setEquipmentProfile(profile);
+          const normalizedEquip = normalizeEquipment(profile.equipment as EquipmentSettings | undefined);
+          setEquipment(normalizedEquip);
+          setEquipmentUnit((profile.unit as Unit) || "lb");
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.warn("Failed to load equipment profile", err);
+      });
+    
+    return () => { active = false; };
+  }, [settingsOpen, settingsTab]);
+
+  // Equipment handlers
+  const formatNumber = (value: number, digits = 2): string => {
+    const fixed = value.toFixed(digits);
+    return Number(fixed).toString();
+  };
+
+  const parseNumeric = (value: string): number | "" => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const num = Number(trimmed);
+    return Number.isFinite(num) && num >= 0 ? num : "";
+  };
+
+  const applyEquipmentUpdate = (fn: (prev: EquipmentSettings) => EquipmentSettings) => {
+    setEquipment((prev) => {
+      const next = normalizeEquipment(fn(prev));
+      setEquipmentDirty(true);
+      return next;
+    });
+  };
+
+  const handleAddPlate = () => {
+    const parsed = parseNumeric(newPlateWeight);
+    if (typeof parsed !== "number" || parsed <= 0) return;
+    applyEquipmentUpdate((prev) => {
+      const current = prev.plates[equipmentUnit] ?? [];
+      return { ...prev, plates: { ...prev.plates, [equipmentUnit]: [...current, parsed] } };
+    });
+    setNewPlateWeight("");
+  };
+
+  const handleRemovePlate = (weight: number) => {
+    applyEquipmentUpdate((prev) => {
+      const current = prev.plates[equipmentUnit] ?? [];
+      const nextList = current.filter((v) => Math.abs(v - weight) > 1e-6);
+      return { ...prev, plates: { ...prev.plates, [equipmentUnit]: nextList } };
+    });
+  };
+
+  const handleAddBar = () => {
+    const parsedWeight = parseNumeric(newBarWeight);
+    if (typeof parsedWeight !== "number" || parsedWeight <= 0) return;
+    const label = newBarLabel.trim() || `${formatNumber(parsedWeight)} ${equipmentUnit} bar`;
+    applyEquipmentUpdate((prev) => {
+      const current = prev.bars[equipmentUnit] ?? [];
+      return { ...prev, bars: { ...prev.bars, [equipmentUnit]: [...current, { id: "", label, weight: parsedWeight }] } };
+    });
+    setNewBarLabel("");
+    setNewBarWeight("");
+  };
+
+  const handleRemoveBar = (id: string) => {
+    applyEquipmentUpdate((prev) => {
+      const current = prev.bars[equipmentUnit] ?? [];
+      const nextList = current.filter((bar) => bar.id !== id);
+      const wasActive = prev.activeBarId[equipmentUnit] === id;
+      return {
+        ...prev,
+        bars: { ...prev.bars, [equipmentUnit]: nextList },
+        activeBarId: { ...prev.activeBarId, [equipmentUnit]: wasActive ? nextList[0]?.id ?? null : prev.activeBarId[equipmentUnit] },
+      };
+    });
+  };
+
+  const handleSelectBar = (id: string) => {
+    applyEquipmentUpdate((prev) => ({ ...prev, activeBarId: { ...prev.activeBarId, [equipmentUnit]: id } }));
+  };
+
+  const handleResetEquipment = () => {
+    applyEquipmentUpdate(() => defaultEquipment());
+  };
+
+  const persistEquipmentChanges = async () => {
+    if (!equipmentProfile) return;
+    setEquipmentSaving(true);
+    const nextProfile: Profile = { ...equipmentProfile, equipment };
+    try {
+      await saveProfile(nextProfile);
+      setEquipmentProfile(nextProfile);
+      setEquipmentDirty(false);
+    } catch (err) {
+      console.warn("Failed to save equipment", err);
+    } finally {
+      setEquipmentSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!isMobile) {
       setMenuOpen(false);
@@ -519,7 +648,7 @@ export default function Nav() {
         aria-checked={isDark}
         aria-label="Toggle Dark Mode"
       >
-        <span className={labelClass}>Theme</span>
+        <span className={labelClass}>{isDark ? "🌙 Dark" : "☀️ Light"}</span>
         <span className={trackClass}>
           <span className={knobClass} />
         </span>
@@ -599,20 +728,20 @@ export default function Nav() {
                 </button>
               </div>
 
-              {/* Tab Navigation (only show if coach) */}
-              {coach && (
-                <div className="flex border-b border-gray-200">
-                  <button
-                    type="button"
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition ${
-                      settingsTab === "general"
-                        ? "border-b-2 border-brand-600 text-brand-700"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                    onClick={() => setSettingsTab("general")}
-                  >
-                    General
-                  </button>
+              {/* Tab Navigation */}
+              <div className="flex border-b border-gray-200">
+                <button
+                  type="button"
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition ${
+                    settingsTab === "general"
+                      ? "border-b-2 border-brand-600 text-brand-700"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  onClick={() => setSettingsTab("general")}
+                >
+                  General
+                </button>
+                {coach && (
                   <button
                     type="button"
                     className={`flex-1 px-4 py-2 text-sm font-medium transition ${
@@ -624,8 +753,19 @@ export default function Nav() {
                   >
                     Quotes
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  type="button"
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition ${
+                    settingsTab === "equipment"
+                      ? "border-b-2 border-brand-600 text-brand-700"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  onClick={() => setSettingsTab("equipment")}
+                >
+                  Equipment
+                </button>
+              </div>
 
               <div className="max-h-[calc(100vh-10rem)] overflow-y-auto px-4 py-4">
                 {settingsTab === "general" ? (
@@ -666,7 +806,7 @@ export default function Nav() {
                       {renderThemeToggle("mobile")}
                     </div>
                   </div>
-                ) : (
+                ) : settingsTab === "quotes" ? (
                   /* Quotes Tab */
                   <div className="space-y-4">
                     <div className="text-xs text-gray-500">
@@ -807,7 +947,175 @@ export default function Nav() {
                       </div>
                     </div>
                   </div>
-                )}
+                ) : settingsTab === "equipment" ? (
+                  <div className="space-y-6">
+                    {/* Unit Toggle */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Units</span>
+                      <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                        <button
+                          type="button"
+                          className={`px-4 py-1.5 text-sm font-medium transition ${
+                            equipmentUnit === "lb"
+                              ? "bg-brand-600 text-white"
+                              : "bg-white text-gray-600 hover:bg-gray-50"
+                          }`}
+                          onClick={() => setEquipmentUnit("lb")}
+                        >
+                          lb
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-4 py-1.5 text-sm font-medium transition ${
+                            equipmentUnit === "kg"
+                              ? "bg-brand-600 text-white"
+                              : "bg-white text-gray-600 hover:bg-gray-50"
+                          }`}
+                          onClick={() => setEquipmentUnit("kg")}
+                        >
+                          kg
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Plates Section */}
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Plates ({equipmentUnit})
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(equipment.plates[equipmentUnit] ?? []).map((w, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700"
+                          >
+                            {formatNumber(w)}
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePlate(w)}
+                              className="ml-1 text-gray-400 hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={newPlateWeight}
+                          onChange={(e) => setNewPlateWeight(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddPlate()}
+                          placeholder={`Add plate (${equipmentUnit})`}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddPlate}
+                          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Bars Section */}
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Bars ({equipmentUnit})
+                      </div>
+                      <div className="space-y-2">
+                        {(equipment.bars[equipmentUnit] ?? []).map((bar) => (
+                          <div
+                            key={bar.id}
+                            className={`flex items-center justify-between rounded-lg border p-3 transition cursor-pointer ${
+                              equipment.activeBarId[equipmentUnit] === bar.id
+                                ? "border-brand-400 bg-brand-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                            onClick={() => handleSelectBar(bar.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                  equipment.activeBarId[equipmentUnit] === bar.id
+                                    ? "border-brand-600"
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                {equipment.activeBarId[equipmentUnit] === bar.id && (
+                                  <div className="w-2 h-2 rounded-full bg-brand-600" />
+                                )}
+                              </div>
+                              <span className="font-medium text-gray-700">{bar.label}</span>
+                              <span className="text-sm text-gray-500">
+                                {formatNumber(bar.weight)} {equipmentUnit}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveBar(bar.id);
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newBarLabel}
+                          onChange={(e) => setNewBarLabel(e.target.value)}
+                          placeholder="Bar name (optional)"
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                        />
+                        <input
+                          type="number"
+                          value={newBarWeight}
+                          onChange={(e) => setNewBarWeight(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddBar()}
+                          placeholder={`Weight (${equipmentUnit})`}
+                          className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddBar}
+                          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={handleResetEquipment}
+                        className="text-sm text-gray-500 hover:text-gray-700 transition"
+                      >
+                        Reset to Defaults
+                      </button>
+                      <div className="flex-1" />
+                      {equipmentDirty && (
+                        <button
+                          type="button"
+                          onClick={persistEquipmentChanges}
+                          disabled={equipmentSaving}
+                          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 transition"
+                        >
+                          {equipmentSaving ? "Saving..." : "Save Changes"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>,
@@ -937,10 +1245,35 @@ export default function Nav() {
         >
           <div className="container pb-3">
             <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-soft">
-              <div>{renderStatusIndicator()}</div>
+              {/* Quick actions row with Calculator and Equipment icons */}
+              <div className="flex items-center justify-between">
+                <div>{renderStatusIndicator()}</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      setSettingsTab("equipment");
+                      setSettingsOpen(true);
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-100 hover:text-brand-700 transition-colors"
+                  >
+                    <span className="text-lg">🏋️</span>
+                    <span>Gear</span>
+                  </button>
+                  <NavLink
+                    to="/calculator"
+                    onClick={closeMenu}
+                    className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-brand-100 hover:text-brand-700 transition-colors"
+                  >
+                    <span className="text-lg">🧮</span>
+                    <span>Calc</span>
+                  </NavLink>
+                </div>
+              </div>
               {renderTeamPicker("mobile")}
               <nav className="space-y-2">
-                {links.map(({ to, label }) => (
+                {mobileLinks.map(({ to, label }) => (
                   <NavLink
                     key={to}
                     to={to}

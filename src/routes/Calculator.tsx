@@ -59,13 +59,6 @@ export default function Calculator() {
   const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
   const [targetWeight, setTargetWeight] = useState<number | "">("");
   const [targetLocked, setTargetLocked] = useState(false);
-  const [equipmentDirty, setEquipmentDirty] = useState(false);
-  const [equipmentSaving, setEquipmentSaving] = useState(false);
-  const [equipmentMessage, setEquipmentMessage] = useState<string | null>(null);
-  const [manageEquipment, setManageEquipment] = useState(false);
-  const [newPlateWeight, setNewPlateWeight] = useState("");
-  const [newBarLabel, setNewBarLabel] = useState("");
-  const [newBarWeight, setNewBarWeight] = useState("");
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
@@ -97,9 +90,6 @@ export default function Calculator() {
   useEffect(() => {
     let active = true;
     (async () => {
-      setEquipmentMessage(null);
-      setEquipmentDirty(false);
-      setManageEquipment(false);
       if (targetUid) {
         try {
           await ensureAnon();
@@ -314,12 +304,6 @@ export default function Calculator() {
     }
   }, [trainingMax, targetLocked]);
 
-  useEffect(() => {
-    if (!equipmentMessage) return;
-    const timer = window.setTimeout(() => setEquipmentMessage(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [equipmentMessage]);
-
   function handleUnitChange(next: Unit) {
     const step = defaultStep(next);
     setUnit(next);
@@ -371,108 +355,23 @@ export default function Calculator() {
       );
       return next;
     });
-    setEquipmentDirty(true);
   };
 
-  const handleSelectBar = (id: string) => {
+  const handleSelectBar = async (id: string) => {
     applyEquipmentUpdate((prev) => ({
       ...prev,
       activeBarId: { ...prev.activeBarId, [unit]: id },
     }));
-  };
-
-  const handleAddPlate = () => {
-    const parsed = parseNumeric(newPlateWeight);
-    if (typeof parsed !== "number" || parsed <= 0) return;
-    applyEquipmentUpdate((prev) => {
-      const current = prev.plates[unit] ?? [];
-      return {
-        ...prev,
-        plates: { ...prev.plates, [unit]: [...current, parsed] },
-      };
-    });
-    setNewPlateWeight("");
-  };
-
-  const handleRemovePlate = (weight: number) => {
-    applyEquipmentUpdate((prev) => {
-      const current = prev.plates[unit] ?? [];
-      const nextList = current.filter(
-        (value) => Math.abs(value - weight) > 1e-6
-      );
-      return {
-        ...prev,
-        plates: { ...prev.plates, [unit]: nextList },
-      };
-    });
-  };
-
-  const handleAddBar = () => {
-    const parsedWeight = parseNumeric(newBarWeight);
-    if (typeof parsedWeight !== "number" || parsedWeight <= 0) return;
-    const label =
-      newBarLabel.trim() || `${formatNumber(parsedWeight)} ${unit} bar`;
-    applyEquipmentUpdate((prev) => {
-      const current = prev.bars[unit] ?? [];
-      return {
-        ...prev,
-        bars: {
-          ...prev.bars,
-          [unit]: [...current, { id: "", label, weight: parsedWeight }],
-        },
-      };
-    });
-    setNewBarLabel("");
-    setNewBarWeight("");
-  };
-
-  const handleRemoveBar = (id: string) => {
-    applyEquipmentUpdate((prev) => {
-      const current = prev.bars[unit] ?? [];
-      const nextList = current.filter((bar) => bar.id !== id);
-      const wasActive = prev.activeBarId[unit] === id;
-      return {
-        ...prev,
-        bars: { ...prev.bars, [unit]: nextList },
-        activeBarId: {
-          ...prev.activeBarId,
-          [unit]: wasActive ? nextList[0]?.id ?? null : prev.activeBarId[unit],
-        },
-      };
-    });
-  };
-
-  const handleResetEquipment = () => {
-    applyEquipmentUpdate(() => defaultEquipment());
-  };
-
-  const persistEquipmentChanges = async () => {
-    if (!profile) return;
-    setEquipmentSaving(true);
-    const nextProfile: Profile = { ...profile, equipment };
-    try {
-      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
-      setProfile(nextProfile);
-      setEquipmentDirty(false);
-      setEquipmentMessage("Equipment saved.");
-    } catch (err) {
-      console.warn("Failed to save equipment", err);
-      setEquipmentMessage("Could not save equipment right now.");
-    } finally {
-      setEquipmentSaving(false);
-    }
-  };
-
-  const toggleManageState = () => {
-    setManageEquipment((prev) => {
-      const next = !prev;
-      if (!next) {
-        setNewPlateWeight("");
-        setNewBarLabel("");
-        setNewBarWeight("");
+    // Persist bar selection to profile
+    if (profile) {
+      const nextEquipment = { ...equipment, activeBarId: { ...equipment.activeBarId, [unit]: id } };
+      const nextProfile = { ...profile, equipment: nextEquipment };
+      try {
+        await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
+      } catch (err) {
+        console.warn("Failed to persist bar selection", err);
       }
-      return next;
-    });
+    }
   };
 
   async function handleSave() {
@@ -724,187 +623,6 @@ export default function Calculator() {
               </button>
             )}
           </div>
-          </div>
-
-          <div className="card space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Equipment</h2>
-              <button
-                type="button"
-                className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                onClick={toggleManageState}
-              >
-                {manageEquipment ? "Done" : "Manage"}
-              </button>
-            </div>
-
-            <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="space-y-4">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-gray-500">
-                    Plates ({unit})
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {platesForUnit.length ? (
-                      platesForUnit.map((weight) => {
-                        const key = weight.toFixed(3);
-                        const active = platesUsedKeys.has(key);
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            className={`rounded-full border px-3 py-1 text-sm font-medium transition ${
-                              active
-                                ? "border-brand-400 bg-brand-50 text-brand-700"
-                                : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                            }`}
-                            onClick={() => {
-                              if (manageEquipment) handleRemovePlate(weight);
-                            }}
-                            title={
-                              manageEquipment ? "Remove Plate Size" : undefined
-                            }
-                          >
-                            {formatNumber(weight)} {unit}
-                            {manageEquipment && (
-                              <span className="ml-2 text-xs text-gray-400">
-                                ×
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <span className="text-xs text-gray-400">
-                        No Plates Listed Yet.
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-gray-500">
-                    Bars ({unit})
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {barOptions.length ? (
-                      barOptions.map((bar) => {
-                        const isActive = bar.id === activeBarId;
-                        return (
-                          <button
-                            key={bar.id}
-                            type="button"
-                            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium transition ${
-                              isActive
-                                ? "border-brand-400 bg-brand-50 text-brand-700"
-                                : "border-gray-200 text-gray-600 hover:border-brand-200 hover:text-brand-700"
-                            }`}
-                            onClick={() => handleSelectBar(bar.id)}
-                          >
-                            <span>{bar.label}</span>
-                            <span className="text-xs text-gray-500">
-                              ({formatNumber(bar.weight)} {unit})
-                            </span>
-                            {manageEquipment && (
-                              <span
-                                className="ml-1 text-xs text-gray-400 hover:text-rose-500"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleRemoveBar(bar.id);
-                                }}
-                              >
-                                ×
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <span className="text-xs text-gray-400">
-                        No Bars Saved Yet.
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {manageEquipment && (
-                  <div className="space-y-4 border-t border-dashed border-gray-300 pt-4">
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Add Plate ({unit})</span>
-                        <input
-                          className="field"
-                          inputMode="decimal"
-                          value={newPlateWeight}
-                          onChange={(e) => setNewPlateWeight(e.target.value)}
-                          placeholder={unit === "lb" ? "2.5" : "1.25"}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn px-3 py-2 text-sm"
-                        onClick={handleAddPlate}
-                        disabled={newPlateWeight.trim() === ""}
-                      >
-                        Add Plate
-                      </button>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Bar Label</span>
-                        <input
-                          className="field"
-                          value={newBarLabel}
-                          onChange={(e) => setNewBarLabel(e.target.value)}
-                          placeholder="Standard"
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                        <span>Bar Weight ({unit})</span>
-                        <input
-                          className="field"
-                          inputMode="decimal"
-                          value={newBarWeight}
-                          onChange={(e) => setNewBarWeight(e.target.value)}
-                          placeholder={unit === "lb" ? "45" : "20"}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn px-3 py-2 text-sm"
-                        onClick={handleAddBar}
-                        disabled={newBarWeight.trim() === ""}
-                      >
-                        Add Bar
-                      </button>
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                        onClick={handleResetEquipment}
-                      >
-                        Reset To Defaults
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 border-t border-gray-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                  {equipmentMessage && (
-                    <div className="text-xs text-gray-600">{equipmentMessage}</div>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-primary px-4 py-2 text-sm"
-                    onClick={persistEquipmentChanges}
-                    disabled={equipmentSaving || !equipmentDirty}
-                  >
-                    {equipmentSaving ? "Saving..." : "Save Equipment"}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

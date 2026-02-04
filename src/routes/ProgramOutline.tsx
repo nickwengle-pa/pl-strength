@@ -7,8 +7,12 @@ import {
   loadProgramOutline,
   saveProgramOutline,
   subscribeProgramOutline,
+  loadProfileRemote,
+  saveProfile,
   type ProgramOutlineRecord,
+  type Profile,
 } from "../lib/db";
+import { useDevice } from "../lib/device";
 
 const TURF_WARMUP = [
   "Jog in place 3-4 minutes",
@@ -449,18 +453,24 @@ export default function ProgramOutline() {
   const [library, setLibrary] = useState<OutlineLibrary>(() =>
     mergeLibrary(loadStoredLibrary(), loadStoredOutline())
   );
+  const [viewMode, setViewMode] = useState<"simple" | "full">("simple");
+  const [profile, setProfile] = useState<Profile | null>(null);
   const pendingRemoteRef = React.useRef<ProgramOutlineData | null>(null);
   const editModeRef = React.useRef(editMode);
+  
+  const device = useDevice();
+  const isMobileDevice = device.isMobile || (device.isTouch && !device.isDesktop);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         await ensureAnon();
-        const [outlineRecord, coachFlag, adminFlag] = await Promise.all([
+        const [outlineRecord, coachFlag, adminFlag, loadedProfile] = await Promise.all([
           loadProgramOutline(),
           isCoach(),
           isAdmin(),
+          loadProfileRemote(),
         ]);
         if (!active) return;
         const nextOutline = recordToOutline(outlineRecord);
@@ -468,6 +478,13 @@ export default function ProgramOutline() {
         setLibrary((current) => mergeLibrary(current, nextOutline));
         setCoach(coachFlag || adminFlag);
         setAdmin(adminFlag);
+        if (loadedProfile) {
+          setProfile(loadedProfile);
+          // Use outlineViewMode from profile if set, otherwise default to simple for mobile
+          if (loadedProfile.outlineViewMode) {
+            setViewMode(loadedProfile.outlineViewMode);
+          }
+        }
       } catch (err) {
         if (!active) return;
         console.warn("Failed to load coach/admin status", err);
@@ -551,18 +568,104 @@ export default function ProgramOutline() {
     });
   };
 
+  const toggleViewMode = async () => {
+    const newMode = viewMode === "simple" ? "full" : "simple";
+    setViewMode(newMode);
+    // Save to profile
+    if (profile) {
+      const updated = { ...profile, outlineViewMode: newMode };
+      setProfile(updated);
+      try {
+        await saveProfile(updated);
+      } catch (err) {
+        console.warn("Failed to save view mode preference", err);
+      }
+    }
+  };
+
+  // Determine today's lift based on day of week
+  const getTodayInfo = () => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const today = days[new Date().getDay()];
+    
+    // Look through liftWeeks to find today's lift
+    // Default to week 1 pattern, but this could be enhanced to track actual week
+    const weekData = outline.liftWeeks[0]; // Week 1 pattern
+    const todayLift = weekData?.days.find(d => d.toLowerCase().includes(today.toLowerCase()));
+    
+    // Find plyo for today
+    const todayPlyo = outline.plyoDays.find(p => p.toLowerCase().includes(today.toLowerCase()));
+    
+    // Determine which accessory set to show
+    let accessories: AccessoryItem[] = [];
+    let liftType = "";
+    if (todayLift) {
+      const liftLower = todayLift.toLowerCase();
+      if (liftLower.includes("squat")) {
+        accessories = outline.squatAccessory;
+        liftType = "Squat";
+      } else if (liftLower.includes("bench")) {
+        accessories = outline.benchAccessory;
+        liftType = "Bench";
+      } else if (liftLower.includes("deadlift")) {
+        accessories = outline.deadliftAccessory;
+        liftType = "Deadlift";
+      }
+    }
+    
+    return { today, todayLift, todayPlyo, accessories, liftType };
+  };
+
+  const { today, todayLift, todayPlyo, accessories, liftType } = getTodayInfo();
+
+  // Get YouTube URL for hip mobility
+  const hipMobilityUrl = outline.hipMobility.url.trim() || outline.hipMobility.embed.trim();
+
   return (
     <div className="container py-6 space-y-6">
+      {/* Header with toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Daily Lifts</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Reference This Outline For Warmups, Plyos, And Accessories During Daily Planning.
-          </p>
-        </div>
+        {isMobileDevice && viewMode === "simple" ? (
+          <h1 className="text-xl font-bold">📋 Daily Lifts</h1>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-semibold">Daily Lifts</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Reference This Outline For Warmups, Plyos, And Accessories During Daily Planning.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
-          {admin && (
+          {/* View Mode Toggle */}
+          <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5">
+            <button
+              onClick={() => viewMode !== "simple" && toggleViewMode()}
+              className={`p-1.5 rounded-full transition-all ${
+                viewMode === "simple" ? "bg-brand-600 text-white shadow-sm" : "text-gray-500"
+              }`}
+              title="Simple View"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                <line x1="12" y1="18" x2="12" y2="18"/>
+              </svg>
+            </button>
+            <button
+              onClick={() => viewMode !== "full" && toggleViewMode()}
+              className={`p-1.5 rounded-full transition-all ${
+                viewMode === "full" ? "bg-brand-600 text-white shadow-sm" : "text-gray-500"
+              }`}
+              title="Full View"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="2" y1="20" x2="22" y2="20"/>
+              </svg>
+            </button>
+          </div>
+          
+          {admin && viewMode === "full" && (
             <button
               type="button"
               className={`btn btn-sm ${editMode ? "btn-secondary" : ""}`}
@@ -571,7 +674,7 @@ export default function ProgramOutline() {
               {editMode ? "Done Editing" : "Edit Outline"}
             </button>
           )}
-          {!admin && (
+          {!admin && viewMode === "full" && (
             <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
               View Only
             </span>
@@ -579,18 +682,183 @@ export default function ProgramOutline() {
         </div>
       </div>
 
-      {admin && editMode && (
+      {admin && editMode && viewMode === "full" && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
           Editing Mode Is On. Changes Sync Automatically Across Coach Accounts.
         </div>
       )}
 
-      <OutlinePanel
-        data={outline}
-        editable={admin && editMode}
-        onUpdate={updateOutline}
-        library={library}
-      />
+      {/* Mobile Simple View */}
+      {isMobileDevice && viewMode === "simple" ? (
+        <div className="space-y-3">
+          {/* Today's Focus Card */}
+          {todayLift ? (
+            <div className="rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-5 text-white shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-widest opacity-70">{today}</div>
+                {todayPlyo && (
+                  <div className="text-xs bg-white/20 backdrop-blur rounded-full px-3 py-1">
+                    🦘 {todayPlyo.split(" - ")[1] || todayPlyo}
+                  </div>
+                )}
+              </div>
+              <div className="text-3xl font-black mt-2">{liftType}</div>
+              <div className="text-sm opacity-80 mt-1 font-medium">{todayLift}</div>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 p-5 text-center">
+              <div className="text-gray-500 font-medium">No lift scheduled</div>
+              <div className="text-xs text-gray-400 mt-1">{today} • Rest or make-up day</div>
+            </div>
+          )}
+
+          {/* Turf Warmup - Numbered checklist style */}
+          <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100/50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white text-sm">🏃</div>
+              <span className="font-bold text-gray-900">Warmup</span>
+              <span className="text-xs text-sky-600 bg-sky-200/50 px-2 py-0.5 rounded-full ml-auto">{outline.turfWarmup.filter(s => s.trim()).length} moves</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {outline.turfWarmup.filter(s => s.trim()).map((item, i) => (
+                <div key={i} className="flex items-center gap-2 bg-white/80 backdrop-blur rounded-xl px-3 py-2 shadow-sm">
+                  <span className="w-5 h-5 rounded-full bg-sky-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-xs text-gray-700 leading-tight">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Plyometrics - Numbered list style */}
+          <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100/50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">🦘</div>
+              <span className="font-bold text-gray-900">Plyos</span>
+            </div>
+            <div className="space-y-2">
+              {outline.plyometrics.filter(s => s.trim()).map((item, i) => (
+                <div key={i} className="flex items-center gap-2 bg-white/80 backdrop-blur rounded-xl px-3 py-2.5 shadow-sm">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm text-gray-700">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hip Mobility - Big YouTube button */}
+          {hipMobilityUrl && (
+            <a
+              href={hipMobilityUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-4 text-white shadow-lg active:scale-[0.98] transition-transform"
+            >
+              <div className="flex-shrink-0 w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="font-bold">Hip Mobility</div>
+                <div className="text-xs opacity-80">Follow along video</div>
+              </div>
+              <svg className="w-6 h-6 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </a>
+          )}
+
+          {/* Today's Accessories */}
+          {accessories.length > 0 && (
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100/50 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-sm">💪</div>
+                <span className="font-bold text-gray-900">{liftType} Accessories</span>
+              </div>
+              <div className="space-y-2">
+                {accessories.map((acc, i) => (
+                  <div key={i} className="flex items-center justify-between bg-white/80 backdrop-blur rounded-xl px-3 py-2.5 shadow-sm">
+                    <span className="text-sm font-medium text-gray-800">{acc.name}</span>
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg">{acc.prescription}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Weekly Schedule - Tap to expand */}
+          <details className="group rounded-2xl bg-white shadow-md overflow-hidden">
+            <summary className="p-4 cursor-pointer flex items-center gap-3 active:bg-gray-50">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-lg">📅</div>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">Weekly Schedule</div>
+                <div className="text-xs text-gray-500">Tap to view all weeks</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+            <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+              {outline.liftWeeks.map((week, i) => (
+                <div key={i} className="bg-gray-50 rounded-xl p-3">
+                  <div className="font-semibold text-gray-800 text-sm">{week.week}</div>
+                  <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    {week.days.filter(d => d.trim()).join(" → ")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+
+          {/* All Accessories - Tap to expand */}
+          <details className="group rounded-2xl bg-white shadow-md overflow-hidden">
+            <summary className="p-4 cursor-pointer flex items-center gap-3 active:bg-gray-50">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-lg">🏋️</div>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">All Accessories</div>
+                <div className="text-xs text-gray-500">Full accessory list by lift</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+            <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-3">
+              {[
+                { title: "Squat", emoji: "🦵", color: "bg-blue-100 text-blue-700", items: outline.squatAccessory },
+                { title: "Bench", emoji: "🏋️", color: "bg-orange-100 text-orange-700", items: outline.benchAccessory },
+                { title: "Deadlift", emoji: "💪", color: "bg-purple-100 text-purple-700", items: outline.deadliftAccessory },
+              ].map((group) => (
+                <div key={group.title}>
+                  <div className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-lg ${group.color} mb-2`}>
+                    <span>{group.emoji}</span>
+                    <span>{group.title}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {group.items.map((acc, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm py-1">
+                        <span className="text-gray-700">{acc.name}</span>
+                        <span className="text-gray-400 font-medium">{acc.prescription}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        </div>
+      ) : (
+        /* Desktop/Full View - Original OutlinePanel */
+        <OutlinePanel
+          data={outline}
+          editable={admin && editMode}
+          onUpdate={updateOutline}
+          library={library}
+        />
+      )}
     </div>
   );
 }

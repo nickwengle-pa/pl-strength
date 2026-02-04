@@ -536,6 +536,7 @@ export type Profile = {
   currentWeek?: 1 | 2 | 3;
   currentCycle?: number;
   sessionMode?: "simple" | "full";
+  outlineViewMode?: "simple" | "full";
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
