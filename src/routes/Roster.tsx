@@ -341,6 +341,10 @@ export default function Roster() {
   const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
   
   useEffect(() => {
+    if (!isCoach && !isAdminUser) {
+      setLiveSessionFeed([]);
+      return;
+    }
     const team = activeTeamSelection as Team | undefined;
     if (!team) return;
     
@@ -374,7 +378,7 @@ export default function Roster() {
     );
     
     return unsubscribe;
-  }, [activeTeamSelection]);
+  }, [activeTeamSelection, isCoach, isAdminUser]);
 
   useEffect(() => {
     if (!flash) return;
@@ -504,6 +508,14 @@ export default function Roster() {
   const handleDelete = async (row: RosterEntry, kind: "athlete" | "coach" = "athlete") => {
     if (!row.uid) return;
 
+    if (!isAdminUser) {
+      setFlash({
+        kind: "error",
+        text: "Admin Access Required To Delete Athletes Or Coaches.",
+      });
+      return;
+    }
+
     if (currentUid && row.uid === currentUid) {
       alert("You Cannot Remove Your Own Account From The Roster While Signed In.");
       return;
@@ -542,8 +554,12 @@ export default function Roster() {
         });
       }
     } catch (e: any) {
-      const message =
+      let message =
         e?.message ?? "Could Not Delete Athlete. Try Again In A Moment.";
+      if (e?.code === "permission-denied") {
+        message =
+          "Missing Permissions. Ensure Your Account Has An Admin Role In Firestore (roles/{uid}).";
+      }
       setFlash({ kind: "error", text: message });
     } finally {
       setDeleteUid(null);
@@ -1998,17 +2014,21 @@ export default function Roster() {
                         >
                           {busyUid === r.uid ? "Working..." : "Set code"}
                         </button>
-                        <button
-                          type="button"
-                          className="btn px-3 py-1 text-xs text-red-700 border-red-300 hover:bg-red-50"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleDelete(r);
-                          }}
-                          disabled={deleteUid === r.uid || busyUid === r.uid}
-                        >
-                          {deleteUid === r.uid ? "Deleting..." : "Delete"}
-                        </button>
+                        {isAdminUser ? (
+                          <button
+                            type="button"
+                            className="btn px-3 py-1 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDelete(r);
+                            }}
+                            disabled={deleteUid === r.uid || busyUid === r.uid}
+                          >
+                            {deleteUid === r.uid ? "Deleting..." : "Delete"}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">Admin Only</span>
+                        )}
                       </div>
                     </td>
                   </tr>
