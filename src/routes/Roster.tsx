@@ -518,7 +518,7 @@ export default function Roster() {
 
     setDeleteUid(row.uid);
     try {
-      await deleteAthlete(row.uid);
+      const result = await deleteAthlete(row.uid);
       setRows((prev) => prev.filter((r) => r.uid !== row.uid));
       if (selectedUid === row.uid) {
         setSelectedUid(null);
@@ -526,13 +526,21 @@ export default function Roster() {
         setDetailSessions([]);
         setDetailModalOpen(false);
       }
-      setFlash({
-        kind: "success",
-        text:
-          kind === "coach"
-            ? `${row.firstName ?? "Coach"} Removed. Auth Account Will Be Deleted Shortly.`
-            : `${row.firstName ?? "Athlete"} Removed.`,
-      });
+      const baseText =
+        kind === "coach"
+          ? `${row.firstName ?? "Coach"} Removed. Auth Account Will Be Deleted Shortly.`
+          : `${row.firstName ?? "Athlete"} Removed.`;
+      if (result.status === "partial") {
+        setFlash({
+          kind: "error",
+          text: `${baseText} Cleanup Issue: ${result.warnings.join(", ")}.`,
+        });
+      } else {
+        setFlash({
+          kind: "success",
+          text: baseText,
+        });
+      }
     } catch (e: any) {
       const message =
         e?.message ?? "Could Not Delete Athlete. Try Again In A Moment.";

@@ -2580,7 +2580,12 @@ export async function regenerateAthleteCode(targetUid: string): Promise<string> 
   throw new Error("Could not reserve a unique code. Try again.");
 }
 
-export async function deleteAthlete(uid: string): Promise<void> {
+export type DeleteAthleteResult = {
+  status: "ok" | "partial";
+  warnings: string[];
+};
+
+export async function deleteAthlete(uid: string): Promise<DeleteAthleteResult> {
   const handles = resolveHandles();
   const database = handles?.db;
   if (!database) {
@@ -2588,7 +2593,14 @@ export async function deleteAthlete(uid: string): Promise<void> {
   }
 
   const auth = handles?.auth;
-  const profile = await loadProfileRemote(uid);
+  const warnings: string[] = [];
+  let profile: Profile | null = null;
+  try {
+    profile = await loadProfileRemote(uid);
+  } catch (err) {
+    warnings.push("profile lookup");
+    console.warn("Failed to load profile before deletion", err);
+  }
   const sessionsCol = collection(database, "athletes", uid, "sessions");
   let sessionRefs: DocumentReference[] = [];
 
@@ -2597,6 +2609,7 @@ export async function deleteAthlete(uid: string): Promise<void> {
     sessionRefs = snap.docs.map((docSnap) => docSnap.ref);
   } catch (err) {
     console.warn("Failed to list sessions before deleting athlete", err);
+    warnings.push("sessions lookup");
   }
 
   if (sessionRefs.length) {
@@ -2604,7 +2617,13 @@ export async function deleteAthlete(uid: string): Promise<void> {
     for (let i = 0; i < sessionRefs.length; i += chunkSize) {
       const batch = writeBatch(database);
       sessionRefs.slice(i, i + chunkSize).forEach((ref) => batch.delete(ref));
-      await batch.commit();
+      try {
+        await batch.commit();
+      } catch (err) {
+        console.warn("Failed to delete some athlete sessions", err);
+        warnings.push("sessions");
+        break;
+      }
     }
   }
 
@@ -2619,30 +2638,42 @@ export async function deleteAthlete(uid: string): Promise<void> {
       codeSnap.forEach((docSnap) => accessCodes.add(docSnap.id));
     } catch (err) {
       console.warn("Failed to query athlete code mapping for deletion", err);
+      warnings.push("access codes lookup");
     }
   }
 
-  const cleanupBatch = writeBatch(database);
-  cleanupBatch.delete(profRef(database, uid));
-  accessCodes.forEach((code) =>
-    cleanupBatch.delete(doc(database, "athleteCodes", code))
-  );
-
   try {
-    await cleanupBatch.commit();
+    await deleteDoc(profRef(database, uid));
   } catch (err) {
-    console.warn("Failed to cleanup athlete records", err);
+    console.warn("Failed to delete athlete profile", err);
     throw err;
+  }
+
+  if (accessCodes.size) {
+    const codeBatch = writeBatch(database);
+    accessCodes.forEach((code) =>
+      codeBatch.delete(doc(database, "athleteCodes", code))
+    );
+    try {
+      await codeBatch.commit();
+    } catch (err) {
+      console.warn("Failed to remove athlete codes", err);
+      warnings.push("access codes");
+    }
   }
 
   try {
     await deleteDoc(roleRef(database, uid));
   } catch (err) {
     console.warn(`Failed to remove role mapping for ${uid}`, err);
+    warnings.push("role mapping");
   }
 
   if (auth?.currentUser?.uid === uid) {
-    return;
+    return {
+      status: warnings.length ? "partial" : "ok",
+      warnings,
+    };
   }
 
   try {
@@ -2650,7 +2681,13 @@ export async function deleteAthlete(uid: string): Promise<void> {
     await setDoc(queueRef, { uid, requestedAt: serverTimestamp() });
   } catch (err) {
     console.warn(`Failed to queue auth deletion for ${uid}`, err);
+    warnings.push("auth deletion");
   }
+
+  return {
+    status: warnings.length ? "partial" : "ok",
+    warnings,
+  };
 }
 
 export async function fetchAthleteSessions(

@@ -569,11 +569,11 @@ export default function ProgramOutline() {
   };
 
   const toggleViewMode = async () => {
-    const newMode = viewMode === "simple" ? "full" : "simple";
+    const newMode: "simple" | "full" = viewMode === "simple" ? "full" : "simple";
     setViewMode(newMode);
     // Save to profile
     if (profile) {
-      const updated = { ...profile, outlineViewMode: newMode };
+      const updated: Profile = { ...profile, outlineViewMode: newMode };
       setProfile(updated);
       try {
         await saveProfile(updated);
