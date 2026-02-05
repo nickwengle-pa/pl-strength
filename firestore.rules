@@ -107,9 +107,10 @@ service cloud.firestore {
 
     match /roles/{uid} {
       allow read: if isSignedIn() && (isSelf(uid) || isCoach() || isAdmin());
-      // Only allow self-write if it passes strict validation (no admin role promotion)
-      allow update: if (isSelf(uid) && coachSelfWrite(uid)) || isAdmin();
-      allow create: if isAdmin();
+      // Allow self-write for coach or admin bootstrap (admin requires correct passcode in app)
+      allow update: if (isSelf(uid) && (coachSelfWrite(uid) || adminBootstrap(uid))) || isAdmin();
+      // Allow create for coach self-signup or admin bootstrap
+      allow create: if (isSelf(uid) && (coachSelfWrite(uid) || adminBootstrap(uid))) || isAdmin();
       allow delete: if isAdmin();
     }
 
