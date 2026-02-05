@@ -159,7 +159,7 @@ export default function Roster() {
   const [addAthleteError, setAddAthleteError] = useState<string | null>(null);
   const [addAthleteSaving, setAddAthleteSaving] = useState(false);
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
-  const [sortField, setSortField] = useState<"firstName" | "lastName" | null>(null);
+  const [sortField, setSortField] = useState<"firstName" | "lastName" | null>("lastName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
@@ -174,6 +174,13 @@ export default function Roster() {
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+  const applySortSelection = (value: string) => {
+    const [field, direction] = value.split(":");
+    if (field !== "firstName" && field !== "lastName") return;
+    if (direction !== "asc" && direction !== "desc") return;
+    setSortField(field);
+    setSortDirection(direction);
   };
 
   const resolveAddAthleteTeam = (): Team | "" => {
@@ -1734,6 +1741,22 @@ export default function Roster() {
                       {definition.label}
                     </option>
                   ))}
+                </select>
+              </label>
+            )}
+
+            {(isCoach || isAdminUser) && (
+              <label className="flex items-center gap-2 text-xs text-gray-600">
+                <span>Sort</span>
+                <select
+                  className="field !text-xs"
+                  value={`${sortField ?? "lastName"}:${sortDirection}`}
+                  onChange={(event) => applySortSelection(event.target.value)}
+                >
+                  <option value="lastName:asc">Last (A-Z)</option>
+                  <option value="lastName:desc">Last (Z-A)</option>
+                  <option value="firstName:asc">First (A-Z)</option>
+                  <option value="firstName:desc">First (Z-A)</option>
                 </select>
               </label>
             )}
