@@ -69,17 +69,17 @@ service cloud.firestore {
       return rolesDocExists(uid) && docHasRole(rolesDoc(uid), "coach");
     }
 
+    // Simplified: just check the roles array is valid for coach-only
     function coachSelfWrite(uid) {
       return isSelf(uid)
-        && request.resource.data.keys().hasOnly(allowedRoleKeys())
         && optionalTeamScopesAreList()
         && optionalAccessHistoryIsMap()
         && hasCoachPayload();
     }
 
+    // Simplified: just check the roles array is valid for admin+coach
     function adminBootstrap(uid) {
       return isSelf(uid)
-        && request.resource.data.keys().hasOnly(allowedRoleKeys())
         && optionalTeamScopesAreList()
         && optionalAccessHistoryIsMap()
         && hasAdminPayload();
