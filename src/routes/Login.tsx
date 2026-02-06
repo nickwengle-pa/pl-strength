@@ -39,7 +39,7 @@ export default function Login() {
           </div>
         </div>
         <button className="btn-primary w-full" type="submit">Enter</button>
-        <p className="text-xs text-gray-600">Coach-Managed Mode: No Emails, Just A Local Profile For Now. We’ll Enable PIN Logins When Firebase Keys Are Added.</p>
+        <p className="text-xs text-gray-600">Coach-Managed Mode: No Emails, Just A Local Profile For Now. We'll Enable PIN Logins When Firebase Keys Are Added.</p>
       </form>
     </div>
   );

@@ -52,7 +52,7 @@ export default function App() {
   if (initializing || signingInWithLink) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-600">
-        Loading Your Account…
+        Loading Your Account...
       </div>
     );
   }

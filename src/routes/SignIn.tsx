@@ -574,7 +574,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                   onClick={backToChooser}
                   disabled={disabled}
                 >
-                  <span>←</span>
+                  <span>{"<-"}</span>
                   Back To Selection
                 </button>
                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
@@ -582,7 +582,7 @@ const handleCoachSignIn = async (event: React.FormEvent) => {
                     ? "bg-blue-100 text-blue-700" 
                     : "bg-rose-100 text-rose-700"
                 }`}>
-                  {mode === "athlete" ? "🏋️ Athlete" : "📋 Coach"}
+                  {mode === "athlete" ? "Athlete" : "Coach"}
                 </span>
               </div>
 
