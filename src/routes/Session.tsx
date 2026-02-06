@@ -23,6 +23,7 @@ import TrendMini from "../components/TrendMini";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PlateCalculatorDisplay } from "../components/PlateMath";
 import { useDevice } from "../lib/device";
+import { useAuth } from "../lib/auth";
 
 type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
@@ -122,6 +123,7 @@ const seedLiftCycles = (value: number): Record<Lift, number> => ({
 
 export default function Session() {
   const location = useLocation();
+  const { user } = useAuth();
   const [lift, setLift] = useState<Lift>(() => {
     const state = location.state as { lift?: Lift } | null;
     return state?.lift || "bench";
@@ -187,6 +189,25 @@ export default function Session() {
 
   useEffect(() => {
     (async () => {
+      // If no user, fall back to local profile only
+      if (!user) {
+        const local = loadProfileLocal();
+        if (local) {
+          setProfile(local);
+          const nextUnit = (local.unit || "lb") as Unit;
+          setUnit(nextUnit);
+          setStep(nextUnit === "lb" ? 5 : 2.5);
+          const tmForLift = local.tm?.[lift] ?? null;
+          setTm(tmForLift ?? null);
+          if (local.sessionMode) {
+            setSessionMode(local.sessionMode);
+          }
+        } else {
+          setProfile(null);
+          setTm(null);
+        }
+        return;
+      }
       if (targetUid) {
         const p = await loadProfileRemote(targetUid);
         if (p) {
@@ -242,7 +263,7 @@ export default function Session() {
       setNote("");
       setPrFlag(false);
     })();
-  }, [lift, targetUid, version, teamSelection]);
+  }, [lift, targetUid, version, teamSelection, user]);
 
   const warm = useMemo(() => {
     if (!tm) return [];
@@ -288,6 +309,10 @@ export default function Session() {
 
   useEffect(() => {
     if (coachLoading) return;
+    if (!user) {
+      setHistory([]);
+      return;
+    }
     if (isCoach && !targetUid) {
       setHistory([]);
       return;
@@ -316,7 +341,7 @@ export default function Session() {
         setCycle(clampCycle(nextCycle));
       }
     })();
-  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam, profile]);
+  }, [lift, targetUid, isCoach, coachLoading, version, liftConfirmed, sessionTeam, profile, user]);
 
   const setWarmStatus = (index: number, status: "" | "S" | "F") => {
     setWarmOutcomes((prev) => {
