@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   defaultEquipment,
   ensureAnon,
@@ -61,6 +61,7 @@ export default function Calculator() {
   const [targetLocked, setTargetLocked] = useState(false);
   const [plateCalcOpen, setPlateCalcOpen] = useState(false);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
+  const navigate = useNavigate();
 
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
@@ -445,67 +446,73 @@ export default function Calculator() {
     }
   }
 
-  const [plateCalcOpen, setPlateCalcOpen] = useState(false);
-
   if (coachLoading) {
     return <PageLoadingSkeleton rows={2} />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white pb-8">
+    <div className="min-h-screen bg-black text-white pb-8">
       {/* Header */}
-      <div className="bg-brand-600 text-white px-4 py-4 shadow-lg">
-        <h1 className="text-xl font-bold">🧮 Training Max Calculator</h1>
-        {targetUid ? (
-          <div className="text-brand-100 text-sm mt-1">Viewing: {activeAthleteName}</div>
-        ) : (
-          <p className="text-brand-100 text-sm mt-1">Calculate your 5/3/1 training max</p>
-        )}
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center justify-center w-10 h-10 border border-gray-700 hover:border-red-500 hover:text-red-500 transition-colors"
+            aria-label="Back to lifts"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-wider">Training Max</h1>
+            {targetUid ? (
+              <div className="text-gray-400 text-sm uppercase tracking-wide">Viewing: {activeAthleteName}</div>
+            ) : (
+              <p className="text-gray-500 text-sm">5/3/1 Calculator</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {isCoach && !targetUid && (
-        <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          ⚠️ No athlete selected. Pick someone from the roster to load their numbers.
+        <div className="mx-4 mt-4 border border-yellow-600 bg-yellow-900/30 px-4 py-3 text-sm text-yellow-400">
+          No athlete selected. Pick someone from the roster to load their numbers.
         </div>
       )}
 
       <div className="px-4 py-5 space-y-4 max-w-lg mx-auto">
-        {/* Lift Selector - Pill Buttons */}
-        <div className="flex gap-2 justify-center">
+        {/* Lift Selector */}
+        <div className="grid grid-cols-3 gap-1">
           {lifts.map((l) => {
             const isActive = lift === l;
-            const colors = l === "squat" 
-              ? "bg-brand-600 text-white" 
-              : l === "bench" 
-              ? "bg-blue-600 text-white" 
-              : "bg-purple-600 text-white";
             return (
               <button
                 key={l}
                 onClick={() => setLift(l)}
-                className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                className={`py-3 font-black uppercase tracking-wider text-sm transition-all border ${
                   isActive
-                    ? `${colors} shadow-md`
-                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    ? "bg-red-600 border-red-500 text-white"
+                    : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
                 }`}
               >
-                {l === "squat" ? "🦵" : l === "bench" ? "🏋️" : "💪"} {l.charAt(0).toUpperCase() + l.slice(1)}
+                {l}
               </button>
             );
           })}
         </div>
 
         {/* Main Calculator Card */}
-        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+        <div className="bg-gray-900 border border-gray-800 overflow-hidden">
           {/* Settings Toggle */}
           <button
             type="button"
-            className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-800 hover:bg-gray-800 transition-colors"
             onClick={() => setCalcSettingsOpen((prev) => !prev)}
           >
-            <span className="text-sm font-medium text-gray-600">⚙️ Settings</span>
+            <span className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Settings</span>
             <svg 
-              className={`w-4 h-4 text-gray-400 transition-transform ${calcSettingsOpen ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-gray-500 transition-transform ${calcSettingsOpen ? "rotate-180" : ""}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -513,12 +520,12 @@ export default function Calculator() {
           </button>
 
           {calcSettingsOpen && (
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+            <div className="px-4 py-3 bg-gray-950 border-b border-gray-800">
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-gray-500">Units</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Units</span>
                   <select
-                    className="field text-sm"
+                    className="bg-gray-800 border border-gray-700 text-white px-3 py-2 text-sm focus:border-red-500 focus:outline-none"
                     value={unit}
                     onChange={(e) => handleUnitChange(e.target.value as Unit)}
                   >
@@ -527,9 +534,9 @@ export default function Calculator() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-gray-500">Rounding</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rounding</span>
                   <input
-                    className="field text-sm"
+                    className="bg-gray-800 border border-gray-700 text-white px-3 py-2 text-sm focus:border-red-500 focus:outline-none"
                     inputMode="decimal"
                     value={roundStepText}
                     onChange={(e) => handleRoundStepInput(e.target.value)}
@@ -545,25 +552,25 @@ export default function Calculator() {
           {/* Input Section */}
           <div className="p-4 space-y-4">
             {/* Estimator Toggle */}
-            <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
+            <label className="flex items-center gap-3 p-3 border border-gray-700 cursor-pointer hover:border-gray-600 transition-colors">
               <input
                 type="checkbox"
-                className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                className="h-5 w-5 bg-gray-800 border-gray-600 text-red-600 focus:ring-red-500 focus:ring-offset-gray-900"
                 checked={useEstimator}
                 onChange={(e) => toggleEstimator(e.target.checked)}
               />
               <div>
-                <div className="text-sm font-medium text-gray-800">Use Rep-Max Estimator</div>
-                <div className="text-xs text-gray-500">Don't know your 1RM? Estimate it from reps</div>
+                <div className="text-sm font-semibold text-white">Rep-Max Estimator</div>
+                <div className="text-xs text-gray-500">Calculate 1RM from weight × reps</div>
               </div>
             </label>
 
             {useEstimator ? (
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-gray-500">Weight ({unit})</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Weight ({unit})</span>
                   <input
-                    className="field text-lg font-semibold text-center"
+                    className="bg-gray-800 border border-gray-700 text-white text-lg font-bold text-center px-3 py-3 focus:border-red-500 focus:outline-none"
                     inputMode="decimal"
                     value={estimatorWeight === "" ? "" : estimatorWeight}
                     onChange={(e) => setEstimatorWeight(parseNumeric(e.target.value))}
@@ -571,9 +578,9 @@ export default function Calculator() {
                   />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-gray-500">Reps</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Reps</span>
                   <input
-                    className="field text-lg font-semibold text-center"
+                    className="bg-gray-800 border border-gray-700 text-white text-lg font-bold text-center px-3 py-3 focus:border-red-500 focus:outline-none"
                     inputMode="numeric"
                     value={estimatorReps === "" ? "" : estimatorReps}
                     onChange={(e) => setEstimatorReps(parseNumeric(e.target.value))}
@@ -583,9 +590,9 @@ export default function Calculator() {
               </div>
             ) : (
               <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-gray-500">Your 1RM ({unit})</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Your 1RM ({unit})</span>
                 <input
-                  className="field text-xl font-bold text-center"
+                  className="bg-gray-800 border border-gray-700 text-white text-xl font-black text-center px-3 py-4 focus:border-red-500 focus:outline-none"
                   inputMode="decimal"
                   value={measured1rm === "" ? "" : measured1rm}
                   onChange={(e) => setMeasured1rm(parseNumeric(e.target.value))}
@@ -596,38 +603,38 @@ export default function Calculator() {
           </div>
 
           {/* Results Section */}
-          <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 text-white">
+          <div className="bg-gray-950 border-t border-gray-800 p-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <div className="text-xs text-brand-100 uppercase tracking-wide">Est. 1RM</div>
-                <div className="text-2xl font-bold">
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Est. 1RM</div>
+                <div className="text-3xl font-black text-white">
                   {estimated1rm ? formatNumber(estimated1rm) : "—"}
                 </div>
-                <div className="text-xs text-brand-200">{unit}</div>
+                <div className="text-xs text-gray-600 uppercase">{unit}</div>
               </div>
-              <div className="text-center border-l border-brand-400">
-                <div className="text-xs text-brand-100 uppercase tracking-wide">Training Max</div>
-                <div className="text-2xl font-bold">
+              <div className="text-center border-l border-gray-800">
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Training Max</div>
+                <div className="text-3xl font-black text-red-500">
                   {trainingMax !== null ? trainingMax : "—"}
                 </div>
-                <div className="text-xs text-brand-200">90% • {unit}</div>
+                <div className="text-xs text-gray-600 uppercase">90% • {unit}</div>
               </div>
             </div>
           </div>
 
           {/* Save Button */}
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-2 border-t border-gray-800">
             <button
-              className="w-full py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold rounded-xl shadow transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-black uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSave}
               disabled={saving || trainingMax === null}
             >
-              {saving ? "Saving..." : `💾 Save ${lift.charAt(0).toUpperCase() + lift.slice(1)} TM`}
+              {saving ? "Saving..." : `Save ${lift.toUpperCase()} TM`}
             </button>
 
             {(profile?.tm?.[lift] || profile?.oneRm?.[lift]) && (
               <button
-                className="w-full py-2 text-red-600 text-sm font-medium hover:bg-red-50 rounded-xl transition-colors"
+                className="w-full py-2 text-gray-500 text-sm font-semibold uppercase tracking-wide hover:text-red-500 transition-colors"
                 onClick={handleClear}
                 disabled={saving}
               >
@@ -639,32 +646,29 @@ export default function Calculator() {
 
         {/* Plate Calculator - Collapsible */}
         <details 
-          className="bg-white rounded-2xl shadow-md overflow-hidden"
+          className="bg-gray-900 border border-gray-800 overflow-hidden"
           open={plateCalcOpen}
           onToggle={(e) => setPlateCalcOpen((e.target as HTMLDetailsElement).open)}
         >
-          <summary className="px-4 py-4 cursor-pointer flex items-center justify-between hover:bg-gray-50 transition-colors list-none">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🍽️</span>
-              <span className="font-semibold text-gray-800">Plate Calculator</span>
-            </div>
+          <summary className="px-4 py-4 cursor-pointer flex items-center justify-between hover:bg-gray-800 transition-colors list-none">
+            <span className="font-black uppercase tracking-wider text-white">Plate Calculator</span>
             <svg 
-              className={`w-5 h-5 text-gray-400 transition-transform ${plateCalcOpen ? "rotate-180" : ""}`}
+              className={`w-5 h-5 text-gray-500 transition-transform ${plateCalcOpen ? "rotate-180" : ""}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
 
-          <div className="border-t border-gray-100">
+          <div className="border-t border-gray-800">
             {/* Quick Actions */}
-            <div className="flex gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+            <div className="flex gap-2 px-4 py-3 bg-gray-950 border-b border-gray-800">
               <button
                 type="button"
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition border ${
                   trainingMax !== null
-                    ? "bg-brand-100 text-brand-700 hover:bg-brand-200"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "border-gray-600 text-white hover:border-red-500 hover:text-red-500"
+                    : "border-gray-800 text-gray-600 cursor-not-allowed"
                 }`}
                 onClick={() => {
                   if (trainingMax !== null) {
@@ -678,10 +682,10 @@ export default function Calculator() {
               </button>
               <button
                 type="button"
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wide transition border ${
                   estimated1rm
-                    ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "border-gray-600 text-white hover:border-red-500 hover:text-red-500"
+                    : "border-gray-800 text-gray-600 cursor-not-allowed"
                 }`}
                 onClick={() => {
                   if (estimated1rm) {
@@ -695,7 +699,7 @@ export default function Calculator() {
               </button>
               <button
                 type="button"
-                className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300"
+                className="flex-1 py-2 text-xs font-bold uppercase tracking-wide border border-gray-600 text-gray-400 hover:border-gray-500 hover:text-white transition"
                 onClick={() => {
                   setTargetLocked(true);
                   setTargetWeight("");
@@ -708,9 +712,9 @@ export default function Calculator() {
             {/* Target Weight Input */}
             <div className="p-4">
               <label className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-gray-500">Target Weight ({unit})</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Target Weight ({unit})</span>
                 <input
-                  className="field text-lg font-semibold text-center"
+                  className="bg-gray-800 border border-gray-700 text-white text-lg font-bold text-center px-3 py-3 focus:border-red-500 focus:outline-none"
                   inputMode="decimal"
                   value={targetWeight === "" ? "" : targetWeight}
                   onChange={(e) => handleTargetWeightChange(e.target.value)}
@@ -718,14 +722,14 @@ export default function Calculator() {
                 />
               </label>
 
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
+              <div className="flex justify-between text-xs text-gray-500 mt-2 uppercase tracking-wide">
                 <span>Bar: {formatNumber(activeBarWeight)} {unit}</span>
                 <span>Target: {typeof targetWeight === "number" ? `${formatNumber(targetWeight)} ${unit}` : "—"}</span>
               </div>
             </div>
 
             {/* Plate Visual */}
-            <div className="bg-gray-900 p-4 text-white">
+            <div className="bg-black p-4">
               <PlateVisual
                 unit={unit}
                 barWeight={activeBarWeight}
@@ -734,11 +738,11 @@ export default function Calculator() {
               />
 
               {platePlan && platePlan.perSide.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-gray-300">
+                <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-gray-400">
                   {platePlan.perSide.map((row, idx) => (
                     <div key={`${row.weight}-${idx}`} className="flex justify-between px-2">
                       <span>{row.count} × {formatNumber(row.weight)}</span>
-                      <span className="text-gray-500">{formatNumber(row.weight * row.count)}/side</span>
+                      <span className="text-gray-600">{formatNumber(row.weight * row.count)}/side</span>
                     </div>
                   ))}
                 </div>
@@ -746,17 +750,28 @@ export default function Calculator() {
             </div>
 
             {/* Summary */}
-            <div className={`px-4 py-3 text-sm ${
+            <div className={`px-4 py-3 text-sm font-semibold ${
               platePlan
                 ? platePlan.isPossible
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-                : "bg-gray-50 text-gray-600"
+                  ? "bg-green-900/30 text-green-400 border-t border-green-800"
+                  : "bg-red-900/30 text-red-400 border-t border-red-800"
+                : "bg-gray-950 text-gray-500 border-t border-gray-800"
             }`}>
               {planSummary}
             </div>
           </div>
         </details>
+
+        {/* Back to Lifts Button */}
+        <button
+          onClick={() => navigate("/")}
+          className="w-full py-4 bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-red-500 text-white font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Lifts
+        </button>
       </div>
     </div>
   );

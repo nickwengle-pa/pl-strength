@@ -622,19 +622,42 @@ export default function ProgramOutline() {
   const hipMobilityUrl = outline.hipMobility.url.trim() || outline.hipMobility.embed.trim();
 
   return (
-    <div className="container py-6 space-y-6">
+    <div className={isMobileDevice && viewMode === "simple" ? "min-h-screen bg-black pb-8" : "container py-6 space-y-6"}>
       {/* Header with toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={isMobileDevice && viewMode === "simple" ? "bg-gray-900 border-b border-gray-800 px-4 py-4" : "flex flex-wrap items-center justify-between gap-3"}>
         {isMobileDevice && viewMode === "simple" ? (
-          <h1 className="text-xl font-bold">📋 Daily Lifts</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-black uppercase tracking-wider text-white">Daily Lifts</h1>
+            <div className="inline-flex items-center border border-gray-700 p-0.5">
+              <button
+                className="p-1.5 transition-all bg-red-600 text-white"
+                title="Simple View"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                  <line x1="12" y1="18" x2="12" y2="18"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => toggleViewMode()}
+                className="p-1.5 transition-all text-gray-500 hover:text-white"
+                title="Full View"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="2" y1="20" x2="22" y2="20"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         ) : (
+          <>
           <div>
             <h1 className="text-2xl font-semibold">Daily Lifts</h1>
             <p className="mt-1 text-sm text-gray-600">
               Reference This Outline For Warmups, Plyos, And Accessories During Daily Planning.
             </p>
           </div>
-        )}
 
         <div className="flex items-center gap-2">
           {/* View Mode Toggle */}
@@ -680,6 +703,8 @@ export default function ProgramOutline() {
             </span>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {admin && editMode && viewMode === "full" && (
@@ -690,100 +715,32 @@ export default function ProgramOutline() {
 
       {/* Mobile Simple View */}
       {isMobileDevice && viewMode === "simple" ? (
-        <div className="space-y-3">
+        <div className="px-4 pt-4 space-y-3">
           {/* Today's Focus Card */}
           {todayLift ? (
-            <div className="rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-5 text-white shadow-xl">
-              <div className="flex items-center justify-between">
-                <div className="text-xs uppercase tracking-widest opacity-70">{today}</div>
-                {todayPlyo && (
-                  <div className="text-xs bg-white/20 backdrop-blur rounded-full px-3 py-1">
-                    🦘 {todayPlyo.split(" - ")[1] || todayPlyo}
-                  </div>
-                )}
-              </div>
-              <div className="text-3xl font-black mt-2">{liftType}</div>
-              <div className="text-sm opacity-80 mt-1 font-medium">{todayLift}</div>
+            <div className="border-2 border-red-600 bg-red-950 p-5 text-white">
+              <div className="text-xs uppercase tracking-widest text-gray-400">{today}</div>
+              <div className="text-3xl font-black uppercase tracking-wider mt-2">{liftType}</div>
+              <div className="text-sm text-red-400 mt-1 font-semibold uppercase">{todayLift}</div>
             </div>
           ) : (
-            <div className="rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 p-5 text-center">
-              <div className="text-gray-500 font-medium">No lift scheduled</div>
-              <div className="text-xs text-gray-400 mt-1">{today} • Rest or make-up day</div>
+            <div className="border-2 border-gray-700 bg-gray-900 p-5 text-center">
+              <div className="text-gray-400 font-bold uppercase tracking-wider">No Lift Scheduled</div>
+              <div className="text-xs text-gray-600 mt-1 uppercase">{today} • Rest or make-up day</div>
             </div>
-          )}
-
-          {/* Turf Warmup - Numbered checklist style */}
-          <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100/50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white text-sm">🏃</div>
-              <span className="font-bold text-gray-900">Warmup</span>
-              <span className="text-xs text-sky-600 bg-sky-200/50 px-2 py-0.5 rounded-full ml-auto">{outline.turfWarmup.filter(s => s.trim()).length} moves</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {outline.turfWarmup.filter(s => s.trim()).map((item, i) => (
-                <div key={i} className="flex items-center gap-2 bg-white/80 backdrop-blur rounded-xl px-3 py-2 shadow-sm">
-                  <span className="w-5 h-5 rounded-full bg-sky-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-xs text-gray-700 leading-tight">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Plyometrics - Numbered list style */}
-          <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100/50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm">🦘</div>
-              <span className="font-bold text-gray-900">Plyos</span>
-            </div>
-            <div className="space-y-2">
-              {outline.plyometrics.filter(s => s.trim()).map((item, i) => (
-                <div key={i} className="flex items-center gap-2 bg-white/80 backdrop-blur rounded-xl px-3 py-2.5 shadow-sm">
-                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm text-gray-700">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Hip Mobility - Big YouTube button */}
-          {hipMobilityUrl && (
-            <a
-              href={hipMobilityUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 p-4 text-white shadow-lg active:scale-[0.98] transition-transform"
-            >
-              <div className="flex-shrink-0 w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="font-bold">Hip Mobility</div>
-                <div className="text-xs opacity-80">Follow along video</div>
-              </div>
-              <svg className="w-6 h-6 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </a>
           )}
 
           {/* Today's Accessories */}
           {accessories.length > 0 && (
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100/50 p-4">
+            <div className="border-2 border-emerald-700 bg-emerald-950 p-4">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-sm">💪</div>
-                <span className="font-bold text-gray-900">{liftType} Accessories</span>
+                <span className="font-black text-white uppercase tracking-wider">{liftType} Accessories</span>
               </div>
               <div className="space-y-2">
                 {accessories.map((acc, i) => (
-                  <div key={i} className="flex items-center justify-between bg-white/80 backdrop-blur rounded-xl px-3 py-2.5 shadow-sm">
-                    <span className="text-sm font-medium text-gray-800">{acc.name}</span>
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg">{acc.prescription}</span>
+                  <div key={i} className="flex items-center justify-between bg-gray-900 border border-gray-700 px-3 py-2.5">
+                    <span className="text-sm font-semibold text-gray-200">{acc.name}</span>
+                    <span className="text-xs font-bold text-emerald-400 border border-emerald-600 px-2 py-1">{acc.prescription}</span>
                   </div>
                 ))}
               </div>
@@ -791,22 +748,21 @@ export default function ProgramOutline() {
           )}
 
           {/* Weekly Schedule - Tap to expand */}
-          <details className="group rounded-2xl bg-white shadow-md overflow-hidden">
-            <summary className="p-4 cursor-pointer flex items-center gap-3 active:bg-gray-50">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-lg">📅</div>
+          <details className="group border-2 border-gray-700 bg-gray-900 overflow-hidden">
+            <summary className="p-4 cursor-pointer flex items-center gap-3 hover:bg-gray-800 list-none">
               <div className="flex-1">
-                <div className="font-bold text-gray-900">Weekly Schedule</div>
-                <div className="text-xs text-gray-500">Tap to view all weeks</div>
+                <div className="font-black text-white uppercase tracking-wider">Weekly Schedule</div>
+                <div className="text-xs text-gray-500 uppercase">Tap to view all weeks</div>
               </div>
-              <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+            <div className="px-4 pb-4 space-y-3 border-t border-gray-800 pt-3">
               {outline.liftWeeks.map((week, i) => (
-                <div key={i} className="bg-gray-50 rounded-xl p-3">
-                  <div className="font-semibold text-gray-800 text-sm">{week.week}</div>
-                  <div className="text-xs text-gray-500 mt-1 leading-relaxed">
+                <div key={i} className="bg-gray-800 border border-gray-700 p-3">
+                  <div className="font-bold text-white text-sm uppercase tracking-wide">{week.week}</div>
+                  <div className="text-xs text-gray-400 mt-1 leading-relaxed">
                     {week.days.filter(d => d.trim()).join(" → ")}
                   </div>
                 </div>
@@ -815,33 +771,31 @@ export default function ProgramOutline() {
           </details>
 
           {/* All Accessories - Tap to expand */}
-          <details className="group rounded-2xl bg-white shadow-md overflow-hidden">
-            <summary className="p-4 cursor-pointer flex items-center gap-3 active:bg-gray-50">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-lg">🏋️</div>
+          <details className="group border-2 border-gray-700 bg-gray-900 overflow-hidden">
+            <summary className="p-4 cursor-pointer flex items-center gap-3 hover:bg-gray-800 list-none">
               <div className="flex-1">
-                <div className="font-bold text-gray-900">All Accessories</div>
-                <div className="text-xs text-gray-500">Full accessory list by lift</div>
+                <div className="font-black text-white uppercase tracking-wider">All Accessories</div>
+                <div className="text-xs text-gray-500 uppercase">Full accessory list by lift</div>
               </div>
-              <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-3">
+            <div className="px-4 pb-4 space-y-4 border-t border-gray-800 pt-3">
               {[
-                { title: "Squat", emoji: "🦵", color: "bg-blue-100 text-blue-700", items: outline.squatAccessory },
-                { title: "Bench", emoji: "🏋️", color: "bg-orange-100 text-orange-700", items: outline.benchAccessory },
-                { title: "Deadlift", emoji: "💪", color: "bg-purple-100 text-purple-700", items: outline.deadliftAccessory },
+                { title: "SQUAT", color: "border-red-600 text-red-400", items: outline.squatAccessory },
+                { title: "BENCH", color: "border-blue-600 text-blue-400", items: outline.benchAccessory },
+                { title: "DEADLIFT", color: "border-purple-600 text-purple-400", items: outline.deadliftAccessory },
               ].map((group) => (
                 <div key={group.title}>
-                  <div className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-2 py-1 rounded-lg ${group.color} mb-2`}>
-                    <span>{group.emoji}</span>
-                    <span>{group.title}</span>
+                  <div className={`inline-flex items-center text-xs font-black uppercase tracking-wider px-2 py-1 border ${group.color} mb-2`}>
+                    {group.title}
                   </div>
                   <div className="space-y-1.5">
                     {group.items.map((acc, i) => (
                       <div key={i} className="flex items-center justify-between text-sm py-1">
-                        <span className="text-gray-700">{acc.name}</span>
-                        <span className="text-gray-400 font-medium">{acc.prescription}</span>
+                        <span className="text-gray-300">{acc.name}</span>
+                        <span className="text-gray-500 font-semibold">{acc.prescription}</span>
                       </div>
                     ))}
                   </div>

@@ -191,7 +191,7 @@ export default function Home() {
   };
 
   return (
-    <div className="pb-12">
+    <div className={isCoach ? "pb-12" : "pb-12 min-h-screen bg-black"}>
       {showOnboarding && profile && (
         <OnboardingWizard onComplete={handleOnboardingComplete} unit={profile.unit} />
       )}
@@ -338,50 +338,52 @@ export default function Home() {
           </div>
         )}
 
-        {/* Athlete View - Simplified for Mobile */}
+        {/* Athlete View - Dark Athletic Theme */}
         {!isCoach && profile && (
           <div className="space-y-6">
             {/* Hero - Shorter */}
             <div className="text-center py-1">
-              <h1 className="text-2xl font-bold text-gray-900">
-                👋 {profile.firstName || 'Athlete'}
+              <h1 className="text-2xl font-black uppercase tracking-wider text-white">
+                {profile.firstName || 'Athlete'}
               </h1>
-              <p className="text-gray-500 mt-1">Tap a lift to start</p>
+              <p className="text-gray-500 mt-1 uppercase tracking-wide text-sm">Select Your Lift</p>
             </div>
 
             {/* Lift Cards - BIG BUTTONS for mobile */}
-            <div className="grid gap-3">
+            <div className="grid gap-2">
               {/* TURF Button - Before lifts */}
               <button 
-                className="w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] bg-green-600 hover:bg-green-700 active:bg-green-800"
+                className="w-full flex items-center justify-between px-5 py-4 border-2 border-green-600 bg-green-950 text-white font-bold transition-all hover:border-green-400 hover:bg-green-900 active:bg-green-800"
                 onClick={() => navigate('/turf')}
               >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">🌱</span>
-                  <div className="text-left">
-                    <div className="text-xl font-bold">Turf</div>
-                    <div className="text-sm opacity-80">Warmup & Plyos</div>
-                  </div>
+                <div className="text-left">
+                  <div className="text-lg font-black uppercase tracking-wider">Turf</div>
+                  <div className="text-xs text-green-400 uppercase tracking-wide">Warmup & Plyos</div>
                 </div>
-                <span className="text-lg">GO →</span>
+                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
 
               {(['squat', 'bench', 'deadlift'] as Lift[]).map(lift => {
                 const { week, cycle } = getLiftStatus(lift);
-                const liftName = lift === 'bench' ? 'Bench' : lift === 'squat' ? 'Squat' : 'Deadlift';
+                const liftName = lift === 'bench' ? 'BENCH' : lift === 'squat' ? 'SQUAT' : 'DEADLIFT';
                 const hasTm = (profile?.tm?.[lift] ?? 0) > 0;
                 const tmValue = profile?.tm?.[lift] ?? 0;
-                
-                // Emoji for each lift
-                const liftEmoji = lift === 'bench' ? '🏋️' : lift === 'squat' ? '🦵' : '💪';
-                
-                // Colors per lift
-                const bgClass = lift === 'bench' ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800' : lift === 'squat' ? 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800' : 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800';
+
+                // Color schemes per lift
+                const colorClass = lift === 'squat' 
+                  ? 'border-red-600 bg-red-950 hover:border-red-400 hover:bg-red-900 text-red-400'
+                  : lift === 'bench'
+                  ? 'border-blue-600 bg-blue-950 hover:border-blue-400 hover:bg-blue-900 text-blue-400'
+                  : 'border-purple-600 bg-purple-950 hover:border-purple-400 hover:bg-purple-900 text-purple-400';
+
+                const accentColor = lift === 'squat' ? 'text-red-400' : lift === 'bench' ? 'text-blue-400' : 'text-purple-400';
 
                 return (
                   <button 
                     key={lift} 
-                    className={`w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] ${bgClass}`}
+                    className={`w-full flex items-center justify-between px-5 py-4 border-2 text-white font-bold transition-all active:brightness-75 ${colorClass}`}
                     onClick={() => {
                       if (hasTm) {
                         navigate('/session', { state: { lift } });
@@ -390,41 +392,35 @@ export default function Home() {
                       }
                     }}
                   >
-                    <div className="flex items-center gap-4">
-                      <span className="text-3xl">{liftEmoji}</span>
-                      <div className="text-left">
-                        <div className="text-xl font-bold">{liftName}</div>
-                        {hasTm && (
-                          <div className="text-sm opacity-80">
-                            Week {week} • TM: {tmValue} {profile.unit}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
+                    <div className="text-left">
+                      <div className="text-lg font-black uppercase tracking-wider">{liftName}</div>
                       {hasTm ? (
-                        <span className="text-lg">GO →</span>
+                        <div className={`text-xs uppercase tracking-wide ${accentColor}`}>
+                          Week {week} • TM: <span className="font-bold">{tmValue}</span> {profile.unit}
+                        </div>
                       ) : (
-                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Set Up</span>
+                        <div className="text-xs text-yellow-500 uppercase tracking-wide">Set Up TM</div>
                       )}
                     </div>
+                    <svg className={`w-6 h-6 ${accentColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 )
               })}
 
               {/* ACCESSORY Button - After lifts */}
               <button 
-                className="w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] bg-gray-700 hover:bg-gray-800 active:bg-gray-900"
+                className="w-full flex items-center justify-between px-5 py-4 border-2 border-amber-600 bg-amber-950 text-white font-bold transition-all hover:border-amber-400 hover:bg-amber-900 active:brightness-75"
                 onClick={() => navigate('/accessory')}
               >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">🎯</span>
-                  <div className="text-left">
-                    <div className="text-xl font-bold">Accessory Lifts</div>
-                    <div className="text-sm opacity-80">Today's Extra Work</div>
-                  </div>
+                <div className="text-left">
+                  <div className="text-lg font-black uppercase tracking-wider">Accessory</div>
+                  <div className="text-xs text-amber-400 uppercase tracking-wide">Today's Extra Work</div>
                 </div>
-                <span className="text-lg">GO →</span>
+                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
 
@@ -433,47 +429,47 @@ export default function Home() {
               <div className="flex flex-wrap gap-2 justify-center pt-2">
                 <button 
                   onClick={() => navigate('/progress')}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
-                  📊 Progress
+                  Progress
                 </button>
                 <button 
                   onClick={() => navigate('/calculator')}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
-                  🧮 Calculator
+                  Calculator
                 </button>
                 <button 
                   onClick={() => navigate('/program-outline')}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
-                  📋 Daily Lifts
+                  Daily Lifts
                 </button>
                 <button 
                   onClick={() => navigate('/exercises')}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200"
+                  className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
-                  🎬 Videos
+                  Videos
                 </button>
               </div>
             )}
 
             {/* Cheat Sheet - Hidden by default, moved to bottom */}
             <details className="group mt-8">
-              <summary className="flex items-center justify-center gap-2 cursor-pointer list-none text-sm text-gray-400 hover:text-gray-600 py-2">
-                <span>❓ What do TM, AMRAP, 1RM mean?</span>
+              <summary className="flex items-center justify-center gap-2 cursor-pointer list-none text-sm text-gray-500 hover:text-gray-300 py-2 uppercase tracking-wide">
+                <span>What do TM, AMRAP, 1RM mean?</span>
                 <svg className="w-4 h-4 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
               </summary>
               <div className="mt-3 grid gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                 {ABBREVIATIONS.slice(0, 4).map((item) => (
                   <div
                     key={item.code}
-                    className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                    className="flex items-start gap-3 border border-gray-800 bg-gray-900 px-4 py-3"
                   >
-                    <span className="text-base font-bold text-brand-600 min-w-[50px]">
+                    <span className="text-base font-black text-red-500 min-w-[50px] uppercase">
                       {item.code}
                     </span>
-                    <span className="text-sm text-gray-600">{item.detail}</span>
+                    <span className="text-sm text-gray-400">{item.detail}</span>
                   </div>
                 ))}
               </div>
