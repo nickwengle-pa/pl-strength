@@ -349,6 +349,7 @@ export default function Nav() {
 
   const athleteLinks = [
     { to: "/program-outline", label: "Daily Lifts" },
+    { to: "/turf", label: "Warmup / Plyo" },
     { to: "/calculator", label: "Calculator" },
     { to: "/session", label: "Session" },
     { to: "/exercises", label: "Exercises" },
