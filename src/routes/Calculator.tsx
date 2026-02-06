@@ -59,6 +59,7 @@ export default function Calculator() {
   const [equipment, setEquipment] = useState<EquipmentSettings>(defaultEquipment());
   const [targetWeight, setTargetWeight] = useState<number | "">("");
   const [targetLocked, setTargetLocked] = useState(false);
+  const [plateCalcOpen, setPlateCalcOpen] = useState(false);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
 
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
@@ -444,67 +445,91 @@ export default function Calculator() {
     }
   }
 
+  const [plateCalcOpen, setPlateCalcOpen] = useState(false);
+
   if (coachLoading) {
     return <PageLoadingSkeleton rows={2} />;
   }
 
   return (
-    <div className="container py-6 space-y-6">
-      <div>
-        <h1>Training Max Calculator</h1>
-        {targetUid ? (<div className="mt-1 text-sm text-gray-600">Viewing: {activeAthleteName}</div>) : null}
-        {isCoach && !targetUid ? (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
-            No athlete selected. Use the calculator for quick estimates, or pick someone from the roster to load their numbers.
-          </div>
-        ) : null}
-        <p className="mt-2 text-sm text-gray-600">
-          Pick the lift, enter a 1RM (or estimate it), and we will round the
-          5/3/1 sets using your plate math.
-        </p>
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white pb-8">
+      {/* Header */}
+      <div className="bg-brand-600 text-white px-4 py-4 shadow-lg">
+        <h1 className="text-xl font-bold">🧮 Training Max Calculator</h1>
+        {targetUid ? (
+          <div className="text-brand-100 text-sm mt-1">Viewing: {activeAthleteName}</div>
+        ) : (
+          <p className="text-brand-100 text-sm mt-1">Calculate your 5/3/1 training max</p>
+        )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
-        <div className="space-y-6">
-          <div className="card space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Training Max Calculator</h2>
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
-              onClick={() => setCalcSettingsOpen((prev) => !prev)}
-              aria-expanded={calcSettingsOpen}
-              aria-label="Calculator settings"
+      {isCoach && !targetUid && (
+        <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          ⚠️ No athlete selected. Pick someone from the roster to load their numbers.
+        </div>
+      )}
+
+      <div className="px-4 py-5 space-y-4 max-w-lg mx-auto">
+        {/* Lift Selector - Pill Buttons */}
+        <div className="flex gap-2 justify-center">
+          {lifts.map((l) => {
+            const isActive = lift === l;
+            const colors = l === "squat" 
+              ? "bg-brand-600 text-white" 
+              : l === "bench" 
+              ? "bg-blue-600 text-white" 
+              : "bg-purple-600 text-white";
+            return (
+              <button
+                key={l}
+                onClick={() => setLift(l)}
+                className={`px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                  isActive
+                    ? `${colors} shadow-md`
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                }`}
+              >
+                {l === "squat" ? "🦵" : l === "bench" ? "🏋️" : "💪"} {l.charAt(0).toUpperCase() + l.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Main Calculator Card */}
+        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+          {/* Settings Toggle */}
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+            onClick={() => setCalcSettingsOpen((prev) => !prev)}
+          >
+            <span className="text-sm font-medium text-gray-600">⚙️ Settings</span>
+            <svg 
+              className={`w-4 h-4 text-gray-400 transition-transform ${calcSettingsOpen ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9.5 1.75h5l.73 2.2a7.5 7.5 0 012 .84l2.19-.79 2.5 4.33-1.85 1.33a7.6 7.6 0 010 2.68l1.85 1.33-2.5 4.33-2.19-.79a7.5 7.5 0 01-2 .84l-.73 2.2h-5l-.73-2.2a7.5 7.5 0 01-2-.84l-2.19.79-2.5-4.33 1.85-1.33a7.6 7.6 0 010-2.68l-1.85-1.33 2.5-4.33 2.19.79a7.5 7.5 0 012-.84l.73-2.2Z"
-                />
-                <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
           {calcSettingsOpen && (
-            <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Units</span>
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-500">Units</span>
                   <select
-                    className="field"
+                    className="field text-sm"
                     value={unit}
                     onChange={(e) => handleUnitChange(e.target.value as Unit)}
                   >
-                    <option value="lb">lb</option>
-                    <option value="kg">kg</option>
+                    <option value="lb">Pounds (lb)</option>
+                    <option value="kg">Kilograms (kg)</option>
                   </select>
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Plate Rounding Step</span>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-500">Rounding</span>
                   <input
-                    className="field"
+                    className="field text-sm"
                     inputMode="decimal"
                     value={roundStepText}
                     onChange={(e) => handleRoundStepInput(e.target.value)}
@@ -514,108 +539,95 @@ export default function Calculator() {
                   />
                 </label>
               </div>
-              {!isCoach && (
-                <div className="text-xs text-gray-500">
-                  Plate Rounding Is Coach-Only.
-                </div>
-              )}
             </div>
           )}
 
-          <div className="grid gap-4">
-            <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-              <span>Lift</span>
-              <select
-                className="field"
-                value={lift}
-                onChange={(e) => setLift(e.target.value as Lift)}
-              >
-                {lifts.map((l) => (
-                  <option key={l} value={l}>
-                    {l.charAt(0).toUpperCase() + l.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          {/* Input Section */}
+          <div className="p-4 space-y-4">
+            {/* Estimator Toggle */}
+            <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                 checked={useEstimator}
                 onChange={(e) => toggleEstimator(e.target.checked)}
               />
-              Use Rep-Max Estimator
+              <div>
+                <div className="text-sm font-medium text-gray-800">Use Rep-Max Estimator</div>
+                <div className="text-xs text-gray-500">Don't know your 1RM? Estimate it from reps</div>
+              </div>
             </label>
 
             {useEstimator ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Weight Lifted ({unit})</span>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-500">Weight ({unit})</span>
                   <input
-                    className="field"
+                    className="field text-lg font-semibold text-center"
                     inputMode="decimal"
                     value={estimatorWeight === "" ? "" : estimatorWeight}
-                    onChange={(e) =>
-                      setEstimatorWeight(parseNumeric(e.target.value))
-                    }
-                    placeholder="e.g., 200"
+                    onChange={(e) => setEstimatorWeight(parseNumeric(e.target.value))}
+                    placeholder="200"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                  <span>Reps</span>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-500">Reps</span>
                   <input
-                    className="field"
+                    className="field text-lg font-semibold text-center"
                     inputMode="numeric"
                     value={estimatorReps === "" ? "" : estimatorReps}
-                    onChange={(e) =>
-                      setEstimatorReps(parseNumeric(e.target.value))
-                    }
-                    placeholder="e.g., 5"
+                    onChange={(e) => setEstimatorReps(parseNumeric(e.target.value))}
+                    placeholder="5"
                   />
                 </label>
               </div>
             ) : (
-              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                <span>Measured 1RM ({unit})</span>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-500">Your 1RM ({unit})</span>
                 <input
-                  className="field"
+                  className="field text-xl font-bold text-center"
                   inputMode="decimal"
                   value={measured1rm === "" ? "" : measured1rm}
                   onChange={(e) => setMeasured1rm(parseNumeric(e.target.value))}
-                  placeholder={`Enter 1RM in ${unit}`}
+                  placeholder={`Enter max in ${unit}`}
                 />
               </label>
             )}
           </div>
 
-          <div className="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <div className="text-sm font-semibold text-gray-700">
-              Estimated 1RM
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {estimated1rm ? `${formatNumber(estimated1rm)} ${unit}` : "-"}
-            </div>
-            <div className="text-sm text-gray-600">
-              Training Max (90%):{" "}
-              <span className="font-semibold text-gray-900">
-                {trainingMax !== null ? `${trainingMax} ${unit}` : "-"}
-              </span>
+          {/* Results Section */}
+          <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 text-white">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-xs text-brand-100 uppercase tracking-wide">Est. 1RM</div>
+                <div className="text-2xl font-bold">
+                  {estimated1rm ? formatNumber(estimated1rm) : "—"}
+                </div>
+                <div className="text-xs text-brand-200">{unit}</div>
+              </div>
+              <div className="text-center border-l border-brand-400">
+                <div className="text-xs text-brand-100 uppercase tracking-wide">Training Max</div>
+                <div className="text-2xl font-bold">
+                  {trainingMax !== null ? trainingMax : "—"}
+                </div>
+                <div className="text-xs text-brand-200">90% • {unit}</div>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
+          {/* Save Button */}
+          <div className="p-4 space-y-2">
             <button
-              className="btn btn-primary w-full justify-center py-3 text-base"
+              className="w-full py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold rounded-xl shadow transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSave}
               disabled={saving || trainingMax === null}
             >
-              {saving ? "Saving..." : "Save As TM For This Lift"}
+              {saving ? "Saving..." : `💾 Save ${lift.charAt(0).toUpperCase() + lift.slice(1)} TM`}
             </button>
 
             {(profile?.tm?.[lift] || profile?.oneRm?.[lift]) && (
               <button
-                className="btn w-full justify-center py-3 text-base text-red-600 border-red-200 hover:bg-red-50"
+                className="w-full py-2 text-red-600 text-sm font-medium hover:bg-red-50 rounded-xl transition-colors"
                 onClick={handleClear}
                 disabled={saving}
               >
@@ -623,19 +635,36 @@ export default function Calculator() {
               </button>
             )}
           </div>
-          </div>
         </div>
 
-        <div className="card space-y-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-xl font-semibold">Plate Calculator</h2>
-            <div className="flex flex-wrap gap-2 text-xs font-semibold">
+        {/* Plate Calculator - Collapsible */}
+        <details 
+          className="bg-white rounded-2xl shadow-md overflow-hidden"
+          open={plateCalcOpen}
+          onToggle={(e) => setPlateCalcOpen((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="px-4 py-4 cursor-pointer flex items-center justify-between hover:bg-gray-50 transition-colors list-none">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🍽️</span>
+              <span className="font-semibold text-gray-800">Plate Calculator</span>
+            </div>
+            <svg 
+              className={`w-5 h-5 text-gray-400 transition-transform ${plateCalcOpen ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+
+          <div className="border-t border-gray-100">
+            {/* Quick Actions */}
+            <div className="flex gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
               <button
                 type="button"
-                className={`rounded-full border px-3 py-1 transition ${
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                   trainingMax !== null
-                    ? "border-brand-200 text-brand-700 hover:bg-brand-50"
-                    : "border-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "bg-brand-100 text-brand-700 hover:bg-brand-200"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
                 onClick={() => {
                   if (trainingMax !== null) {
@@ -649,10 +678,10 @@ export default function Calculator() {
               </button>
               <button
                 type="button"
-                className={`rounded-full border px-3 py-1 transition ${
+                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                   estimated1rm
-                    ? "border-brand-200 text-brand-700 hover:bg-brand-50"
-                    : "border-gray-200 text-gray-400 cursor-not-allowed"
+                    ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}
                 onClick={() => {
                   if (estimated1rm) {
@@ -666,7 +695,7 @@ export default function Calculator() {
               </button>
               <button
                 type="button"
-                className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:border-brand-200 hover:text-brand-700"
+                className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300"
                 onClick={() => {
                   setTargetLocked(true);
                   setTargetWeight("");
@@ -675,79 +704,59 @@ export default function Calculator() {
                 Clear
               </button>
             </div>
-          </div>
 
-          <div className="grid gap-3">
-            <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-              <span>Target Weight ({unit})</span>
-              <input
-                className="field"
-                inputMode="decimal"
-                value={targetWeight === "" ? "" : targetWeight}
-                onChange={(e) => handleTargetWeightChange(e.target.value)}
-                placeholder={unit === "lb" ? "225" : "100"}
-              />
-            </label>
-          </div>
+            {/* Target Weight Input */}
+            <div className="p-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-500">Target Weight ({unit})</span>
+                <input
+                  className="field text-lg font-semibold text-center"
+                  inputMode="decimal"
+                  value={targetWeight === "" ? "" : targetWeight}
+                  onChange={(e) => handleTargetWeightChange(e.target.value)}
+                  placeholder={unit === "lb" ? "225" : "100"}
+                />
+              </label>
 
-          <div className="space-y-1 text-sm text-gray-600">
-            <div>
-              Target:&nbsp;
-              <span className="font-semibold">
-                {typeof targetWeight === "number" && targetWeight > 0
-                  ? `${formatNumber(targetWeight)} ${unit}`
-                  : "-"}
-              </span>
-            </div>
-            <div>
-              Bar Weight:&nbsp;
-              <span className="font-semibold">
-                {formatNumber(activeBarWeight)} {unit}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-900 p-4 text-white">
-            <PlateVisual
-              unit={unit}
-              barWeight={activeBarWeight}
-              plates={visualPlates}
-              targetWeight={targetWeight}
-            />
-
-            {platePlan && platePlan.perSide.length > 0 && (
-              <div className="grid gap-x-6 gap-y-1 text-xs text-gray-200 sm:grid-cols-2 sm:text-sm">
-                {platePlan.perSide.map((row, idx) => (
-                  <React.Fragment key={`${row.weight}-${idx}`}>
-                    <div>
-                      {row.count} x {formatNumber(row.weight)} {unit}
-                    </div>
-                    <div className="text-right">
-                      {formatNumber(row.weight * row.count)} {unit}/side
-                    </div>
-                  </React.Fragment>
-                ))}
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <span>Bar: {formatNumber(activeBarWeight)} {unit}</span>
+                <span>Target: {typeof targetWeight === "number" ? `${formatNumber(targetWeight)} ${unit}` : "—"}</span>
               </div>
-            )}
+            </div>
 
-            <div
-              className={`rounded-xl border px-3 py-2 text-xs sm:text-sm ${
-                platePlan
-                  ? platePlan.isPossible
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                    : "border-rose-300 bg-rose-50 text-rose-700"
-                  : "border-gray-700 bg-gray-800 text-gray-200"
-              }`}
-            >
-              {planSummary}
-              {platePlan && !platePlan.isPossible && (
-                <div className="mt-1 text-xs">
-                  Add smaller plates or adjust the target weight.
+            {/* Plate Visual */}
+            <div className="bg-gray-900 p-4 text-white">
+              <PlateVisual
+                unit={unit}
+                barWeight={activeBarWeight}
+                plates={visualPlates}
+                targetWeight={targetWeight}
+              />
+
+              {platePlan && platePlan.perSide.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-gray-300">
+                  {platePlan.perSide.map((row, idx) => (
+                    <div key={`${row.weight}-${idx}`} className="flex justify-between px-2">
+                      <span>{row.count} × {formatNumber(row.weight)}</span>
+                      <span className="text-gray-500">{formatNumber(row.weight * row.count)}/side</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
+
+            {/* Summary */}
+            <div className={`px-4 py-3 text-sm ${
+              platePlan
+                ? platePlan.isPossible
+                  ? "bg-green-50 text-green-700"
+                  : "bg-red-50 text-red-700"
+                : "bg-gray-50 text-gray-600"
+            }`}>
+              {planSummary}
+            </div>
           </div>
-        </div>
+        </details>
       </div>
     </div>
   );

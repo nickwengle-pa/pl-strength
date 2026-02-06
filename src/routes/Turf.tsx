@@ -140,7 +140,6 @@ export default function Turf() {
                   {day}
                 </div>
               ))}
-              </div>
             </div>
           </div>
         </section>
