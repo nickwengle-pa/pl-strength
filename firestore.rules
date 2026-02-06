@@ -142,6 +142,11 @@ service cloud.firestore {
       allow read: if isCoach() || isAdmin();
     }
 
+    // Collection group query for sessions (used by subscribeToTeamSessions)
+    match /{path=**}/sessions/{sid} {
+      allow read: if isCoach() || isAdmin();
+    }
+
     match /athletes/{uid}/sessions/{sid} {
       allow read, write: if isSignedIn() && (request.auth.uid == uid || isCoach() || isAdmin());
     }
