@@ -16,6 +16,8 @@ import ProgramOutline from "./routes/ProgramOutline";
 import Attendance from "./routes/Attendance";
 import SignIn from "./routes/SignIn";
 import Welcome from "./routes/Welcome";
+import Turf from "./routes/Turf";
+import Accessory from "./routes/Accessory";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
@@ -76,6 +78,8 @@ export default function App() {
             <Route path="/sheets" element={<Sheets />} />
             <Route path="/program-outline" element={<ProgramOutline />} />
             <Route path="/exercises" element={<Exercises />} />
+            <Route path="/turf" element={<Turf />} />
+            <Route path="/accessory" element={<Accessory />} />
             <Route path="/roster" element={<Roster />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/admin" element={<Admin />} />

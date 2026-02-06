@@ -351,6 +351,21 @@ export default function Home() {
 
             {/* Lift Cards - BIG BUTTONS for mobile */}
             <div className="grid gap-3">
+              {/* TURF Button - Before lifts */}
+              <button 
+                className="w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] bg-green-600 hover:bg-green-700 active:bg-green-800"
+                onClick={() => navigate('/turf')}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🌱</span>
+                  <div className="text-left">
+                    <div className="text-xl font-bold">Turf</div>
+                    <div className="text-sm opacity-80">Warmup & Plyos</div>
+                  </div>
+                </div>
+                <span className="text-lg">GO →</span>
+              </button>
+
               {(['squat', 'bench', 'deadlift'] as Lift[]).map(lift => {
                 const { week, cycle } = getLiftStatus(lift);
                 const liftName = lift === 'bench' ? 'Bench' : lift === 'squat' ? 'Squat' : 'Deadlift';
@@ -396,6 +411,21 @@ export default function Home() {
                   </button>
                 )
               })}
+
+              {/* ACCESSORY Button - After lifts */}
+              <button 
+                className="w-full flex items-center justify-between px-5 py-5 rounded-2xl text-white font-bold shadow-lg transition-all active:scale-[0.98] bg-gray-700 hover:bg-gray-800 active:bg-gray-900"
+                onClick={() => navigate('/accessory')}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🎯</span>
+                  <div className="text-left">
+                    <div className="text-xl font-bold">Accessory Lifts</div>
+                    <div className="text-sm opacity-80">Today's Extra Work</div>
+                  </div>
+                </div>
+                <span className="text-lg">GO →</span>
+              </button>
             </div>
 
             {/* Quick Links - only show if TMs are set */}
