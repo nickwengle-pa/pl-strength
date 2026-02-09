@@ -159,7 +159,7 @@ export default function Roster() {
   const [addAthleteError, setAddAthleteError] = useState<string | null>(null);
   const [addAthleteSaving, setAddAthleteSaving] = useState(false);
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
-  const [sortField, setSortField] = useState<"firstName" | "lastName" | null>("lastName");
+  const [sortField, setSortField] = useState<"firstName" | "lastName" | "lastWorkout" | null>("lastName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
@@ -167,17 +167,17 @@ export default function Roster() {
   const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
   const activeTeamSelection = coachTeam ?? getStoredTeamSelection();
 
-  const handleSort = (field: "firstName" | "lastName") => {
+  const handleSort = (field: "firstName" | "lastName" | "lastWorkout") => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection(field === "lastWorkout" ? "desc" : "asc");
     }
   };
   const applySortSelection = (value: string) => {
     const [field, direction] = value.split(":");
-    if (field !== "firstName" && field !== "lastName") return;
+    if (field !== "firstName" && field !== "lastName" && field !== "lastWorkout") return;
     if (direction !== "asc" && direction !== "desc") return;
     setSortField(field);
     setSortDirection(direction);
@@ -869,25 +869,45 @@ export default function Roster() {
     // Apply sorting
     if (sortField) {
       rows = [...rows].sort((a, b) => {
-        let aVal = "";
-        let bVal = "";
-        
-        if (sortField === "firstName") {
-          aVal = (a.firstName || "").toLowerCase();
-          bVal = (b.firstName || "").toLowerCase();
-        } else if (sortField === "lastName") {
-          aVal = (a.lastName || "").toLowerCase();
-          bVal = (b.lastName || "").toLowerCase();
+        if (sortField === "lastWorkout") {
+          const aVal = activityMap[a.uid]?.lastWorkout ?? null;
+          const bVal = activityMap[b.uid]?.lastWorkout ?? null;
+
+          // Keep athletes with no workout date at the end for both directions.
+          if (aVal === null && bVal !== null) return 1;
+          if (aVal !== null && bVal === null) return -1;
+          if (aVal !== null && bVal !== null && aVal !== bVal) {
+            return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+          }
+        } else {
+          const aVal =
+            sortField === "firstName"
+              ? (a.firstName || "").toLowerCase()
+              : (a.lastName || "").toLowerCase();
+          const bVal =
+            sortField === "firstName"
+              ? (b.firstName || "").toLowerCase()
+              : (b.lastName || "").toLowerCase();
+
+          if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
         }
-        
-        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+
+        // Stable tiebreaker to avoid row jumping.
+        const aLast = (a.lastName || "").toLowerCase();
+        const bLast = (b.lastName || "").toLowerCase();
+        if (aLast < bLast) return -1;
+        if (aLast > bLast) return 1;
+        const aFirst = (a.firstName || "").toLowerCase();
+        const bFirst = (b.firstName || "").toLowerCase();
+        if (aFirst < bFirst) return -1;
+        if (aFirst > bFirst) return 1;
         return 0;
       });
     }
     
     return rows;
-  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter, sortField, sortDirection]);
+  }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter, sortField, sortDirection, activityMap]);
 
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
@@ -1791,6 +1811,8 @@ export default function Roster() {
                   <option value="lastName:desc">Last (Z-A)</option>
                   <option value="firstName:asc">First (A-Z)</option>
                   <option value="firstName:desc">First (Z-A)</option>
+                  <option value="lastWorkout:desc">Last Workout (Newest)</option>
+                  <option value="lastWorkout:asc">Last Workout (Oldest)</option>
                 </select>
               </label>
             )}
@@ -1959,7 +1981,17 @@ export default function Roster() {
                 <th className="p-2 text-left">Code</th>
                 <th className="p-2 text-left">Joined</th>
                 <th className="p-2 text-left">This Week</th>
-                <th className="p-2 text-left">Last Workout</th>
+                <th
+                  className="p-2 text-left cursor-pointer hover:bg-gray-100 transition select-none"
+                  onClick={() => handleSort("lastWorkout")}
+                >
+                  <div className="flex items-center gap-1">
+                    Last Workout
+                    {sortField === "lastWorkout" && (
+                      <span className="text-xs">{sortDirection === "asc" ? "â†‘" : "â†“"}</span>
+                    )}
+                  </div>
+                </th>
                 <th className="p-2 text-left">Actions</th>
               </tr>
             </thead>
