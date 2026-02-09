@@ -2696,7 +2696,16 @@ export async function deleteAthlete(uid: string): Promise<DeleteAthleteResult> {
 
   try {
     const queueRef = doc(collection(database, "__deleteAuthUser__"), uid);
-    await setDoc(queueRef, { uid, requestedAt: serverTimestamp() });
+    await setDoc(
+      queueRef,
+      {
+        uid,
+        status: "pending",
+        requestedAt: serverTimestamp(),
+        requestedBy: auth?.currentUser?.uid ?? null,
+      },
+      { merge: true }
+    );
   } catch (err) {
     console.warn(`Failed to queue auth deletion for ${uid}`, err);
     warnings.push("auth deletion");

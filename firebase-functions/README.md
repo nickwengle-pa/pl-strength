@@ -13,7 +13,7 @@ When an admin removes a coach from the roster UI we write a document to `__delet
    ```
 2. Install function dependencies:
    ```bash
-   cd functions
+   cd firebase-functions
    npm install
    ```
 3. Deploy the function:
@@ -25,7 +25,27 @@ When an admin removes a coach from the roster UI we write a document to `__delet
 
 ## Behaviour
 
-- Trigger: Firestore document creation at `__deleteAuthUser__/{uid}`.
+- Trigger: Firestore document writes at `__deleteAuthUser__/{uid}`.
 - Action: Calls the Admin SDK `deleteUser(uid)` API.
 - Success: The queue document is deleted after the Auth user is removed.
-- Failure: The function records the error message and last attempt timestamp on the queue document so you can inspect it and retry.
+- If the user is already missing in Firebase Auth (`auth/user-not-found`), the queue document is also deleted.
+- Failure: The queue document is updated with:
+  - `status: "failed"`
+  - `lastErrorCode`
+  - `lastError`
+  - `lastAttemptAt`
+  - `attemptCount`
+
+## Retry a failed deletion
+
+Set the queue document back to pending:
+
+```json
+{
+  "uid": "<target-uid>",
+  "status": "pending",
+  "requestedAt": "<server timestamp>"
+}
+```
+
+Any update to `status: "pending"` will re-run the worker.

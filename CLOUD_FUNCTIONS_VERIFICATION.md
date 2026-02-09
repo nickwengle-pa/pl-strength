@@ -6,15 +6,15 @@
 - **Name**: `handleDeleteAuthUserQueue`
 - **Region**: us-central1  
 - **Runtime**: Node.js 20
-- **Trigger**: Firestore document creation in `__deleteAuthUser__/{uid}`
+- **Trigger**: Firestore document writes in `__deleteAuthUser__/{uid}`
 - **Status**: ACTIVE (deployed November 6, 2025)
 
 ### What It Does:
-1. Watches for documents created in `__deleteAuthUser__/` collection
+1. Watches for queue documents in `__deleteAuthUser__/` collection
 2. Extracts the user UID from the document
 3. Deletes the Firebase Authentication account using Admin SDK
 4. Removes the queue document after successful deletion
-5. Logs errors if deletion fails
+5. Marks queue doc as `failed` with error fields if deletion fails (retry by setting `status: "pending"`)
 
 ### Deployment Verification:
 ```
@@ -28,7 +28,7 @@ Max Instances: 3000
 ### How to Test:
 1. **In your app**: Go to Roster and delete an athlete
 2. **Check Firestore**: Document appears in `__deleteAuthUser__/{uid}`
-3. **Within seconds**: Function triggers and deletes auth account
+3. **Within seconds**: Function triggers and deletes auth account (when queue `status` is `pending`)
 4. **Verify**: Check Firebase Console → Authentication (user should be gone)
 
 ### Monitoring:
@@ -47,7 +47,7 @@ Or in Firebase Console:
 
 ### Current Configuration:
 - Service Account: pl-strength@appspot.gserviceaccount.com
-- Retry Policy: Do not retry (one-time execution)
+- Retry Policy: Queue-driven retries (set `status` back to `pending`)
 - Ingress: Allow all
 
 ---
