@@ -249,6 +249,7 @@ export default function Roster() {
           unit: profile.unit,
           accessCode: profile.accessCode ?? null,
           roles: [],
+          createdAt: profile.createdAt,
         };
         const existingIndex = prev.findIndex((row) => row.uid === profile.uid);
         if (existingIndex >= 0) {

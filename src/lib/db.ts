@@ -28,7 +28,7 @@ import {
   type Firestore,
   type Timestamp,
 } from "firebase/firestore";
-import { getSecondaryAuth, tryInitFirebase, type FirebaseHandles } from "./firebase";
+import { tryInitFirebase, type FirebaseHandles } from "./firebase";
 import { saveProfile as saveProfileLocal } from "./storage";
 
 const LOCAL_UID = "local";
@@ -1379,6 +1379,83 @@ export const buildAthleteEmail = (firstName: string, lastName: string): string =
 
 const passcodeToPassword = (code: string) => `${code}pl!`;
 
+type IdentityToolkitCredential = {
+  localId: string;
+  idToken: string;
+};
+
+class IdentityToolkitError extends Error {
+  constructor(public readonly code: string) {
+    super(code);
+    this.name = "IdentityToolkitError";
+  }
+}
+
+const resolveAuthApiKey = (): string | null => {
+  const apiKey = resolveHandles()?.app?.options?.apiKey;
+  return typeof apiKey === "string" && apiKey.trim() ? apiKey.trim() : null;
+};
+
+const callIdentityToolkit = async <T>(
+  endpoint: "accounts:signUp" | "accounts:signInWithPassword" | "accounts:delete",
+  payload: Record<string, unknown>
+): Promise<T> => {
+  const apiKey = resolveAuthApiKey();
+  if (!apiKey) {
+    throw new AthleteAuthError("auth/unavailable", "Firebase auth is unavailable.");
+  }
+
+  const url = `https://identitytoolkit.googleapis.com/v1/${endpoint}?key=${encodeURIComponent(apiKey)}`;
+
+  let response: Response;
+  let body: any = null;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    body = await response.json().catch(() => null);
+  } catch {
+    throw new AthleteAuthError(
+      "auth/network-request-failed",
+      "Auth request failed. Check your connection and try again."
+    );
+  }
+
+  const errorCode =
+    typeof body?.error?.message === "string" ? body.error.message : "";
+  if (!response.ok || errorCode) {
+    throw new IdentityToolkitError(errorCode || `HTTP_${response.status}`);
+  }
+
+  return (body ?? {}) as T;
+};
+
+const mapIdentityToolkitError = (code: string): AthleteAuthError => {
+  switch (code) {
+    case "INVALID_PASSWORD":
+    case "INVALID_LOGIN_CREDENTIALS":
+    case "EMAIL_NOT_FOUND":
+      return new AthleteAuthError("auth/wrong-password", "Incorrect passcode.");
+    case "USER_DISABLED":
+      return new AthleteAuthError("auth/user-disabled", "This athlete account is disabled.");
+    case "TOO_MANY_ATTEMPTS_TRY_LATER":
+      return new AthleteAuthError("auth/too-many-requests", "Too many attempts. Try again shortly.");
+    case "OPERATION_NOT_ALLOWED":
+    case "PASSWORD_LOGIN_DISABLED":
+      return new AthleteAuthError(
+        "auth/operation-not-allowed",
+        "Email/password auth is not enabled in Firebase Auth."
+      );
+    default:
+      return new AthleteAuthError(
+        "auth/internal-error",
+        `Athlete auth request failed (${code}).`
+      );
+  }
+};
+
 export class AthleteAuthError extends Error {
   constructor(public readonly code: string, message: string) {
     super(message);
@@ -1550,8 +1627,7 @@ export type CreateAthleteAccountResult = {
 export async function createAthleteAccount(
   options: CreateAthleteAccountOptions
 ): Promise<CreateAthleteAccountResult> {
-  const secondaryAuth = getSecondaryAuth();
-  if (!secondaryAuth) {
+  if (!resolveHandles()) {
     throw new AthleteAuthError("auth/unavailable", "Firebase auth is unavailable.");
   }
 
@@ -1571,30 +1647,44 @@ export async function createAthleteAccount(
 
   const email = buildAthleteEmail(first, last);
   const password = passcodeToPassword(code);
-  let credential: UserCredential | null = null;
+  let credential: IdentityToolkitCredential | null = null;
   let createdAccount = false;
 
   try {
-    credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    const result = await callIdentityToolkit<IdentityToolkitCredential>(
+      "accounts:signUp",
+      { email, password, returnSecureToken: true }
+    );
+    credential = {
+      localId: result.localId,
+      idToken: result.idToken,
+    };
     createdAccount = true;
-  } catch (err: any) {
-    const error = err as AuthError;
-    if (error.code === "auth/email-already-in-use") {
-      try {
-        credential = await signInWithEmailAndPassword(secondaryAuth, email, password);
-      } catch (signInErr: any) {
-        const signInError = signInErr as AuthError;
-        if (signInError.code === "auth/wrong-password") {
-          throw new AthleteAuthError("auth/wrong-password", "Incorrect passcode.");
-        }
-        throw signInError;
-      }
-    } else {
-      throw error;
+  } catch (err) {
+    const code = err instanceof IdentityToolkitError ? err.code : "";
+    if (code !== "EMAIL_EXISTS") {
+      if (err instanceof AthleteAuthError) throw err;
+      throw mapIdentityToolkitError(code || "UNKNOWN");
+    }
+
+    try {
+      const result = await callIdentityToolkit<IdentityToolkitCredential>(
+        "accounts:signInWithPassword",
+        { email, password, returnSecureToken: true }
+      );
+      credential = {
+        localId: result.localId,
+        idToken: result.idToken,
+      };
+    } catch (signInErr) {
+      if (signInErr instanceof AthleteAuthError) throw signInErr;
+      const signInCode =
+        signInErr instanceof IdentityToolkitError ? signInErr.code : "UNKNOWN";
+      throw mapIdentityToolkitError(signInCode);
     }
   }
 
-  const uid = credential?.user?.uid ?? secondaryAuth.currentUser?.uid;
+  const uid = credential?.localId;
   if (!uid) {
     throw new AthleteAuthError("auth/internal-error", "We could not create the athlete account.");
   }
@@ -1607,9 +1697,11 @@ export async function createAthleteAccount(
   }
 
   const cleanupCreatedAccount = async () => {
-    if (!createdAccount || !credential?.user) return;
+    if (!createdAccount || !credential?.idToken) return;
     try {
-      await credential.user.delete();
+      await callIdentityToolkit("accounts:delete", {
+        idToken: credential.idToken,
+      });
     } catch (deleteErr) {
       console.warn("Failed to clean up created athlete account", deleteErr);
     }
@@ -1691,12 +1783,6 @@ export async function createAthleteAccount(
   } catch (err) {
     await cleanupCreatedAccount();
     throw err;
-  }
-
-  try {
-    await secondaryAuth.signOut();
-  } catch (err) {
-    console.warn("Failed to sign out secondary auth", err);
   }
 
   return {
