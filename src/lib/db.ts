@@ -520,6 +520,7 @@ export type Profile = {
   firstName: string;
   lastName: string;
   unit: Unit;
+  createdAt?: number;
   height?: number;
   weight?: number;
   graduationYear?: number;
@@ -1108,6 +1109,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     preferredTeam
   );
   const activeState = activeTeam ? teamData[activeTeam] : undefined;
+  const createdAt = toMillis(data.createdAt);
   const legacyTm = normalizeLiftMap(data.tm);
   const legacyOneRm = normalizeLiftMap(data.oneRm);
   const legacyLiftWeeks = normalizeLiftWeekMap(data.liftWeeks);
@@ -1129,6 +1131,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     firstName: data.firstName || "",
     lastName: data.lastName || "",
     unit: (data.unit || "lb") as Unit,
+    createdAt: createdAt || undefined,
     height,
     weight,
     graduationYear,
@@ -1177,6 +1180,7 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     activeTeam
   );
   const mergedTeamData = mergeActiveTeamData(p, activeTeam);
+  const normalizedCreatedAt = toMillis(p.createdAt);
   const normalizedProfile: Profile = {
     ...p,
     team: resolvedTeam,
@@ -1193,12 +1197,16 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     equipment: normalizedEquipment,
     currentWeek: normalizeWeek(p.currentWeek),
     currentCycle: normalizeCycle(p.currentCycle),
+    createdAt: normalizedCreatedAt || undefined,
   };
   if (!database) {
     if (options?.skipLocal) {
       throw new Error("Firebase is not available to sync this profile right now.");
     }
-    saveProfileLocal(normalizedProfile);
+    saveProfileLocal({
+      ...normalizedProfile,
+      createdAt: normalizedProfile.createdAt ?? Date.now(),
+    });
     return;
   }
   const ref = profRef(database, p.uid);
@@ -1237,10 +1245,18 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     payload.currentCycle = normalizedProfile.currentCycle;
   }
   const snap = await getDoc(ref);
-  if (snap.exists()) await updateDoc(ref, payload);
-  else await setDoc(ref, payload);
+  const existingCreatedAt = snap.exists() ? toMillis((snap.data() as any)?.createdAt) : 0;
+  const persistedCreatedAt = existingCreatedAt || normalizedProfile.createdAt || Date.now();
+  if (snap.exists()) {
+    await updateDoc(ref, payload);
+  } else {
+    await setDoc(ref, { ...payload, createdAt: serverTimestamp() });
+  }
   if (!options?.skipLocal) {
-    saveProfileLocal(normalizedProfile);
+    saveProfileLocal({
+      ...normalizedProfile,
+      createdAt: persistedCreatedAt,
+    });
   }
 }
 
@@ -1695,6 +1711,7 @@ export type RosterEntry = {
   firstName?: string;
   lastName?: string;
   unit?: Unit;
+  createdAt?: number;
   team?: Team;
   teamScopes?: Team[];
   teamAnchor?: Team;
@@ -1745,6 +1762,7 @@ export async function listRoster(): Promise<RosterEntry[]> {
         firstName: data.firstName,
         lastName: data.lastName,
         unit: data.unit as Unit,
+        createdAt: toMillis(data.createdAt) || undefined,
         team: teamAnchor ?? team,
         teamAnchor: teamAnchor ?? team,
         teamScopes,
@@ -2964,6 +2982,7 @@ export async function fetchTeamProfiles(
          firstName: data.firstName || "",
          lastName: data.lastName || "",
          unit: (data.unit as Unit) || "lb",
+         createdAt: toMillis(data.createdAt) || undefined,
          team: pTeam,
          tm: data.tm || {},
          oneRm: data.oneRm || {},

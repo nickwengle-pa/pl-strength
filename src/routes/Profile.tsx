@@ -73,6 +73,7 @@ export default function ProfilePage() {
   if (!p) return null;
 
   const heightUnit = p.unit === "kg" ? "cm" : "in";
+  const createdOn = p.createdAt ? new Date(p.createdAt).toLocaleString() : "Not Available";
 
   return (
     <div className="container py-6 space-y-4">
@@ -92,6 +93,9 @@ export default function ProfilePage() {
       <div className="card space-y-4">
         <div className="text-sm text-gray-600">
           UID: <code>{uid}</code>
+        </div>
+        <div className="text-sm text-gray-600">
+          Created: <span className="font-medium text-gray-900">{createdOn}</span>
         </div>
 
         <div className="grid md:grid-cols-2 gap-3">

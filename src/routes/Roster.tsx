@@ -1016,6 +1016,16 @@ export default function Roster() {
             <div className="font-mono text-base text-gray-900">
               {detailProfile.accessCode ?? "-"}
             </div>
+            <div className="mt-2 text-sm text-gray-600">Created</div>
+            <div className="text-base font-semibold text-gray-900">
+              {detailProfile.createdAt
+                ? new Date(detailProfile.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "-"}
+            </div>
           </div>
 
           {/* Cycle Advancement */}
@@ -1947,6 +1957,7 @@ export default function Roster() {
                 </th>
                 <th className="p-2 text-left">Team</th>
                 <th className="p-2 text-left">Code</th>
+                <th className="p-2 text-left">Joined</th>
                 <th className="p-2 text-left">This Week</th>
                 <th className="p-2 text-left">Last Workout</th>
                 <th className="p-2 text-left">Actions</th>
@@ -1981,6 +1992,15 @@ export default function Roster() {
                     <td className="p-2">{r.lastName || "-"}</td>
                     <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
                     <td className="p-2 font-mono text-xs">{r.accessCode ?? "-"}</td>
+                    <td className="p-2 text-xs text-gray-600">
+                      {r.createdAt
+                        ? new Date(r.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "2-digit",
+                          })
+                        : <span className="text-gray-400">-</span>}
+                    </td>
                     <td className="p-2">
                       {loadingActivity ? (
                         <span className="text-gray-400 text-xs">...</span>
@@ -2036,7 +2056,7 @@ export default function Roster() {
               })}
               {filteredAthleteRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={7}>
+                  <td className="p-2 text-gray-500" colSpan={8}>
                     No athletes found for the selected team.
                   </td>
                 </tr>
