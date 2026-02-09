@@ -408,7 +408,12 @@ export default function Session() {
     });
 
   async function save() {
+    // Prevent duplicate submissions from rapid clicks
+    if (savingRef.current) return;
+    savingRef.current = true;
+
     if (!tm || work.length === 0 || amrapReps <= 0) {
+      savingRef.current = false;
       alert("Set a training max and enter AMRAP reps.");
       return;
     }
@@ -416,6 +421,7 @@ export default function Session() {
       (outcome) => outcome?.status === "F" && !outcome.actualReps.trim()
     );
     if (missingActual) {
+      savingRef.current = false;
       alert("Enter the actual reps completed for any set marked as a fail.");
       return;
     }
@@ -472,6 +478,7 @@ export default function Session() {
       alert("Unable to save session right now. Please try again.");
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   }
 
