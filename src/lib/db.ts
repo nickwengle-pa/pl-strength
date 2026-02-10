@@ -1421,6 +1421,8 @@ export async function signInOrCreateAthleteAccount(
     credential = await signInWithEmailAndPassword(auth, email, password);
   } catch (err) {
     const error = err as AuthError;
+    console.log("Sign-in error caught:", error.code, error.message);
+
     // Try to create account for any auth failure - if email exists, we'll get a specific error
     const canCreate =
       error.code === "auth/user-not-found" ||
@@ -1428,11 +1430,14 @@ export async function signInOrCreateAthleteAccount(
       error.code === "auth/wrong-password";
 
     if (canCreate) {
+      console.log("Attempting to create account...");
       try {
         credential = await createUserWithEmailAndPassword(auth, email, password);
         createdAccount = true;
+        console.log("Account created successfully!");
       } catch (createErr: any) {
         const createError = createErr as AuthError;
+        console.log("Create account error:", createError.code, createError.message);
         // If email already exists, the original password was wrong
         if (createError.code === "auth/email-already-in-use") {
           throw new AthleteAuthError("auth/wrong-password", "Incorrect passcode.");
@@ -1440,6 +1445,7 @@ export async function signInOrCreateAthleteAccount(
         throw createError;
       }
     } else {
+      console.log("Error not eligible for account creation, rethrowing:", error.code);
       throw error;
     }
   }
