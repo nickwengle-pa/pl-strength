@@ -713,11 +713,20 @@ export default function Session() {
           </div>
         )}
 
-        <div className={`fixed inset-0 z-50 text-white flex flex-col overflow-hidden ${
-          currentSet?.phase === 'warm'
-            ? 'bg-gradient-to-br from-blue-600 to-blue-800'
-            : 'bg-gradient-to-br from-orange-600 to-red-700'
-        }`}>
+        <div
+          className={`fixed inset-0 z-50 text-white flex flex-col overflow-hidden relative ${
+            currentSet?.phase === 'warm'
+              ? 'bg-gradient-to-br from-blue-600 to-blue-800'
+              : 'bg-black'
+          }`}
+        >
+          {/* Dragon logo background for work sets */}
+          {currentSet?.phase === 'work' && (
+            <div
+              className="absolute inset-0 bg-center bg-contain bg-no-repeat opacity-15 pointer-events-none"
+              style={{ backgroundImage: 'url(/assets/dragon.png)' }}
+            />
+          )}
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 flex-shrink-0">
           <div>
@@ -737,11 +746,11 @@ export default function Session() {
           {/* Set Counter */}
           <div className="px-4 py-3 text-center">
             <div className={`text-xl font-black uppercase tracking-wide ${
-              currentSet?.phase === 'warm' ? 'text-blue-200' : 'text-yellow-300'
-            }`}>
+              currentSet?.phase === 'warm' ? 'text-blue-200' : 'text-cyan-400'
+            }`} style={currentSet?.phase === 'work' ? { textShadow: '0 0 20px rgba(34, 211, 238, 0.8)' } : undefined}>
               {currentSet?.phase === 'warm' ? 'WARM UP SET' : 'WORK SET'}
             </div>
-            <div className="text-5xl font-bold my-1">
+            <div className="text-5xl font-bold my-1" style={currentSet?.phase === 'work' ? { textShadow: '0 0 30px rgba(255, 255, 255, 0.5)' } : undefined}>
               {currentSetIndex + 1} / {allSets.length}
             </div>
           </div>
@@ -773,8 +782,14 @@ export default function Session() {
                   {Math.round(currentSet.pct * 100)}% of TM
                 </div>
                 {isAMRAPSet && (
-                  <div className="mt-4 mx-4 px-4 py-2 bg-yellow-400/20 rounded-xl border-2 border-yellow-300">
-                    <div className="text-xl font-bold text-yellow-200">AMRAP SET!</div>
+                  <div className={`mt-4 mx-4 px-4 py-2 rounded-xl border-2 ${
+                    currentSet.phase === 'warm'
+                      ? 'bg-yellow-400/20 border-yellow-300'
+                      : 'bg-cyan-500/20 border-cyan-400'
+                  }`}>
+                    <div className={`text-xl font-bold ${
+                      currentSet.phase === 'warm' ? 'text-yellow-200' : 'text-cyan-300'
+                    }`} style={currentSet.phase === 'work' ? { textShadow: '0 0 15px rgba(34, 211, 238, 0.8)' } : undefined}>AMRAP SET!</div>
                     <div className="text-xs mt-1">Leave 1-2 Reps In The Tank</div>
                   </div>
                 )}
