@@ -118,8 +118,22 @@ export default function Attendance() {
   const [formDraft, setFormDraft] = useState<{
     firstName: string;
     lastName: string;
+    number: string;
+    grade: string;
+    height: string;
+    weight: string;
+    letter: string;
     level: Team;
-  }>({ firstName: "", lastName: "", level: DEFAULT_TEAM });
+  }>({
+    firstName: "",
+    lastName: "",
+    number: "",
+    grade: "",
+    height: "",
+    weight: "",
+    letter: "",
+    level: DEFAULT_TEAM,
+  });
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
   const [lastWorkoutDates, setLastWorkoutDates] = useState<Record<string, number>>({});
   const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'number' | 'grade' | 'lastWorkout'>('lastName');
@@ -437,6 +451,11 @@ export default function Attendance() {
     event.preventDefault();
     const first = formDraft.firstName.trim();
     const last = formDraft.lastName.trim();
+    const number = formDraft.number.trim();
+    const grade = formDraft.grade.trim();
+    const height = formDraft.height.trim();
+    const weight = formDraft.weight.trim();
+    const letter = formDraft.letter.trim();
     const level = formDraft.level;
     if (!first && !last) {
       handleSetError(level, "Enter At Least A First Or Last Name.");
@@ -444,9 +463,20 @@ export default function Attendance() {
     }
     const id = createId();
     updateSheet(level, (current) => {
+      const nextAthlete = {
+        id,
+        firstName: first,
+        lastName: last,
+        level,
+        ...(number ? { number } : {}),
+        ...(grade ? { grade } : {}),
+        ...(height ? { height } : {}),
+        ...(weight ? { weight } : {}),
+        ...(letter ? { letter } : {}),
+      };
       const nextAthletes = [
         ...current.athletes,
-        { id, firstName: first, lastName: last, level },
+        nextAthlete,
       ];
       const nextRecords = { ...current.records };
       const row: Record<string, boolean> = {};
@@ -456,7 +486,16 @@ export default function Attendance() {
       nextRecords[id] = row;
       return { ...current, athletes: nextAthletes, records: nextRecords };
     });
-    setFormDraft({ firstName: "", lastName: "", level: selectedTeam });
+    setFormDraft({
+      firstName: "",
+      lastName: "",
+      number: "",
+      grade: "",
+      height: "",
+      weight: "",
+      letter: "",
+      level: selectedTeam,
+    });
     setFlash(`Added ${first || last || "Athlete"} To ${level}.`);
     handleSetError(level, null);
   };
@@ -773,34 +812,137 @@ export default function Attendance() {
           </div>
         )}
 
+        <form
+          className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 p-5 shadow-sm space-y-4"
+          onSubmit={handleAddAthlete}
+        >
+          <div className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full bg-sky-200/40 blur-2xl" />
+          <div className="relative flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold tracking-wide text-slate-800">
+                Add Athlete To Attendance
+              </h3>
+              <p className="text-xs text-slate-600">
+                First Or Last Name Is Required. Number, Grade, Height, Weight, And Letter Are Optional.
+              </p>
+            </div>
+            <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              Quick Entry
+            </span>
+          </div>
+
+          <div className="relative grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              First Name
+              <input
+                className="field bg-white/90"
+                value={formDraft.firstName}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
+                }
+                placeholder="Jordan"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Last Name
+              <input
+                className="field bg-white/90"
+                value={formDraft.lastName}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
+                }
+                placeholder="Taylor"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Number
+              <input
+                className="field bg-white/90"
+                value={formDraft.number}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, number: event.target.value }))
+                }
+                placeholder="12"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Grade
+              <input
+                className="field bg-white/90"
+                value={formDraft.grade}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
+                }
+                placeholder="11"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Height
+              <input
+                className="field bg-white/90"
+                value={formDraft.height}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, height: event.target.value }))
+                }
+                placeholder={`6'1"`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Weight
+              <input
+                className="field bg-white/90"
+                value={formDraft.weight}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
+                }
+                placeholder="185"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Letter
+              <input
+                className="field bg-white/90"
+                value={formDraft.letter}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, letter: event.target.value }))
+                }
+                placeholder="V"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+              Level
+              <select
+                className="field bg-white/90"
+                value={formDraft.level}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({
+                    ...prev,
+                    level: event.target.value as Team,
+                  }))
+                }
+              >
+                {visibleTeams.map((team) => (
+                  <option key={team} value={team}>
+                    {formatTeamLabel(team)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="relative flex justify-end">
+            <button type="submit" className="btn btn-primary">
+              Add Athlete
+            </button>
+          </div>
+        </form>
+
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="w-max table-auto divide-y divide-gray-200 text-sm">
             <thead>
               <tr className="bg-gray-50">
                 <th
-                  className="w-48 px-3 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  onClick={() => handleSort('firstName')}
-                >
-                  <div className="flex items-center gap-1">
-                    First Name
-                    {sortField === 'firstName' && (
-                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="w-32 px-3 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
-                  onClick={() => handleSort('lastName')}
-                >
-                  <div className="flex items-center gap-1">
-                    Last Name
-                    {sortField === 'lastName' && (
-                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
-                <th
-                  className="w-20 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
                   onClick={() => handleSort('number')}
                 >
                   <div className="flex items-center gap-1">
@@ -811,7 +953,29 @@ export default function Attendance() {
                   </div>
                 </th>
                 <th
-                  className="w-20 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('firstName')}
+                >
+                  <div className="flex items-center gap-1">
+                    First Name
+                    {sortField === 'firstName' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('lastName')}
+                >
+                  <div className="flex items-center gap-1">
+                    Last Name
+                    {sortField === 'lastName' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
                   onClick={() => handleSort('grade')}
                 >
                   <div className="flex items-center gap-1">
@@ -822,7 +986,7 @@ export default function Attendance() {
                   </div>
                 </th>
                 <th
-                  className="w-32 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
                   onClick={() => handleSort('lastWorkout')}
                 >
                   <div className="flex items-center gap-1">
@@ -854,7 +1018,7 @@ export default function Attendance() {
                     </div>
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center text-gray-500 text-xs font-medium">Actions</th>
+                <th className="px-3 py-2 whitespace-nowrap text-center text-gray-500 text-xs font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -864,20 +1028,20 @@ export default function Attendance() {
                     colSpan={selectedSheet.dates.length + 6}
                     className="px-3 py-5 text-center text-sm text-gray-500"
                   >
-                    No Athletes Added Yet. Use The Form Below To Add Someone.
+                    No Athletes Added Yet. Use The Form Above To Add Someone.
                   </td>
                 </tr>
               ) : (
                 visibleAthletes.map((athlete) => (
                   <tr key={athlete.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 text-xs text-gray-600">
+                      {athlete.number || "-"}
+                    </td>
                     <td className="px-3 py-2 text-sm font-medium text-gray-800">
                       {athlete.firstName || "-"}
                     </td>
                     <td className="px-3 py-2 text-sm font-medium text-gray-800">
                       {athlete.lastName || "-"}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">
-                      {athlete.number || "-"}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-600">
                       {athlete.grade || "-"}
@@ -919,58 +1083,6 @@ export default function Attendance() {
           </table>
         </div>
 
-        <form className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-3" onSubmit={handleAddAthlete}>
-          <h3 className="text-sm font-semibold text-gray-700">Add Athlete To Attendance</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col text-xs font-medium text-gray-600 gap-1">
-              First Name
-              <input
-                className="field"
-                value={formDraft.firstName}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
-                }
-                placeholder="Jordan"
-              />
-            </label>
-            <label className="flex flex-col text-xs font-medium text-gray-600 gap-1">
-              Last Name
-              <input
-                className="field"
-                value={formDraft.lastName}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
-                }
-                placeholder="Taylor"
-              />
-            </label>
-          </div>
-          <label className="flex flex-col text-xs font-medium text-gray-600 gap-1 md:w-48">
-            Level
-            <select
-              className="field"
-              value={formDraft.level}
-              onChange={(event) =>
-                setFormDraft((prev) => ({
-                  ...prev,
-                  level: event.target.value as Team,
-                }))
-              }
-            >
-              {visibleTeams.map((team) => (
-                <option key={team} value={team}>
-                  {formatTeamLabel(team)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex justify-end">
-            <button type="submit" className="btn btn-primary">
-              Add Athlete
-            </button>
-          </div>
-        </form>
-        
         {/* CSV Import Section */}
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-blue-900">Import From CSV/Excel</h3>
