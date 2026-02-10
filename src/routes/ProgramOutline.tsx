@@ -879,261 +879,281 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
           </div>
         </header>
 
-        <Section
-          title="Warmup (Turf)"
-          items={data.turfWarmup}
-          editable={editable}
-          options={library.turfWarmup}
-          onItemsChange={updateStringList("turfWarmup")}
-        />
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-3">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-gray-800">Hip Mobility Series (Turf)</h3>
-            {editable ? (
-              <textarea
-                className="field w-full"
-                rows={3}
-                value={data.hipMobility.note}
-                onChange={(event) => updateHipMobility({ note: event.target.value })}
-              />
-            ) : (
-              <p>{data.hipMobility.note}</p>
-            )}
-          </div>
-          {hipMobilityEmbed && (
-            <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
-              <iframe
-                className="absolute inset-0 h-full w-full"
-                src={hipMobilityEmbed}
-                title="Hip mobility series"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-              />
-            </div>
-          )}
-          {editable ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                Video URL
-                <input
-                  className="field"
-                  value={data.hipMobility.url}
-                  onChange={(event) => updateHipMobility({ url: event.target.value })}
-                  placeholder="https://..."
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                Embed URL
-                <input
-                  className="field"
-                  value={data.hipMobility.embed}
-                  onChange={(event) => updateHipMobility({ embed: event.target.value })}
-                  placeholder="https://..."
-                />
-              </label>
-            </div>
-          ) : (
-            data.hipMobility.url.trim() && (
-              <a
-                href={data.hipMobility.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-brand-600 hover:text-brand-700"
-              >
-                Watch On YouTube
-              </a>
-            )
-          )}
-        </div>
-
-        <Section
-          title="Plyometrics (Turf)"
-          items={data.plyometrics}
-          footerLabel="Weekly Emphasis"
-          footerItems={data.plyoDays}
-          editable={editable}
-          options={library.plyometrics}
-          footerOptions={library.plyoDays}
-          onItemsChange={updateStringList("plyometrics")}
-          onFooterItemsChange={updateStringList("plyoDays")}
-        />
-
-        <Section
-          title="Warmup (All Core Lifts)"
-          items={data.coreWarmup}
-          editable={editable}
-          options={library.coreWarmup}
-          onItemsChange={updateStringList("coreWarmup")}
-        />
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Lift (Weightroom)</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Warmup, Mobility, And Plyometrics</h3>
             <p className="text-sm text-gray-600">
-              Align These Training Days With The 5/3/1 Percentages For The Current Week.
+              Keep Turf Prep, Mobility, And Plyo Planning In One Place For Faster Session Setup.
             </p>
           </div>
-          {editable ? (
-            <div className="space-y-4">
-              {data.liftWeeks.map((week, weekIndex) => {
-                const weekListId = `lift-week-${weekIndex}`;
-                return (
-                  <div
-                    key={weekIndex}
-                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-2"
-                  >
-                    <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
-                      Week Name
-                      <input
-                        className="field"
-                        value={week.week}
-                        list={library.liftWeekNames.length ? weekListId : undefined}
-                        onChange={(event) => updateLiftWeekName(weekIndex, event.target.value)}
-                        placeholder={
-                          library.liftWeekNames.length
-                            ? "Select Or Type A Saved Week Name"
-                            : "Week Name"
-                        }
-                      />
-                      {library.liftWeekNames.length ? (
-                        <datalist id={weekListId}>
-                          {library.liftWeekNames.map((option) => (
-                            <option key={`${weekListId}-${option}`} value={option} />
-                          ))}
-                        </datalist>
-                      ) : null}
-                    </label>
-                    {Array.from({ length: dayRows }, (_, dayIndex) => {
-                      const dayListId = `lift-day-${weekIndex}-${dayIndex}`;
-                      return (
-                        <div key={dayIndex} className="flex items-center gap-2">
-                          <span className="w-20 text-xs text-gray-500">Day {dayIndex + 1}</span>
-                          <input
-                            className="field flex-1"
-                            value={week.days[dayIndex] ?? ""}
-                            list={library.liftDays.length ? dayListId : undefined}
-                            onChange={(event) =>
-                              updateLiftWeekDay(weekIndex, dayIndex, event.target.value)
-                            }
-                            placeholder={
-                              library.liftDays.length
-                                ? "Select Or Type A Saved Training Focus"
-                                : "Lift Focus"
-                            }
-                          />
-                          {library.liftDays.length ? (
-                            <datalist id={dayListId}>
-                              {library.liftDays.map((option) => (
-                                <option key={`${dayListId}-${option}`} value={option} />
-                              ))}
-                            </datalist>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-              {(library.liftWeekNames.length > 0 || library.liftDays.length > 0) && (
-                <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
-                  <summary className="cursor-pointer font-semibold text-gray-700">
-                    Browse Saved Week Layouts
-                  </summary>
-                  <div className="mt-2 space-y-3">
-                    {library.liftWeekNames.length > 0 && (
-                      <div>
-                        <div className="font-semibold text-gray-700">Week Names</div>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {library.liftWeekNames.map((option) => (
-                            <span
-                              key={`week-chip-${option}`}
-                              className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
-                            >
-                              {option}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {library.liftDays.length > 0 && (
-                      <div>
-                        <div className="font-semibold text-gray-700">Day Templates</div>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {library.liftDays.map((option) => (
-                            <span
-                              key={`day-chip-${option}`}
-                              className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
-                            >
-                              {option}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </details>
+
+          <Section
+            title="Warmup (Turf)"
+            items={data.turfWarmup}
+            editable={editable}
+            options={library.turfWarmup}
+            onItemsChange={updateStringList("turfWarmup")}
+          />
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-3">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-800">Hip Mobility Series (Turf)</h3>
+              {editable ? (
+                <textarea
+                  className="field w-full"
+                  rows={3}
+                  value={data.hipMobility.note}
+                  onChange={(event) => updateHipMobility({ note: event.target.value })}
+                />
+              ) : (
+                <p>{data.hipMobility.note}</p>
               )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-200 text-left text-sm text-gray-700">
-                <thead>
-                  <tr className="bg-gray-50">
-                    {data.liftWeeks.map((week) => (
-                      <th key={week.week} className="border border-gray-200 px-3 py-2 font-semibold">
-                        {week.week}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.from({ length: dayRows }, (_, row) => (
-                    <tr key={row} className={row % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      {data.liftWeeks.map((week) => {
-                        const value = week.days[row]?.trim();
-                        return (
-                          <td key={`${week.week}-${row}`} className="border border-gray-200 px-3 py-2">
-                            {value ? value : "-"}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">
-            See Core Breakdown Sheet For Set And Percent Breakdowns.
+            {hipMobilityEmbed && (
+              <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
+                <iframe
+                  className="absolute inset-0 h-full w-full"
+                  src={hipMobilityEmbed}
+                  title="Hip mobility series"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                />
+              </div>
+            )}
+            {editable ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  Video URL
+                  <input
+                    className="field"
+                    value={data.hipMobility.url}
+                    onChange={(event) => updateHipMobility({ url: event.target.value })}
+                    placeholder="https://..."
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  Embed URL
+                  <input
+                    className="field"
+                    value={data.hipMobility.embed}
+                    onChange={(event) => updateHipMobility({ embed: event.target.value })}
+                    placeholder="https://..."
+                  />
+                </label>
+              </div>
+            ) : (
+              data.hipMobility.url.trim() && (
+                <a
+                  href={data.hipMobility.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 hover:text-brand-700"
+                >
+                  Watch On YouTube
+                </a>
+              )
+            )}
           </div>
+
+          <Section
+            title="Plyometrics (Turf)"
+            items={data.plyometrics}
+            footerLabel="Weekly Emphasis"
+            footerItems={data.plyoDays}
+            editable={editable}
+            options={library.plyometrics}
+            footerOptions={library.plyoDays}
+            onItemsChange={updateStringList("plyometrics")}
+            onFooterItemsChange={updateStringList("plyoDays")}
+          />
+
+          <Section
+            title="Warmup (All Core Lifts)"
+            items={data.coreWarmup}
+            editable={editable}
+            options={library.coreWarmup}
+            onItemsChange={updateStringList("coreWarmup")}
+          />
         </div>
 
-        <AccessorySection
-          title="Deadlift Accessory Lifts"
-          rows={data.deadliftAccessory}
-          editable={editable}
-          options={library.deadliftAccessory}
-          onRowsChange={updateAccessory("deadliftAccessory")}
-        />
-        <AccessorySection
-          title="Bench Accessory Lifts"
-          rows={data.benchAccessory}
-          editable={editable}
-          options={library.benchAccessory}
-          onRowsChange={updateAccessory("benchAccessory")}
-        />
-        <AccessorySection
-          title="Squat Accessory Lifts"
-          rows={data.squatAccessory}
-          editable={editable}
-          options={library.squatAccessory}
-          onRowsChange={updateAccessory("squatAccessory")}
-        />
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Main And Accessory Lifts</h3>
+            <p className="text-sm text-gray-600">
+              Keep Weekly Main Lift Structure And Accessory Programming Together In One Weightroom Block.
+            </p>
+          </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
-          Reference The Exercises Tab For Sample Technique Videos.
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <div>
+              <h4 className="text-lg font-semibold text-gray-800">Lift (Weightroom)</h4>
+              <p className="text-sm text-gray-600">
+                Align These Training Days With The 5/3/1 Percentages For The Current Week.
+              </p>
+            </div>
+            {editable ? (
+              <div className="space-y-4">
+                {data.liftWeeks.map((week, weekIndex) => {
+                  const weekListId = `lift-week-${weekIndex}`;
+                  return (
+                    <div
+                      key={weekIndex}
+                      className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2"
+                    >
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                        Week Name
+                        <input
+                          className="field"
+                          value={week.week}
+                          list={library.liftWeekNames.length ? weekListId : undefined}
+                          onChange={(event) => updateLiftWeekName(weekIndex, event.target.value)}
+                          placeholder={
+                            library.liftWeekNames.length
+                              ? "Select Or Type A Saved Week Name"
+                              : "Week Name"
+                          }
+                        />
+                        {library.liftWeekNames.length ? (
+                          <datalist id={weekListId}>
+                            {library.liftWeekNames.map((option) => (
+                              <option key={`${weekListId}-${option}`} value={option} />
+                            ))}
+                          </datalist>
+                        ) : null}
+                      </label>
+                      {Array.from({ length: dayRows }, (_, dayIndex) => {
+                        const dayListId = `lift-day-${weekIndex}-${dayIndex}`;
+                        return (
+                          <div key={dayIndex} className="flex items-center gap-2">
+                            <span className="w-20 text-xs text-gray-500">Day {dayIndex + 1}</span>
+                            <input
+                              className="field flex-1"
+                              value={week.days[dayIndex] ?? ""}
+                              list={library.liftDays.length ? dayListId : undefined}
+                              onChange={(event) =>
+                                updateLiftWeekDay(weekIndex, dayIndex, event.target.value)
+                              }
+                              placeholder={
+                                library.liftDays.length
+                                  ? "Select Or Type A Saved Training Focus"
+                                  : "Lift Focus"
+                              }
+                            />
+                            {library.liftDays.length ? (
+                              <datalist id={dayListId}>
+                                {library.liftDays.map((option) => (
+                                  <option key={`${dayListId}-${option}`} value={option} />
+                                ))}
+                              </datalist>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {(library.liftWeekNames.length > 0 || library.liftDays.length > 0) && (
+                  <details className="rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-600">
+                    <summary className="cursor-pointer font-semibold text-gray-700">
+                      Browse Saved Week Layouts
+                    </summary>
+                    <div className="mt-2 space-y-3">
+                      {library.liftWeekNames.length > 0 && (
+                        <div>
+                          <div className="font-semibold text-gray-700">Week Names</div>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {library.liftWeekNames.map((option) => (
+                              <span
+                                key={`week-chip-${option}`}
+                                className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
+                              >
+                                {option}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {library.liftDays.length > 0 && (
+                        <div>
+                          <div className="font-semibold text-gray-700">Day Templates</div>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {library.liftDays.map((option) => (
+                              <span
+                                key={`day-chip-${option}`}
+                                className="rounded-full border border-gray-200 bg-white px-2 py-0.5"
+                              >
+                                {option}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 text-left text-sm text-gray-700">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      {data.liftWeeks.map((week) => (
+                        <th key={week.week} className="border border-gray-200 px-3 py-2 font-semibold">
+                          {week.week}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: dayRows }, (_, row) => (
+                      <tr key={row} className={row % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        {data.liftWeeks.map((week) => {
+                          const value = week.days[row]?.trim();
+                          return (
+                            <td key={`${week.week}-${row}`} className="border border-gray-200 px-3 py-2">
+                              {value ? value : "-"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
+              See Core Breakdown Sheet For Set And Percent Breakdowns.
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <AccessorySection
+              title="Deadlift Accessory Lifts"
+              rows={data.deadliftAccessory}
+              editable={editable}
+              options={library.deadliftAccessory}
+              onRowsChange={updateAccessory("deadliftAccessory")}
+            />
+            <AccessorySection
+              title="Bench Accessory Lifts"
+              rows={data.benchAccessory}
+              editable={editable}
+              options={library.benchAccessory}
+              onRowsChange={updateAccessory("benchAccessory")}
+            />
+            <AccessorySection
+              title="Squat Accessory Lifts"
+              rows={data.squatAccessory}
+              editable={editable}
+              options={library.squatAccessory}
+              onRowsChange={updateAccessory("squatAccessory")}
+            />
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+            Reference The Exercises Tab For Sample Technique Videos.
+          </div>
         </div>
       </div>
     </div>
