@@ -23,6 +23,7 @@ import {
   updateSession,
   calculateTMSuggestions,
   advanceCycle,
+  backfillCreatedAtDates,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -158,6 +159,8 @@ export default function Roster() {
   }>({ firstName: "", lastName: "", team: "", code: "" });
   const [addAthleteError, setAddAthleteError] = useState<string | null>(null);
   const [addAthleteSaving, setAddAthleteSaving] = useState(false);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{ updated: number; skipped: number; errors: number } | null>(null);
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const [sortField, setSortField] = useState<"firstName" | "lastName" | "lastWorkout" | null>("lastName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -204,6 +207,25 @@ export default function Roster() {
   const closeAddAthlete = () => {
     setAddAthleteOpen(false);
     setAddAthleteError(null);
+  };
+
+  const handleBackfillDates = async () => {
+    if (backfillRunning) return;
+    setBackfillRunning(true);
+    setBackfillResult(null);
+    try {
+      const result = await backfillCreatedAtDates();
+      setBackfillResult(result);
+      if (result.updated > 0) {
+        const updated = await listRoster();
+        setRows(updated);
+      }
+    } catch (error) {
+      console.error("Backfill error:", error);
+      setBackfillResult({ updated: 0, skipped: 0, errors: 1 });
+    } finally {
+      setBackfillRunning(false);
+    }
   };
 
   const handleAddAthlete = async (event: React.FormEvent) => {
@@ -1684,16 +1706,36 @@ export default function Roster() {
               </p>
             </div>
             {(isCoach || isAdminUser) && (
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={openAddAthlete}
-                disabled={addAthleteSaving}
-              >
-                Add Athlete
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={openAddAthlete}
+                  disabled={addAthleteSaving}
+                >
+                  Add Athlete
+                </button>
+                {isAdminUser && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleBackfillDates}
+                    disabled={backfillRunning}
+                  >
+                    {backfillRunning ? "Backfilling..." : "Backfill Dates"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
+
+          {/* Backfill Result */}
+          {backfillResult && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              <strong>Backfill Complete:</strong> {backfillResult.updated} updated, {backfillResult.skipped} skipped
+              {backfillResult.errors > 0 && `, ${backfillResult.errors} errors`}
+            </div>
+          )}
 
           {/* Search and Filter Controls */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">

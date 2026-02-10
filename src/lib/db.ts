@@ -1757,6 +1757,43 @@ export async function listRoster(): Promise<RosterEntry[]> {
   return rows;
 }
 
+export async function backfillCreatedAtDates(): Promise<{ updated: number; skipped: number; errors: number }> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) throw new Error("Database unavailable");
+
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  try {
+    const profilesSnapshot = await getDocs(collectionGroup(database, "profile"));
+
+    for (const profileDoc of profilesSnapshot.docs) {
+      const profile = profileDoc.data();
+
+      if (profile.createdAt) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const docCreatedAt = profileDoc.createTime?.toMillis() || Date.now();
+        await updateDoc(profileDoc.ref, { createdAt: docCreatedAt });
+        updated++;
+      } catch (err) {
+        console.error(`Failed to update ${profileDoc.id}:`, err);
+        errors++;
+      }
+    }
+  } catch (err) {
+    console.error("Backfill failed:", err);
+    throw err;
+  }
+
+  return { updated, skipped, errors };
+}
+
 // ---- Attendance sheets ----
 
 export type AttendanceLevel = Team;
