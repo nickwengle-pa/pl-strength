@@ -1890,6 +1890,19 @@ const sanitizeName = (value: unknown): string => {
   return trimmed;
 };
 
+const sanitizeAttendanceDetail = (
+  value: unknown,
+  maxLength = 40
+): string | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = String(value).trim().slice(0, maxLength);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().slice(0, maxLength);
+  return normalized.length > 0 ? normalized : undefined;
+};
+
 const normalizeAttendanceRecords = (
   athletes: AttendanceAthlete[],
   dates: string[],
@@ -1952,7 +1965,24 @@ const normalizeAttendanceSheet = (
       const lastName = sanitizeName((item as any).lastName);
       const level = normalizeTeam((item as any).level) ?? team;
       if (!id || (!firstName && !lastName)) return null;
-      return { id, firstName, lastName, level };
+      const number = sanitizeAttendanceDetail((item as any).number, 20);
+      const grade = sanitizeAttendanceDetail((item as any).grade, 20);
+      const height = sanitizeAttendanceDetail((item as any).height, 20);
+      const weight = sanitizeAttendanceDetail((item as any).weight, 20);
+      const position = sanitizeAttendanceDetail((item as any).position, 30);
+      const letter = sanitizeAttendanceDetail((item as any).letter, 10);
+      return {
+        id,
+        firstName,
+        lastName,
+        level,
+        ...(number ? { number } : {}),
+        ...(grade ? { grade } : {}),
+        ...(height ? { height } : {}),
+        ...(weight ? { weight } : {}),
+        ...(position ? { position } : {}),
+        ...(letter ? { letter } : {}),
+      };
     })
     .filter((item: any): item is AttendanceAthlete => item !== null);
 
@@ -2022,12 +2052,26 @@ export async function saveAttendanceSheet(
     new Set(sheet.dates.map((value) => value.trim()).filter(Boolean))
   );
   const cleanAthletes = sheet.athletes
-    .map((athlete) => ({
-      ...athlete,
-      firstName: sanitizeName(athlete.firstName),
-      lastName: sanitizeName(athlete.lastName),
-      level: normalizeTeam(athlete.level) ?? sheet.team,
-    }))
+    .map((athlete) => {
+      const number = sanitizeAttendanceDetail(athlete.number, 20);
+      const grade = sanitizeAttendanceDetail(athlete.grade, 20);
+      const height = sanitizeAttendanceDetail(athlete.height, 20);
+      const weight = sanitizeAttendanceDetail(athlete.weight, 20);
+      const position = sanitizeAttendanceDetail(athlete.position, 30);
+      const letter = sanitizeAttendanceDetail(athlete.letter, 10);
+      return {
+        id: athlete.id,
+        firstName: sanitizeName(athlete.firstName),
+        lastName: sanitizeName(athlete.lastName),
+        level: normalizeTeam(athlete.level) ?? sheet.team,
+        ...(number ? { number } : {}),
+        ...(grade ? { grade } : {}),
+        ...(height ? { height } : {}),
+        ...(weight ? { weight } : {}),
+        ...(position ? { position } : {}),
+        ...(letter ? { letter } : {}),
+      };
+    })
     .filter((athlete) => athlete.id && (athlete.firstName || athlete.lastName));
 
   const cleanRecords = normalizeAttendanceRecords(
