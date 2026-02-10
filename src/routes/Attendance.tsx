@@ -122,6 +122,8 @@ export default function Attendance() {
   }>({ firstName: "", lastName: "", level: DEFAULT_TEAM });
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
   const [lastWorkoutDates, setLastWorkoutDates] = useState<Record<string, number>>({});
+  const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'number' | 'grade' | 'lastWorkout'>('lastName');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const visibleTeamDefs = useMemo(() => {
     if (coachTeam) {
@@ -276,11 +278,51 @@ export default function Attendance() {
   const selectedDirty = dirty[selectedTeam];
   const selectedSaving = saving[selectedTeam];
 
-  const visibleAthletes = useMemo(
-    () =>
-      selectedSheet.athletes.filter((athlete) => athlete.level === selectedTeam),
-    [selectedSheet, selectedTeam]
-  );
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const visibleAthletes = useMemo(() => {
+    const filtered = selectedSheet.athletes.filter((athlete) => athlete.level === selectedTeam);
+
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number | undefined;
+      let bVal: string | number | undefined;
+
+      switch (sortField) {
+        case 'firstName':
+          aVal = (a.firstName || '').toLowerCase();
+          bVal = (b.firstName || '').toLowerCase();
+          break;
+        case 'lastName':
+          aVal = (a.lastName || '').toLowerCase();
+          bVal = (b.lastName || '').toLowerCase();
+          break;
+        case 'number':
+          aVal = a.number ? parseInt(a.number) : 9999;
+          bVal = b.number ? parseInt(b.number) : 9999;
+          break;
+        case 'grade':
+          aVal = a.grade ? parseInt(a.grade) : 9999;
+          bVal = b.grade ? parseInt(b.grade) : 9999;
+          break;
+        case 'lastWorkout':
+          aVal = lastWorkoutDates[a.id] || 0;
+          bVal = lastWorkoutDates[b.id] || 0;
+          break;
+      }
+
+      if (aVal === bVal) return 0;
+
+      const comparison = aVal! < bVal! ? -1 : 1;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [selectedSheet, selectedTeam, sortField, sortDirection, lastWorkoutDates]);
 
   const handleSetError = (team: Team, message: string | null) => {
     setTeamErrors((prev) => ({
@@ -735,11 +777,60 @@ export default function Attendance() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead>
               <tr className="bg-gray-50">
-                <th className="w-48 px-3 py-2 text-left font-medium text-gray-700">
-                  Athlete
+                <th
+                  className="w-48 px-3 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('firstName')}
+                >
+                  <div className="flex items-center gap-1">
+                    First Name
+                    {sortField === 'firstName' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
                 </th>
-                <th className="w-32 px-3 py-2 text-left text-xs font-semibold text-gray-600">
-                  Last Workout
+                <th
+                  className="w-32 px-3 py-2 text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('lastName')}
+                >
+                  <div className="flex items-center gap-1">
+                    Last Name
+                    {sortField === 'lastName' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="w-20 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('number')}
+                >
+                  <div className="flex items-center gap-1">
+                    #
+                    {sortField === 'number' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="w-20 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('grade')}
+                >
+                  <div className="flex items-center gap-1">
+                    Grade
+                    {sortField === 'grade' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="w-32 px-3 py-2 text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  onClick={() => handleSort('lastWorkout')}
+                >
+                  <div className="flex items-center gap-1">
+                    Last Workout
+                    {sortField === 'lastWorkout' && (
+                      <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
                 </th>
                 {selectedSheet.dates.map((date, index) => (
                   <th key={date} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">
@@ -770,7 +861,7 @@ export default function Attendance() {
               {visibleAthletes.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={selectedSheet.dates.length + 3}
+                    colSpan={selectedSheet.dates.length + 6}
                     className="px-3 py-5 text-center text-sm text-gray-500"
                   >
                     No Athletes Added Yet. Use The Form Below To Add Someone.
@@ -780,7 +871,16 @@ export default function Attendance() {
                 visibleAthletes.map((athlete) => (
                   <tr key={athlete.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-sm font-medium text-gray-800">
-                      {[athlete.firstName, athlete.lastName].filter(Boolean).join(" ")}
+                      {athlete.firstName || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-sm font-medium text-gray-800">
+                      {athlete.lastName || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-600">
+                      {athlete.number || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-600">
+                      {athlete.grade || "-"}
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {(() => {
