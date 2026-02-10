@@ -1451,6 +1451,7 @@ export async function signInOrCreateAthleteAccount(
   }
 
   const uid = credential?.user?.uid ?? auth.currentUser?.uid;
+  console.log("Got UID:", uid);
   if (!uid) {
     throw new AthleteAuthError("auth/internal-error", "We could not sign you in.");
   }
@@ -1458,17 +1459,21 @@ export async function signInOrCreateAthleteAccount(
   let existingProfile: Profile | null = null;
   try {
     existingProfile = await loadProfileRemote(uid);
+    console.log("Loaded existing profile:", existingProfile ? "exists" : "null");
   } catch (err) {
     console.warn("Failed to load existing profile before athlete save", err);
   }
 
+  console.log("Checking athlete code...");
   const codeStatus = await ensureAthleteCode(
     uid,
     code,
     existingProfile?.accessCode ?? null
   );
+  console.log("Code status:", codeStatus);
 
   if (codeStatus === "taken") {
+    console.log("Code is taken! Deleting account and signing out.");
     if (createdAccount && auth.currentUser) {
       try {
         await auth.currentUser.delete();
@@ -1488,11 +1493,14 @@ export async function signInOrCreateAthleteAccount(
   }
 
   if (codeStatus === "unavailable") {
+    console.log("Code unavailable!");
     throw new AthleteAuthError(
       "athlete-code/unavailable",
       "We could not verify that code. Try again shortly."
     );
   }
+
+  console.log("Code check passed, continuing...");
 
   const resolvedTeam = options.team ? normalizeTeam(options.team) : normalizeTeam(existingProfile?.team);
   const teamAnchor = normalizeTeam(existingProfile?.teamAnchor ?? existingProfile?.team) ?? resolvedTeam;
@@ -1545,6 +1553,7 @@ export async function signInOrCreateAthleteAccount(
 
   await saveProfile(profile);
 
+  console.log("Profile saved! Returning success.");
   return {
     profile,
     createdAccount,
