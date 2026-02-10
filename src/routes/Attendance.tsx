@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   TEAM_DEFINITIONS,
   formatTeamLabel,
@@ -42,6 +42,309 @@ const formatDateInput = (value: Date): string => {
   const month = `${local.getMonth() + 1}`.padStart(2, "0");
   const day = `${local.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+type AttendanceTier = "high" | "watch" | "low";
+type ReportRangePreset =
+  | "all_dates"
+  | "last_7_days"
+  | "last_14_days"
+  | "last_30_days"
+  | "this_week"
+  | "last_week"
+  | "last_4_weeks"
+  | "last_8_weeks"
+  | "this_month"
+  | "last_month"
+  | "summer_to_date"
+  | "last_12_sessions"
+  | "custom";
+
+type WeeklySummary = {
+  attended: number;
+  total: number;
+  pct: number;
+};
+
+type AttendanceReportWeek = {
+  key: string;
+  label: string;
+  dates: string[];
+};
+
+type AttendanceReportRow = {
+  athlete: AttendanceSheet["athletes"][number];
+  attended: number;
+  missed: number;
+  pct: number;
+  lastSixPct: number;
+  missedStreak: number;
+  tier: AttendanceTier;
+  weekly: Record<string, WeeklySummary>;
+};
+
+const HIGH_ATTENDANCE_THRESHOLD = 85;
+const LOW_ATTENDANCE_THRESHOLD = 70;
+
+const REPORT_RANGE_PRESET_OPTIONS: Array<{
+  value: ReportRangePreset;
+  label: string;
+}> = [
+  { value: "all_dates", label: "All Available Dates" },
+  { value: "last_7_days", label: "Last 7 Days" },
+  { value: "last_14_days", label: "Last 14 Days" },
+  { value: "last_30_days", label: "Last 30 Days" },
+  { value: "this_week", label: "This Week" },
+  { value: "last_week", label: "Last Week" },
+  { value: "last_4_weeks", label: "Last 4 Weeks" },
+  { value: "last_8_weeks", label: "Last 8 Weeks" },
+  { value: "this_month", label: "This Month" },
+  { value: "last_month", label: "Last Month" },
+  { value: "summer_to_date", label: "Summer To Date" },
+  { value: "last_12_sessions", label: "Last 12 Sessions" },
+  { value: "custom", label: "Custom Range" },
+];
+
+const parseLocalDate = (value: string): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const shiftDateByDays = (date: Date, days: number): Date => {
+  const shifted = new Date(date);
+  shifted.setDate(shifted.getDate() + days);
+  return shifted;
+};
+
+const firstDayOfMonth = (date: Date): Date =>
+  new Date(date.getFullYear(), date.getMonth(), 1);
+
+const mondayOfWeek = (date: Date): Date => {
+  const day = date.getDay();
+  const offsetToMonday = (day + 6) % 7;
+  return shiftDateByDays(date, -offsetToMonday);
+};
+
+const resolveReportPresetRange = (
+  preset: ReportRangePreset,
+  sourceDates: string[]
+): { start: string; end: string } => {
+  if (sourceDates.length === 0) {
+    return { start: "", end: "" };
+  }
+
+  const first = sourceDates[0];
+  const last = sourceDates[sourceDates.length - 1];
+  const anchor = parseLocalDate(last) ?? new Date();
+
+  switch (preset) {
+    case "all_dates":
+      return { start: first, end: last };
+    case "last_7_days":
+      return {
+        start: formatDateInput(shiftDateByDays(anchor, -6)),
+        end: formatDateInput(anchor),
+      };
+    case "last_14_days":
+      return {
+        start: formatDateInput(shiftDateByDays(anchor, -13)),
+        end: formatDateInput(anchor),
+      };
+    case "last_30_days":
+      return {
+        start: formatDateInput(shiftDateByDays(anchor, -29)),
+        end: formatDateInput(anchor),
+      };
+    case "this_week":
+      return {
+        start: formatDateInput(mondayOfWeek(anchor)),
+        end: formatDateInput(anchor),
+      };
+    case "last_week": {
+      const thisWeekStart = mondayOfWeek(anchor);
+      const lastWeekEnd = shiftDateByDays(thisWeekStart, -1);
+      const lastWeekStart = shiftDateByDays(lastWeekEnd, -6);
+      return {
+        start: formatDateInput(lastWeekStart),
+        end: formatDateInput(lastWeekEnd),
+      };
+    }
+    case "last_4_weeks":
+      return {
+        start: formatDateInput(shiftDateByDays(anchor, -27)),
+        end: formatDateInput(anchor),
+      };
+    case "last_8_weeks":
+      return {
+        start: formatDateInput(shiftDateByDays(anchor, -55)),
+        end: formatDateInput(anchor),
+      };
+    case "this_month":
+      return {
+        start: formatDateInput(firstDayOfMonth(anchor)),
+        end: formatDateInput(anchor),
+      };
+    case "last_month": {
+      const currentMonthStart = firstDayOfMonth(anchor);
+      const lastMonthEnd = shiftDateByDays(currentMonthStart, -1);
+      const lastMonthStart = firstDayOfMonth(lastMonthEnd);
+      return {
+        start: formatDateInput(lastMonthStart),
+        end: formatDateInput(lastMonthEnd),
+      };
+    }
+    case "summer_to_date": {
+      let year = anchor.getFullYear();
+      const thisYearSummerStart = new Date(year, 5, 1);
+      if (anchor < thisYearSummerStart) {
+        year -= 1;
+      }
+      return {
+        start: formatDateInput(new Date(year, 5, 1)),
+        end: formatDateInput(anchor),
+      };
+    }
+    case "last_12_sessions": {
+      const windowDates = sourceDates.slice(-12);
+      return {
+        start: windowDates[0] ?? first,
+        end: windowDates[windowDates.length - 1] ?? last,
+      };
+    }
+    case "custom":
+      return { start: first, end: last };
+    default:
+      return { start: first, end: last };
+  }
+};
+
+const formatMonthDay = (value: string): string => {
+  const parsed = parseLocalDate(value);
+  if (!parsed) return value;
+  return `${parsed.getMonth() + 1}/${parsed.getDate()}`;
+};
+
+const getWeekStartKey = (value: string): string => {
+  const parsed = parseLocalDate(value);
+  if (!parsed) return value;
+  const day = parsed.getDay();
+  const offsetToMonday = (day + 6) % 7;
+  parsed.setDate(parsed.getDate() - offsetToMonday);
+  return formatDateInput(parsed);
+};
+
+const getWeekLabel = (weekStart: string): string => {
+  const parsed = parseLocalDate(weekStart);
+  if (!parsed) return weekStart;
+  const end = new Date(parsed);
+  end.setDate(parsed.getDate() + 6);
+  return `${formatMonthDay(weekStart)}-${end.getMonth() + 1}/${end.getDate()}`;
+};
+
+const percentFromCounts = (attended: number, total: number): number => {
+  if (total <= 0) return 0;
+  return Number(((attended / total) * 100).toFixed(1));
+};
+
+const tierFromPercent = (pct: number): AttendanceTier => {
+  if (pct >= HIGH_ATTENDANCE_THRESHOLD) return "high";
+  if (pct < LOW_ATTENDANCE_THRESHOLD) return "low";
+  return "watch";
+};
+
+const tierBadgeClass = (tier: AttendanceTier): string => {
+  if (tier === "high") return "bg-emerald-100 text-emerald-700";
+  if (tier === "low") return "bg-rose-100 text-rose-700";
+  return "bg-amber-100 text-amber-700";
+};
+
+const tierLabel = (tier: AttendanceTier): string => {
+  if (tier === "high") return "High";
+  if (tier === "low") return "At Risk";
+  return "Watch";
+};
+
+const weekCellClass = (pct: number): string => {
+  if (pct >= HIGH_ATTENDANCE_THRESHOLD) return "bg-emerald-50 text-emerald-700";
+  if (pct < LOW_ATTENDANCE_THRESHOLD) return "bg-rose-50 text-rose-700";
+  return "bg-amber-50 text-amber-700";
+};
+
+const csvEscape = (value: string | number): string => {
+  const text = String(value ?? "");
+  if (text.includes(",") || text.includes("\"") || text.includes("\n")) {
+    return `"${text.replace(/"/g, "\"\"")}"`;
+  }
+  return text;
+};
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const downloadBlob = (filename: string, content: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const drawRoundedRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) => {
+  const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+};
+
+const exportCanvasPng = (canvas: HTMLCanvasElement, filename: string) => {
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
+};
+
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    img.src = src;
+  });
+
+const loadImageMaybe = async (src: string): Promise<HTMLImageElement | null> => {
+  try {
+    return await loadImage(src);
+  } catch {
+    return null;
+  }
 };
 
 const nextAvailableDate = (existing: string[]): string => {
@@ -95,7 +398,16 @@ const buildTeamMap = <T,>(builder: (team: Team) => T): TeamMap<T> =>
     return acc;
   }, {} as TeamMap<T>);
 
+const isMobileDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+    ua.toLowerCase()
+  );
+};
+
 const DEFAULT_TEAM: Team = FALLBACK_TEAMS[0] ?? ALL_TEAMS[0];
+const TOGGLE_AUTOSAVE_DELAY_MS = 350;
 
 export default function Attendance() {
   const { loading: authLoading, isCoach } = useActiveAthlete();
@@ -122,7 +434,6 @@ export default function Attendance() {
     grade: string;
     height: string;
     weight: string;
-    letter: string;
     level: Team;
   }>({
     firstName: "",
@@ -131,13 +442,26 @@ export default function Attendance() {
     grade: "",
     height: "",
     weight: "",
-    letter: "",
     level: DEFAULT_TEAM,
   });
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
   const [lastWorkoutDates, setLastWorkoutDates] = useState<Record<string, number>>({});
   const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'number' | 'grade' | 'lastWorkout'>('lastName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [reportRangePreset, setReportRangePreset] = useState<ReportRangePreset>("all_dates");
+  const [reportStartDate, setReportStartDate] = useState("");
+  const [reportEndDate, setReportEndDate] = useState("");
+  const [isAddAthleteCollapsed, setIsAddAthleteCollapsed] = useState<boolean>(() =>
+    isMobileDevice()
+  );
+  const [isReportSectionCollapsed, setIsReportSectionCollapsed] = useState<boolean>(() =>
+    isMobileDevice()
+  );
+  const sheetsRef = useRef<TeamMap<AttendanceSheet>>(sheets);
+  const saveInFlightRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
+  const saveQueuedRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
+  const saveQueuedFlashRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
+  const toggleSaveTimerRef = useRef<Partial<Record<Team, number>>>({});
 
   const visibleTeamDefs = useMemo(() => {
     if (coachTeam) {
@@ -165,6 +489,20 @@ export default function Attendance() {
       setSelectedTeam(visibleTeams[0]);
     }
   }, [visibleTeams, selectedTeam]);
+
+  useEffect(() => {
+    sheetsRef.current = sheets;
+  }, [sheets]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(toggleSaveTimerRef.current).forEach((timer) => {
+        if (typeof timer === "number") {
+          window.clearTimeout(timer);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -291,6 +629,177 @@ export default function Attendance() {
   const selectedError = teamErrors[selectedTeam];
   const selectedDirty = dirty[selectedTeam];
   const selectedSaving = saving[selectedTeam];
+  const reportSourceDates = useMemo(
+    () => [...selectedSheet.dates].sort((a, b) => a.localeCompare(b)),
+    [selectedSheet.dates]
+  );
+
+  useEffect(() => {
+    if (reportSourceDates.length === 0) {
+      setReportStartDate("");
+      setReportEndDate("");
+      return;
+    }
+    if (reportRangePreset === "custom") {
+      const minDate = reportSourceDates[0];
+      const maxDate = reportSourceDates[reportSourceDates.length - 1];
+      setReportStartDate((prev) => prev || minDate);
+      setReportEndDate((prev) => prev || maxDate);
+      return;
+    }
+    const nextRange = resolveReportPresetRange(reportRangePreset, reportSourceDates);
+    setReportStartDate(nextRange.start);
+    setReportEndDate(nextRange.end);
+  }, [selectedTeam, reportSourceDates, reportRangePreset]);
+
+  const reportRange = useMemo(() => {
+    let start = reportStartDate.trim();
+    let end = reportEndDate.trim();
+    if (start && end && start > end) {
+      [start, end] = [end, start];
+    }
+    return { start, end };
+  }, [reportStartDate, reportEndDate]);
+  const reportPresetLabel =
+    REPORT_RANGE_PRESET_OPTIONS.find((option) => option.value === reportRangePreset)
+      ?.label ?? "Custom Range";
+
+  const reportDates = useMemo(
+    () =>
+      reportSourceDates.filter(
+        (date) =>
+          (!reportRange.start || date >= reportRange.start) &&
+          (!reportRange.end || date <= reportRange.end)
+      ),
+    [reportSourceDates, reportRange]
+  );
+
+  const reportWeeks = useMemo<AttendanceReportWeek[]>(() => {
+    const grouped = new Map<string, string[]>();
+    reportDates.forEach((date) => {
+      const key = getWeekStartKey(date);
+      const existing = grouped.get(key) ?? [];
+      existing.push(date);
+      grouped.set(key, existing);
+    });
+    return Array.from(grouped.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, dates]) => ({
+        key,
+        label: getWeekLabel(key),
+        dates,
+      }));
+  }, [reportDates]);
+
+  const reportAthletes = useMemo(
+    () =>
+      selectedSheet.athletes
+        .filter((athlete) => athlete.level === selectedTeam)
+        .sort((a, b) => {
+          const last = a.lastName.localeCompare(b.lastName);
+          if (last !== 0) return last;
+          return a.firstName.localeCompare(b.firstName);
+        }),
+    [selectedSheet.athletes, selectedTeam]
+  );
+
+  const reportRows = useMemo<AttendanceReportRow[]>(() => {
+    const lastSixDates = reportDates.slice(-6);
+    return reportAthletes
+      .map((athlete) => {
+        const record = selectedSheet.records[athlete.id] ?? {};
+        const attended = reportDates.reduce(
+          (sum, date) => sum + (record[date] ? 1 : 0),
+          0
+        );
+        const missed = reportDates.length - attended;
+        const pct = percentFromCounts(attended, reportDates.length);
+        const lastSixAttended = lastSixDates.reduce(
+          (sum, date) => sum + (record[date] ? 1 : 0),
+          0
+        );
+        const lastSixPct = percentFromCounts(lastSixAttended, lastSixDates.length);
+
+        let missedStreak = 0;
+        for (let i = reportDates.length - 1; i >= 0; i -= 1) {
+          const date = reportDates[i];
+          if (record[date]) break;
+          missedStreak += 1;
+        }
+
+        const weekly: Record<string, WeeklySummary> = {};
+        reportWeeks.forEach((week) => {
+          const weekAttended = week.dates.reduce(
+            (sum, date) => sum + (record[date] ? 1 : 0),
+            0
+          );
+          weekly[week.key] = {
+            attended: weekAttended,
+            total: week.dates.length,
+            pct: percentFromCounts(weekAttended, week.dates.length),
+          };
+        });
+
+        return {
+          athlete,
+          attended,
+          missed,
+          pct,
+          lastSixPct,
+          missedStreak,
+          tier: tierFromPercent(pct),
+          weekly,
+        };
+      })
+      .sort((a, b) => {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        const last = a.athlete.lastName.localeCompare(b.athlete.lastName);
+        if (last !== 0) return last;
+        return a.athlete.firstName.localeCompare(b.athlete.firstName);
+      });
+  }, [reportAthletes, reportDates, reportWeeks, selectedSheet.records]);
+
+  const reportSummary = useMemo(() => {
+    const playerCount = reportRows.length;
+    const sessionCount = reportDates.length;
+    const possibleChecks = playerCount * sessionCount;
+    const attendedChecks = reportRows.reduce((sum, row) => sum + row.attended, 0);
+    const teamAveragePct = percentFromCounts(attendedChecks, possibleChecks);
+    const highCount = reportRows.filter((row) => row.tier === "high").length;
+    const lowCount = reportRows.filter((row) => row.tier === "low").length;
+    const watchCount = reportRows.filter((row) => row.tier === "watch").length;
+    const topAthletes = [...reportRows]
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 5);
+    const atRiskAthletes = [...reportRows]
+      .filter((row) => row.tier === "low")
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 5);
+    const watchAthletes = [...reportRows]
+      .filter((row) => row.tier === "watch")
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 5);
+    return {
+      playerCount,
+      sessionCount,
+      attendedChecks,
+      possibleChecks,
+      teamAveragePct,
+      highCount,
+      lowCount,
+      watchCount,
+      topAthletes,
+      atRiskAthletes,
+      watchAthletes,
+    };
+  }, [reportRows, reportDates]);
+
+  const reportRangeLabel =
+    reportDates.length > 0
+      ? `${formatMonthDay(reportDates[0])} - ${formatMonthDay(
+          reportDates[reportDates.length - 1]
+        )}`
+      : "No Dates";
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -345,11 +854,81 @@ export default function Attendance() {
     }));
   };
 
+  const clearToggleSaveTimer = (team: Team) => {
+    const timer = toggleSaveTimerRef.current[team];
+    if (typeof timer === "number") {
+      window.clearTimeout(timer);
+      delete toggleSaveTimerRef.current[team];
+    }
+  };
+
+  const persistTeamSheet = async (
+    team: Team,
+    options: { showFlash?: boolean } = {}
+  ) => {
+    const showFlash = options.showFlash ?? false;
+    if (saveInFlightRef.current[team]) {
+      saveQueuedRef.current[team] = true;
+      if (showFlash) {
+        saveQueuedFlashRef.current[team] = true;
+      }
+      return;
+    }
+
+    saveInFlightRef.current[team] = true;
+    setSaving((prev) => ({ ...prev, [team]: true }));
+    handleSetError(team, null);
+
+    try {
+      await saveAttendanceSheet(sheetsRef.current[team]);
+      const fresh = await loadAttendanceSheet(team);
+      setSheets((prev) => {
+        const next = {
+          ...prev,
+          [team]: fresh,
+        };
+        sheetsRef.current = next;
+        return next;
+      });
+      setDirty((prev) => ({ ...prev, [team]: false }));
+      if (showFlash) {
+        setFlash(`Saved ${formatTeamLabel(team)} Attendance.`);
+      }
+    } catch (err: any) {
+      const message =
+        err?.message ?? "Could Not Save Attendance. Try Again Shortly.";
+      handleSetError(team, message);
+    } finally {
+      saveInFlightRef.current[team] = false;
+      setSaving((prev) => ({ ...prev, [team]: false }));
+
+      if (saveQueuedRef.current[team]) {
+        const queuedFlash = saveQueuedFlashRef.current[team];
+        saveQueuedRef.current[team] = false;
+        saveQueuedFlashRef.current[team] = false;
+        void persistTeamSheet(team, { showFlash: queuedFlash });
+      }
+    }
+  };
+
+  const queueToggleAutosave = (team: Team) => {
+    clearToggleSaveTimer(team);
+    toggleSaveTimerRef.current[team] = window.setTimeout(() => {
+      delete toggleSaveTimerRef.current[team];
+      void persistTeamSheet(team);
+    }, TOGGLE_AUTOSAVE_DELAY_MS);
+  };
+
   const updateSheet = (team: Team, updater: (sheet: AttendanceSheet) => AttendanceSheet) => {
-    setSheets((prev) => ({
-      ...prev,
-      [team]: updater(prev[team]),
-    }));
+    setSheets((prev) => {
+      const nextSheet = updater(prev[team]);
+      const next = {
+        ...prev,
+        [team]: nextSheet,
+      };
+      sheetsRef.current = next;
+      return next;
+    });
     setDirty((prev) => ({
       ...prev,
       [team]: true,
@@ -433,6 +1012,7 @@ export default function Attendance() {
       nextRecords[athleteId] = row;
       return { ...current, records: nextRecords };
     });
+    queueToggleAutosave(team);
   };
 
   const handleRemoveAthlete = (team: Team, athleteId: string) => {
@@ -455,7 +1035,6 @@ export default function Attendance() {
     const grade = formDraft.grade.trim();
     const height = formDraft.height.trim();
     const weight = formDraft.weight.trim();
-    const letter = formDraft.letter.trim();
     const level = formDraft.level;
     if (!first && !last) {
       handleSetError(level, "Enter At Least A First Or Last Name.");
@@ -472,7 +1051,6 @@ export default function Attendance() {
         ...(grade ? { grade } : {}),
         ...(height ? { height } : {}),
         ...(weight ? { weight } : {}),
-        ...(letter ? { letter } : {}),
       };
       const nextAthletes = [
         ...current.athletes,
@@ -493,7 +1071,6 @@ export default function Attendance() {
       grade: "",
       height: "",
       weight: "",
-      letter: "",
       level: selectedTeam,
     });
     setFlash(`Added ${first || last || "Athlete"} To ${level}.`);
@@ -680,25 +1257,464 @@ export default function Attendance() {
     reader.readAsText(file);
   };
 
-  const handleSave = async (team: Team) => {
-    setSaving((prev) => ({ ...prev, [team]: true }));
-    handleSetError(team, null);
-    try {
-      await saveAttendanceSheet(sheets[team]);
-      const fresh = await loadAttendanceSheet(team);
-      setSheets((prev) => ({
-        ...prev,
-        [team]: fresh,
-      }));
-      setDirty((prev) => ({ ...prev, [team]: false }));
-      setFlash(`Saved ${formatTeamLabel(team)} Attendance.`);
-    } catch (err: any) {
-      const message =
-        err?.message ?? "Could Not Save Attendance. Try Again Shortly.";
-      handleSetError(team, message);
-    } finally {
-      setSaving((prev) => ({ ...prev, [team]: false }));
+  const buildReportDocumentHtml = (): string => {
+    const generatedAt = new Date().toLocaleString();
+    const rangeLabel =
+      reportDates.length > 0
+        ? `${formatMonthDay(reportDates[0])} - ${formatMonthDay(
+            reportDates[reportDates.length - 1]
+          )}`
+        : "No attendance dates in range";
+
+    const weekHeaderHtml = reportWeeks
+      .map(
+        (week) =>
+          `<th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">${escapeHtml(
+            week.label
+          )}</th>`
+      )
+      .join("");
+
+    const rowsHtml = reportRows
+      .map((row) => {
+        const weeklyCells = reportWeeks
+          .map((week) => {
+            const weekly = row.weekly[week.key] ?? { attended: 0, total: 0, pct: 0 };
+            const bgColor =
+              weekly.pct >= HIGH_ATTENDANCE_THRESHOLD
+                ? "#ecfdf3"
+                : weekly.pct < LOW_ATTENDANCE_THRESHOLD
+                ? "#fff1f2"
+                : "#fffbeb";
+            return `<td style="border:1px solid #d1d5db;padding:6px;text-align:center;background:${bgColor};">${weekly.attended}/${weekly.total} (${weekly.pct.toFixed(
+              0
+            )}%)</td>`;
+          })
+          .join("");
+
+        const statusColor =
+          row.tier === "high" ? "#166534" : row.tier === "low" ? "#be123c" : "#92400e";
+
+        return `
+          <tr>
+            <td style="border:1px solid #d1d5db;padding:6px;">${escapeHtml(
+              row.athlete.number ?? "-"
+            )}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;">${escapeHtml(
+              row.athlete.firstName || "-"
+            )}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;">${escapeHtml(
+              row.athlete.lastName || "-"
+            )}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${escapeHtml(
+              row.athlete.grade ?? "-"
+            )}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.attended}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.missed}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.pct.toFixed(1)}%</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.lastSixPct.toFixed(
+              1
+            )}%</td>
+            <td style="border:1px solid #d1d5db;padding:6px;text-align:center;color:${statusColor};font-weight:600;">${tierLabel(
+              row.tier
+            )}</td>
+            ${weeklyCells}
+          </tr>
+        `;
+      })
+      .join("");
+
+    return `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(formatTeamLabel(selectedTeam))} Attendance Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #111827; }
+      h1 { margin: 0 0 8px 0; font-size: 22px; }
+      p { margin: 2px 0; font-size: 13px; }
+      .summary { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+      .summary-card { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 12px; min-width: 160px; }
+      .summary-card strong { display: block; font-size: 18px; }
+      table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 10px; }
+      thead th { position: sticky; top: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(formatTeamLabel(selectedTeam))} Attendance Report</h1>
+    <p><strong>Range:</strong> ${escapeHtml(rangeLabel)}</p>
+    <p><strong>Preset:</strong> ${escapeHtml(reportPresetLabel)}</p>
+    <p><strong>Generated:</strong> ${escapeHtml(generatedAt)}</p>
+    <div class="summary">
+      <div class="summary-card"><span>Players</span><strong>${reportSummary.playerCount}</strong></div>
+      <div class="summary-card"><span>Sessions</span><strong>${reportSummary.sessionCount}</strong></div>
+      <div class="summary-card"><span>Team Average</span><strong>${reportSummary.teamAveragePct.toFixed(
+        1
+      )}%</strong></div>
+      <div class="summary-card"><span>High Attendance</span><strong>${reportSummary.highCount}</strong></div>
+      <div class="summary-card"><span>At Risk</span><strong>${reportSummary.lowCount}</strong></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">Jersey #</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">First Name</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">Last Name</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Grade</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Attended</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Missed</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Attendance %</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Last 6 %</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Status</th>
+          ${weekHeaderHtml}
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  </body>
+</html>
+    `.trim();
+  };
+
+  const handleExportReportCsv = () => {
+    if (reportRows.length === 0 || reportDates.length === 0) {
+      setFlash("No Attendance Report Data Available For The Selected Range.");
+      return;
     }
+    const weekHeaders = reportWeeks.map((week) => `Week ${week.label}`);
+    const header = [
+      "Jersey #",
+      "First Name",
+      "Last Name",
+      "Grade",
+      "Attended",
+      "Missed",
+      "Attendance %",
+      "Last 6 Sessions %",
+      "Status",
+      ...weekHeaders,
+    ];
+    const lines: Array<Array<string | number>> = [header];
+    reportRows.forEach((row) => {
+      const weekCells = reportWeeks.map((week) => {
+        const weekly = row.weekly[week.key] ?? { attended: 0, total: 0, pct: 0 };
+        return `${weekly.attended}/${weekly.total} (${weekly.pct.toFixed(0)}%)`;
+      });
+      lines.push([
+        row.athlete.number ?? "",
+        row.athlete.firstName,
+        row.athlete.lastName,
+        row.athlete.grade ?? "",
+        row.attended,
+        row.missed,
+        `${row.pct.toFixed(1)}%`,
+        `${row.lastSixPct.toFixed(1)}%`,
+        tierLabel(row.tier),
+        ...weekCells,
+      ]);
+    });
+
+    const csv = lines
+      .map((line) => line.map((value) => csvEscape(value)).join(","))
+      .join("\n");
+    const fileRange = `${reportRange.start || "start"}_to_${
+      reportRange.end || "end"
+    }`;
+    downloadBlob(
+      `${selectedTeam}-attendance-report-${fileRange}.csv`,
+      csv,
+      "text/csv;charset=utf-8;"
+    );
+    setFlash(`Exported ${formatTeamLabel(selectedTeam)} Attendance CSV.`);
+  };
+
+  const handleExportReportWord = () => {
+    if (reportRows.length === 0 || reportDates.length === 0) {
+      setFlash("No Attendance Report Data Available For The Selected Range.");
+      return;
+    }
+    const fileRange = `${reportRange.start || "start"}_to_${
+      reportRange.end || "end"
+    }`;
+    downloadBlob(
+      `${selectedTeam}-attendance-report-${fileRange}.doc`,
+      buildReportDocumentHtml(),
+      "application/msword;charset=utf-8;"
+    );
+    setFlash(`Exported ${formatTeamLabel(selectedTeam)} Attendance Word Report.`);
+  };
+
+  const handleExportReportPdf = () => {
+    if (reportRows.length === 0 || reportDates.length === 0) {
+      setFlash("No Attendance Report Data Available For The Selected Range.");
+      return;
+    }
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.style.opacity = "0";
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        frame.remove();
+      }, 1200);
+    };
+
+    frame.onload = () => {
+      const targetWindow = frame.contentWindow;
+      if (!targetWindow) {
+        setFlash("Could Not Open PDF Export Window.");
+        cleanup();
+        return;
+      }
+      window.setTimeout(() => {
+        try {
+          targetWindow.focus();
+          targetWindow.print();
+          setFlash(`Opened PDF Print For ${formatTeamLabel(selectedTeam)} Attendance.`);
+        } catch (_) {
+          setFlash("Could Not Launch PDF Print. Try Again.");
+        } finally {
+          cleanup();
+        }
+      }, 350);
+    };
+
+    frame.srcdoc = buildReportDocumentHtml();
+    document.body.appendChild(frame);
+  };
+
+  const handleExportSocialPng = async (mode: "hype" | "alert") => {
+    if (reportRows.length === 0 || reportDates.length === 0) {
+      setFlash("No Attendance Report Data Available For The Selected Range.");
+      return;
+    }
+
+    const isHype = mode === "hype";
+    const players = isHype
+      ? [...reportRows].sort((a, b) => b.pct - a.pct).slice(0, 6)
+      : reportSummary.atRiskAthletes.length > 0
+      ? reportSummary.atRiskAthletes.slice(0, 6)
+      : reportSummary.watchAthletes.slice(0, 6);
+
+    if (players.length === 0) {
+      setFlash(
+        isHype
+          ? "No Eligible Players Found For Hype PNG."
+          : "No At-Risk Or Watch Players Found For Alert PNG."
+      );
+      return;
+    }
+
+    const width = 1080;
+    const height = 1350;
+    const pixelRatio = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * pixelRatio;
+    canvas.height = height * pixelRatio;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setFlash("Could Not Create PNG Export.");
+      return;
+    }
+
+    ctx.scale(pixelRatio, pixelRatio);
+
+    const [dragonLogo, plLogo] = await Promise.all([
+      loadImageMaybe("/assets/dragon.png"),
+      loadImageMaybe("/assets/pl.png"),
+    ]);
+
+    const background = ctx.createLinearGradient(0, 0, width, height);
+    if (isHype) {
+      background.addColorStop(0, "#052e16");
+      background.addColorStop(0.5, "#065f46");
+      background.addColorStop(1, "#10b981");
+    } else {
+      background.addColorStop(0, "#3f0f0f");
+      background.addColorStop(0.5, "#7f1d1d");
+      background.addColorStop(1, "#dc2626");
+    }
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 6; i += 1) {
+      const radius = 70 + i * 24;
+      ctx.beginPath();
+      ctx.arc(width - 120 - i * 120, 90 + i * 110, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    if (dragonLogo) {
+      const maxWidth = width * 0.84;
+      const maxHeight = height * 0.7;
+      const scale = Math.min(maxWidth / dragonLogo.width, maxHeight / dragonLogo.height);
+      const drawWidth = dragonLogo.width * scale;
+      const drawHeight = dragonLogo.height * scale;
+      const drawX = (width - drawWidth) / 2;
+      const drawY = (height - drawHeight) / 2 + 70;
+      ctx.save();
+      ctx.globalAlpha = isHype ? 0.15 : 0.11;
+      ctx.drawImage(dragonLogo, drawX, drawY, drawWidth, drawHeight);
+      ctx.restore();
+    }
+
+    if (plLogo) {
+      const badgeSize = 120;
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.drawImage(plLogo, width - badgeSize - 54, 48, badgeSize, badgeSize);
+      ctx.restore();
+
+      const watermarkScale = Math.min(
+        (width * 0.36) / plLogo.width,
+        (height * 0.24) / plLogo.height
+      );
+      const watermarkWidth = plLogo.width * watermarkScale;
+      const watermarkHeight = plLogo.height * watermarkScale;
+      ctx.save();
+      ctx.globalAlpha = isHype ? 0.12 : 0.1;
+      ctx.drawImage(
+        plLogo,
+        width - watermarkWidth - 38,
+        height - watermarkHeight - 38,
+        watermarkWidth,
+        watermarkHeight
+      );
+      ctx.restore();
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.13)";
+    drawRoundedRect(ctx, 44, 34, width - 88, 170, 24);
+    ctx.fill();
+
+    ctx.fillStyle = "#dbeafe";
+    ctx.font = '700 26px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(formatTeamLabel(selectedTeam).toUpperCase(), 76, 84);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = '800 56px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(
+      isHype ? "ATTENDANCE LEADERS" : "ATTENDANCE ALERT",
+      76,
+      148
+    );
+
+    ctx.fillStyle = isHype ? "#bbf7d0" : "#fecaca";
+    ctx.font = '600 22px "Segoe UI", Arial, sans-serif';
+    const subtitle = isHype
+      ? "Celebrating consistency and commitment"
+      : reportSummary.atRiskAthletes.length > 0
+      ? "Players below 70% attendance in this range"
+      : "Closest to at-risk in this selected range";
+    ctx.fillText(subtitle, 76, 186);
+
+    ctx.fillStyle = "rgba(255,255,255,0.94)";
+    ctx.font = '600 20px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(`Range: ${reportRangeLabel}`, 76, 236);
+    ctx.fillText(`Preset: ${reportPresetLabel}`, 76, 266);
+    ctx.fillText(
+      `Team Avg: ${reportSummary.teamAveragePct.toFixed(1)}%   Sessions: ${reportSummary.sessionCount}`,
+      76,
+      296
+    );
+
+    const cardX = 58;
+    const cardWidth = width - cardX * 2;
+    const cardHeight = 140;
+    const cardGap = 14;
+    const listStartY = 330;
+
+    players.forEach((row, index) => {
+      const y = listStartY + index * (cardHeight + cardGap);
+      ctx.fillStyle = "rgba(255,255,255,0.96)";
+      drawRoundedRect(ctx, cardX, y, cardWidth, cardHeight, 20);
+      ctx.fill();
+
+      ctx.strokeStyle = isHype ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)";
+      ctx.lineWidth = 2;
+      drawRoundedRect(ctx, cardX, y, cardWidth, cardHeight, 20);
+      ctx.stroke();
+
+      ctx.fillStyle = isHype ? "#065f46" : "#991b1b";
+      ctx.beginPath();
+      ctx.arc(cardX + 44, y + 40, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = '800 24px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = "center";
+      ctx.fillText(String(index + 1), cardX + 44, y + 48);
+      ctx.textAlign = "left";
+
+      const playerName = `${row.athlete.firstName} ${row.athlete.lastName}`.trim();
+      const identity = `${row.athlete.number ? `#${row.athlete.number} ` : ""}${playerName || "Athlete"}`;
+      ctx.fillStyle = "#0f172a";
+      ctx.font = '700 32px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(identity, cardX + 84, y + 53);
+
+      const details = `Grade ${row.athlete.grade || "-"}   Attended ${row.attended}/${reportSummary.sessionCount}   Missed ${row.missed}`;
+      ctx.fillStyle = "#334155";
+      ctx.font = '600 20px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(details, cardX + 84, y + 88);
+
+      const streakText = row.missedStreak > 0 ? `${row.missedStreak} missed in a row` : "No current missed streak";
+      ctx.fillStyle = isHype ? "#065f46" : "#991b1b";
+      ctx.font = '600 18px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(streakText, cardX + 84, y + 116);
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = '800 42px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = "right";
+      ctx.fillText(`${row.pct.toFixed(1)}%`, cardX + cardWidth - 24, y + 56);
+      ctx.textAlign = "left";
+
+      const statusColor =
+        row.tier === "high" ? "#166534" : row.tier === "low" ? "#be123c" : "#92400e";
+      ctx.fillStyle = statusColor;
+      ctx.font = '700 19px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = "right";
+      ctx.fillText(tierLabel(row.tier).toUpperCase(), cardX + cardWidth - 24, y + 89);
+      ctx.textAlign = "left";
+    });
+
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = '600 19px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(`Generated ${new Date().toLocaleString()}`, 58, height - 48);
+    ctx.textAlign = "right";
+    ctx.fillText("PL Strength Attendance", width - 58, height - 48);
+    ctx.textAlign = "left";
+
+    const presetSlug = reportRangePreset.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const fileRange = `${reportRange.start || "start"}_to_${
+      reportRange.end || "end"
+    }`;
+    const fileName = `${selectedTeam}-attendance-${
+      isHype ? "hype" : "alert"
+    }-${presetSlug}-${fileRange}.png`;
+
+    exportCanvasPng(canvas, fileName);
+    setFlash(
+      isHype
+        ? `Exported ${formatTeamLabel(selectedTeam)} Hype PNG.`
+        : `Exported ${formatTeamLabel(selectedTeam)} Alert PNG.`
+    );
+  };
+
+  const handleSave = async (team: Team) => {
+    clearToggleSaveTimer(team);
+    await persistTeamSheet(team, { showFlash: true });
   };
 
   if (authLoading || loading) {
@@ -732,14 +1748,14 @@ export default function Attendance() {
               Track Lift Day Attendance Separately For Each Football Team.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full gap-1 overflow-x-auto pb-1 sm:w-auto sm:gap-2 sm:overflow-visible sm:pb-0">
             {visibleTeams.map((team) => (
               <button
                 key={team}
                 type="button"
                 onClick={() => setSelectedTeam(team)}
                 className={[
-                  "rounded-xl px-4 py-2 text-sm font-medium transition",
+                  "whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
                   selectedTeam === team
                     ? "bg-brand-600 text-white shadow-sm"
                     : "border border-gray-200 bg-white text-gray-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
@@ -812,130 +1828,136 @@ export default function Attendance() {
           </div>
         )}
 
-        <form
-          className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 p-5 shadow-sm space-y-4"
-          onSubmit={handleAddAthlete}
-        >
-          <div className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full bg-sky-200/40 blur-2xl" />
-          <div className="relative flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-800">
-                Add Athlete To Attendance
-              </h3>
-              <p className="text-xs text-slate-600">
-                First Or Last Name Is Required. Number, Grade, Height, Weight, And Letter Are Optional.
-              </p>
+        <div className="rounded-2xl border border-slate-200 bg-white/95 shadow-sm">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+            onClick={() => setIsAddAthleteCollapsed((prev) => !prev)}
+            aria-expanded={!isAddAthleteCollapsed}
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+                +
+              </span>
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+                  Quick Add Athlete
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Name Is Required. Everything Else Is Optional.
+                </p>
+              </div>
             </div>
-            <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-              Quick Entry
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+              {isAddAthleteCollapsed ? "Show" : "Hide"}
             </span>
-          </div>
+          </button>
 
-          <div className="relative grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              First Name
-              <input
-                className="field bg-white/90"
-                value={formDraft.firstName}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
-                }
-                placeholder="Jordan"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Last Name
-              <input
-                className="field bg-white/90"
-                value={formDraft.lastName}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
-                }
-                placeholder="Taylor"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Number
-              <input
-                className="field bg-white/90"
-                value={formDraft.number}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, number: event.target.value }))
-                }
-                placeholder="12"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Grade
-              <input
-                className="field bg-white/90"
-                value={formDraft.grade}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
-                }
-                placeholder="11"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Height
-              <input
-                className="field bg-white/90"
-                value={formDraft.height}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, height: event.target.value }))
-                }
-                placeholder={`6'1"`}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Weight
-              <input
-                className="field bg-white/90"
-                value={formDraft.weight}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
-                }
-                placeholder="185"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Letter
-              <input
-                className="field bg-white/90"
-                value={formDraft.letter}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({ ...prev, letter: event.target.value }))
-                }
-                placeholder="V"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
-              Level
-              <select
-                className="field bg-white/90"
-                value={formDraft.level}
-                onChange={(event) =>
-                  setFormDraft((prev) => ({
-                    ...prev,
-                    level: event.target.value as Team,
-                  }))
-                }
-              >
-                {visibleTeams.map((team) => (
-                  <option key={team} value={team}>
-                    {formatTeamLabel(team)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {!isAddAthleteCollapsed && (
+            <form
+              className="border-t border-slate-200 p-3 space-y-3"
+              onSubmit={handleAddAthlete}
+            >
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.2fr_.8fr_.8fr_1fr_auto]">
+                <label className="sr-only" htmlFor="attendance-first-name">First Name</label>
+                <input
+                  id="attendance-first-name"
+                  className="field h-10 bg-slate-50"
+                  value={formDraft.firstName}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
+                  }
+                  placeholder="First Name"
+                />
 
-          <div className="relative flex justify-end">
-            <button type="submit" className="btn btn-primary">
-              Add Athlete
-            </button>
-          </div>
-        </form>
+                <label className="sr-only" htmlFor="attendance-last-name">Last Name</label>
+                <input
+                  id="attendance-last-name"
+                  className="field h-10 bg-slate-50"
+                  value={formDraft.lastName}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
+                  }
+                  placeholder="Last Name"
+                />
+
+                <label className="sr-only" htmlFor="attendance-jersey">Jersey Number</label>
+                <input
+                  id="attendance-jersey"
+                  className="field h-10 bg-slate-50"
+                  value={formDraft.number}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, number: event.target.value }))
+                  }
+                  placeholder="Jersey #"
+                />
+
+                <label className="sr-only" htmlFor="attendance-grade">Grade</label>
+                <input
+                  id="attendance-grade"
+                  className="field h-10 bg-slate-50"
+                  value={formDraft.grade}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
+                  }
+                  placeholder="Grade"
+                />
+
+                <label className="sr-only" htmlFor="attendance-level">Level</label>
+                <select
+                  id="attendance-level"
+                  className="field h-10 bg-slate-50"
+                  value={formDraft.level}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({
+                      ...prev,
+                      level: event.target.value as Team,
+                    }))
+                  }
+                >
+                  {visibleTeams.map((team) => (
+                    <option key={team} value={team}>
+                      {formatTeamLabel(team)}
+                    </option>
+                  ))}
+                </select>
+
+                <button type="submit" className="btn btn-primary h-10 whitespace-nowrap">
+                  Add Athlete
+                </button>
+              </div>
+
+              <details className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Optional Details
+                </summary>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <label className="sr-only" htmlFor="attendance-height">Height</label>
+                  <input
+                    id="attendance-height"
+                    className="field h-10 bg-white"
+                    value={formDraft.height}
+                    onChange={(event) =>
+                      setFormDraft((prev) => ({ ...prev, height: event.target.value }))
+                    }
+                    placeholder={`Height (6'1")`}
+                  />
+
+                  <label className="sr-only" htmlFor="attendance-weight">Weight</label>
+                  <input
+                    id="attendance-weight"
+                    className="field h-10 bg-white"
+                    value={formDraft.weight}
+                    onChange={(event) =>
+                      setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
+                    }
+                    placeholder="Weight (185)"
+                  />
+                </div>
+              </details>
+            </form>
+          )}
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-max table-auto divide-y divide-gray-200 text-sm">
@@ -946,7 +1968,7 @@ export default function Attendance() {
                   onClick={() => handleSort('number')}
                 >
                   <div className="flex items-center gap-1">
-                    #
+                    Jersey #
                     {sortField === 'number' && (
                       <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                     )}
@@ -1081,6 +2103,271 @@ export default function Attendance() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Attendance Report Section */}
+        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 p-5 space-y-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 text-left"
+            onClick={() => setIsReportSectionCollapsed((prev) => !prev)}
+            aria-expanded={!isReportSectionCollapsed}
+          >
+            <div>
+              <h3 className="text-sm font-semibold tracking-wide text-slate-800">
+                Attendance Report
+              </h3>
+              <p className="text-xs text-slate-600">
+                {reportRangeLabel} • {reportPresetLabel}
+              </p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+              {isReportSectionCollapsed ? "Show" : "Hide"}
+            </span>
+          </button>
+
+          {!isReportSectionCollapsed && (
+            <>
+              <div className="flex flex-wrap items-start justify-between gap-3 pt-2">
+                <div>
+                  <p className="text-xs text-slate-600">
+                    Quick Coach Snapshot With Weekly Breakdown And Export Options.
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Active Range: {reportRangeLabel}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Preset
+                    <select
+                      className="field bg-white min-w-44"
+                      value={reportRangePreset}
+                      onChange={(event) =>
+                        setReportRangePreset(event.target.value as ReportRangePreset)
+                      }
+                    >
+                      {REPORT_RANGE_PRESET_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    From
+                    <input
+                      type="date"
+                      className="field bg-white min-w-36"
+                      value={reportStartDate}
+                      min={reportSourceDates[0] ?? undefined}
+                      max={reportSourceDates[reportSourceDates.length - 1] ?? undefined}
+                      onChange={(event) => {
+                        setReportRangePreset("custom");
+                        setReportStartDate(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    To
+                    <input
+                      type="date"
+                      className="field bg-white min-w-36"
+                      value={reportEndDate}
+                      min={reportSourceDates[0] ?? undefined}
+                      max={reportSourceDates[reportSourceDates.length - 1] ?? undefined}
+                      onChange={(event) => {
+                        setReportRangePreset("custom");
+                        setReportEndDate(event.target.value);
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs"
+                    onClick={handleExportReportCsv}
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs"
+                    onClick={handleExportReportWord}
+                  >
+                    Export Word
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary text-xs"
+                    onClick={handleExportReportPdf}
+                  >
+                    Export PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                    onClick={() => handleExportSocialPng("hype")}
+                  >
+                    Export Hype PNG
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700"
+                    onClick={() => handleExportSocialPng("alert")}
+                  >
+                    Export Alert PNG
+                  </button>
+                </div>
+              </div>
+
+          {reportRows.length === 0 || reportDates.length === 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              No Attendance Data In This Range. Add Sessions Or Widen The Date Range.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Players</p>
+                  <p className="text-xl font-semibold text-slate-900">{reportSummary.playerCount}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Sessions</p>
+                  <p className="text-xl font-semibold text-slate-900">{reportSummary.sessionCount}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Team Average</p>
+                  <p className="text-xl font-semibold text-slate-900">{reportSummary.teamAveragePct.toFixed(1)}%</p>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-emerald-700">High Attendance</p>
+                  <p className="text-xl font-semibold text-emerald-800">{reportSummary.highCount}</p>
+                </div>
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-rose-700">At Risk</p>
+                  <p className="text-xl font-semibold text-rose-800">{reportSummary.lowCount}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Top Attendance</h4>
+                  <div className="mt-3 space-y-2">
+                    {reportSummary.topAthletes.map((row) => (
+                      <div
+                        key={`top-${row.athlete.id}`}
+                        className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs"
+                      >
+                        <span className="font-medium text-slate-800">
+                          {row.athlete.number ? `#${row.athlete.number} ` : ""}
+                          {row.athlete.firstName} {row.athlete.lastName}
+                        </span>
+                        <span className="font-semibold text-emerald-700">{row.pct.toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Needs Attention</h4>
+                  <div className="mt-3 space-y-2">
+                    {reportSummary.atRiskAthletes.length > 0 ? (
+                      reportSummary.atRiskAthletes.map((row) => (
+                        <div
+                          key={`risk-${row.athlete.id}`}
+                          className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 text-xs"
+                        >
+                          <span className="font-medium text-slate-800">
+                            {row.athlete.number ? `#${row.athlete.number} ` : ""}
+                            {row.athlete.firstName} {row.athlete.lastName}
+                          </span>
+                          <span className="font-semibold text-rose-700">
+                            {row.pct.toFixed(1)}% • {row.missedStreak} Missed In A Row
+                          </span>
+                        </div>
+                      ))
+                    ) : reportSummary.watchAthletes.length > 0 ? (
+                      reportSummary.watchAthletes.map((row) => (
+                        <div
+                          key={`watch-${row.athlete.id}`}
+                          className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs"
+                        >
+                          <span className="font-medium text-slate-800">
+                            {row.athlete.number ? `#${row.athlete.number} ` : ""}
+                            {row.athlete.firstName} {row.athlete.lastName}
+                          </span>
+                          <span className="font-semibold text-amber-700">
+                            {row.pct.toFixed(1)}% • Watch
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                        No At-Risk Athletes In This Range.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="min-w-full divide-y divide-slate-200 text-xs">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Jersey #</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600">First</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Last</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Grade</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Att</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Miss</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Att %</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Last 6 %</th>
+                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Status</th>
+                      {reportWeeks.map((week) => (
+                        <th
+                          key={week.key}
+                          className="px-2 py-2 whitespace-nowrap text-center font-semibold text-slate-600"
+                        >
+                          {week.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {reportRows.map((row) => (
+                      <tr key={`report-${row.athlete.id}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 text-slate-700">{row.athlete.number || "-"}</td>
+                        <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.firstName || "-"}</td>
+                        <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.lastName || "-"}</td>
+                        <td className="px-3 py-2 text-center text-slate-700">{row.athlete.grade || "-"}</td>
+                        <td className="px-3 py-2 text-center text-slate-700">{row.attended}</td>
+                        <td className="px-3 py-2 text-center text-slate-700">{row.missed}</td>
+                        <td className="px-3 py-2 text-center font-semibold text-slate-800">{row.pct.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-center text-slate-700">{row.lastSixPct.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${tierBadgeClass(row.tier)}`}>
+                            {tierLabel(row.tier)}
+                          </span>
+                        </td>
+                        {reportWeeks.map((week) => {
+                          const weekly = row.weekly[week.key] ?? { attended: 0, total: 0, pct: 0 };
+                          return (
+                            <td
+                              key={`${row.athlete.id}-${week.key}`}
+                              className={`px-2 py-2 text-center font-medium ${weekCellClass(weekly.pct)}`}
+                            >
+                              {weekly.attended}/{weekly.total}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+            </>
+          )}
         </div>
 
         {/* CSV Import Section */}
