@@ -157,6 +157,37 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /attendanceStatus/{team} {
+      allow read: if isSignedIn();
+      allow create, update: if isCoach() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /attendanceCheckins/{docId} {
+      allow read: if isCoach() || isAdmin()
+        || (isSignedIn() && (resource == null || resource.data.uid == request.auth.uid));
+
+      allow create: if (isCoach() || isAdmin())
+        || (
+          isSignedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status == "pending"
+          && request.resource.data.keys().hasOnly([
+            "team",
+            "date",
+            "dayKey",
+            "uid",
+            "firstName",
+            "lastName",
+            "status",
+            "submittedAt"
+          ])
+        );
+
+      allow update: if isCoach() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Custom quotes for NFC welcome screen
     match /quotes/{quoteId} {
       allow read: if true;  // Anyone can read quotes (for welcome page)

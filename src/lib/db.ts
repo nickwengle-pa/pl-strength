@@ -1827,6 +1827,7 @@ export type AttendanceLevel = Team;
 
 export type AttendanceAthlete = {
   id: string;
+  uid?: string;
   firstName: string;
   lastName: string;
   level: AttendanceLevel;
@@ -1843,10 +1844,38 @@ export type AttendanceSheet = {
   dates: string[];
   athletes: AttendanceAthlete[];
   records: Record<string, Record<string, boolean>>;
+  lockedDates: Record<string, boolean>;
   updatedAt?: number;
 };
 
+export type AttendanceTeamStatus = {
+  team: Team;
+  dates: string[];
+  lockedDates: Record<string, boolean>;
+  updatedAt?: number;
+};
+
+export type AttendanceCheckinStatus = "pending" | "approved" | "rejected";
+
+export type AttendanceCheckin = {
+  id: string;
+  team: Team;
+  date: string;
+  dayKey: string;
+  uid: string;
+  athleteId?: string;
+  firstName?: string;
+  lastName?: string;
+  status: AttendanceCheckinStatus;
+  submittedAt?: number;
+  reviewedAt?: number;
+  reviewedBy?: string;
+  reviewedByName?: string;
+};
+
 const ATTENDANCE_STORAGE_PREFIX = "pl.attendance.";
+const ATTENDANCE_STATUS_COLLECTION = "attendanceStatus";
+const ATTENDANCE_CHECKINS_COLLECTION = "attendanceCheckins";
 
 const attendanceStorageKey = (team: Team): string =>
   `${ATTENDANCE_STORAGE_PREFIX}${team}`;
@@ -1856,8 +1885,130 @@ const defaultAttendanceSheet = (team: Team): AttendanceSheet => ({
   dates: [],
   athletes: [],
   records: {},
+  lockedDates: {},
   updatedAt: undefined,
 });
+
+const formatLocalDateInput = (value: Date): string => {
+  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
+  const year = local.getFullYear();
+  const month = `${local.getMonth() + 1}`.padStart(2, "0");
+  const day = `${local.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const attendanceStatusDocRef = (database: Firestore, team: Team) =>
+  doc(database, ATTENDANCE_STATUS_COLLECTION, team);
+
+const buildAttendanceDayKey = (team: Team, date: string): string => `${team}__${date}`;
+
+const encodeAttendanceDocIdPart = (value: string): string =>
+  value.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const attendanceCheckinDocId = (team: Team, date: string, uid: string): string =>
+  `${encodeAttendanceDocIdPart(team)}__${encodeAttendanceDocIdPart(
+    date
+  )}__${encodeAttendanceDocIdPart(uid)}`;
+
+const attendanceCheckinDocRef = (
+  database: Firestore,
+  team: Team,
+  date: string,
+  uid: string
+) => doc(database, ATTENDANCE_CHECKINS_COLLECTION, attendanceCheckinDocId(team, date, uid));
+
+const normalizeAttendanceLockedDates = (
+  dates: string[],
+  raw: unknown
+): Record<string, boolean> => {
+  const source =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const allowed = new Set(dates);
+  const lockedDates: Record<string, boolean> = {};
+  dates.forEach((date) => {
+    lockedDates[date] = source[date] === true;
+  });
+  Object.entries(source).forEach(([date, value]) => {
+    if (!allowed.has(date) || value !== true) return;
+    lockedDates[date] = true;
+  });
+  return lockedDates;
+};
+
+const normalizeAttendanceTeamStatus = (
+  input: any,
+  team: Team
+): AttendanceTeamStatus => {
+  const rawDates = Array.isArray(input?.dates) ? input.dates : [];
+  const dates: string[] = Array.from(
+    new Set(
+      rawDates
+        .map((value: unknown) =>
+          typeof value === "string" ? value.trim().slice(0, 40) : ""
+        )
+        .filter((value: string) => value.length > 0)
+    )
+  );
+  const lockedDates = normalizeAttendanceLockedDates(dates, input?.lockedDates);
+  const updatedAt = toMillis(input?.updatedAt) || undefined;
+  return {
+    team,
+    dates,
+    lockedDates,
+    updatedAt,
+  };
+};
+
+const normalizeAttendanceCheckin = (
+  input: any,
+  id: string
+): AttendanceCheckin | null => {
+  if (!input || typeof input !== "object") return null;
+  const team = normalizeTeam(input.team);
+  const date = typeof input.date === "string" ? input.date.trim().slice(0, 40) : "";
+  const uid = typeof input.uid === "string" ? input.uid.trim() : "";
+  const dayKey =
+    typeof input.dayKey === "string" && input.dayKey.trim()
+      ? input.dayKey.trim().slice(0, 120)
+      : team && date
+      ? buildAttendanceDayKey(team, date)
+      : "";
+  const status: AttendanceCheckinStatus =
+    input.status === "approved" || input.status === "rejected" ? input.status : "pending";
+  if (!team || !date || !uid || !dayKey) return null;
+  return {
+    id,
+    team,
+    date,
+    dayKey,
+    uid,
+    athleteId:
+      typeof input.athleteId === "string" && input.athleteId.trim()
+        ? input.athleteId.trim()
+        : undefined,
+    firstName:
+      typeof input.firstName === "string" && input.firstName.trim()
+        ? sanitizeName(input.firstName)
+        : undefined,
+    lastName:
+      typeof input.lastName === "string" && input.lastName.trim()
+        ? sanitizeName(input.lastName)
+        : undefined,
+    status,
+    submittedAt: toMillis(input.submittedAt) || undefined,
+    reviewedAt: toMillis(input.reviewedAt) || undefined,
+    reviewedBy:
+      typeof input.reviewedBy === "string" && input.reviewedBy.trim()
+        ? input.reviewedBy.trim()
+        : undefined,
+    reviewedByName:
+      typeof input.reviewedByName === "string" && input.reviewedByName.trim()
+        ? sanitizeName(input.reviewedByName)
+        : undefined,
+  };
+};
 
 const readAttendanceLocal = (team: Team): AttendanceSheet | null => {
   if (typeof window === "undefined") return null;
@@ -1961,6 +2112,8 @@ const normalizeAttendanceSheet = (
         typeof item.id === "string" && item.id.trim()
           ? item.id.trim()
           : null;
+      const uid =
+        typeof item.uid === "string" && item.uid.trim() ? item.uid.trim() : undefined;
       const firstName = sanitizeName((item as any).firstName);
       const lastName = sanitizeName((item as any).lastName);
       const level = normalizeTeam((item as any).level) ?? team;
@@ -1973,6 +2126,7 @@ const normalizeAttendanceSheet = (
       const letter = sanitizeAttendanceDetail((item as any).letter, 10);
       return {
         id,
+        ...(uid ? { uid } : {}),
         firstName,
         lastName,
         level,
@@ -2010,6 +2164,7 @@ const normalizeAttendanceSheet = (
       dates,
       input?.records ?? {}
     ),
+    lockedDates: normalizeAttendanceLockedDates(dates, input?.lockedDates),
     updatedAt,
   };
 };
@@ -2053,6 +2208,8 @@ export async function saveAttendanceSheet(
   );
   const cleanAthletes = sheet.athletes
     .map((athlete) => {
+      const uid =
+        typeof athlete.uid === "string" && athlete.uid.trim() ? athlete.uid.trim() : undefined;
       const number = sanitizeAttendanceDetail(athlete.number, 20);
       const grade = sanitizeAttendanceDetail(athlete.grade, 20);
       const height = sanitizeAttendanceDetail(athlete.height, 20);
@@ -2061,6 +2218,7 @@ export async function saveAttendanceSheet(
       const letter = sanitizeAttendanceDetail(athlete.letter, 10);
       return {
         id: athlete.id,
+        ...(uid ? { uid } : {}),
         firstName: sanitizeName(athlete.firstName),
         lastName: sanitizeName(athlete.lastName),
         level: normalizeTeam(athlete.level) ?? sheet.team,
@@ -2079,17 +2237,29 @@ export async function saveAttendanceSheet(
     cleanDates,
     sheet.records
   );
+  const cleanLockedDates = normalizeAttendanceLockedDates(cleanDates, sheet.lockedDates);
 
   const payload = {
     dates: cleanDates,
     athletes: cleanAthletes,
     records: cleanRecords,
+    lockedDates: cleanLockedDates,
     updatedAt: serverTimestamp(),
   };
 
   if (database) {
     const ref = attendanceDocRef(database, sheet.team);
     await setDoc(ref, payload, { merge: true });
+    const statusRef = attendanceStatusDocRef(database, sheet.team);
+    await setDoc(
+      statusRef,
+      {
+        dates: cleanDates,
+        lockedDates: cleanLockedDates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   }
 
   writeAttendanceLocal({
@@ -2097,7 +2267,409 @@ export async function saveAttendanceSheet(
     dates: cleanDates,
     athletes: cleanAthletes,
     records: cleanRecords,
+    lockedDates: cleanLockedDates,
     updatedAt: Date.now(),
+  });
+}
+
+const buildAttendanceAthleteIdForUid = (uid: string): string =>
+  `uid-${uid}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const findAttendanceAthleteForCheckin = (
+  sheet: AttendanceSheet,
+  team: Team,
+  checkin: {
+    uid: string;
+    athleteId?: string;
+    firstName?: string;
+    lastName?: string;
+  }
+): AttendanceAthlete | null => {
+  if (checkin.athleteId) {
+    const byId = sheet.athletes.find((athlete) => athlete.id === checkin.athleteId);
+    if (byId) return byId;
+  }
+  const byUid = sheet.athletes.find(
+    (athlete) => athlete.level === team && athlete.uid === checkin.uid
+  );
+  if (byUid) return byUid;
+
+  const first = sanitizeName(checkin.firstName ?? "").toLowerCase();
+  const last = sanitizeName(checkin.lastName ?? "").toLowerCase();
+  if (!first && !last) return null;
+  return (
+    sheet.athletes.find(
+      (athlete) =>
+        athlete.level === team &&
+        sanitizeName(athlete.firstName).toLowerCase() === first &&
+        sanitizeName(athlete.lastName).toLowerCase() === last
+    ) ?? null
+  );
+};
+
+const ensureAttendanceRowsForDates = (
+  records: Record<string, Record<string, boolean>>,
+  athletes: AttendanceAthlete[],
+  dates: string[]
+): Record<string, Record<string, boolean>> => {
+  const nextRecords: Record<string, Record<string, boolean>> = { ...records };
+  athletes.forEach((athlete) => {
+    const row = { ...(nextRecords[athlete.id] ?? {}) };
+    dates.forEach((date) => {
+      if (!(date in row)) {
+        row[date] = false;
+      }
+    });
+    nextRecords[athlete.id] = row;
+  });
+  return nextRecords;
+};
+
+export async function loadAttendanceTeamStatus(team: Team): Promise<AttendanceTeamStatus> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    const local = readAttendanceLocal(team);
+    return normalizeAttendanceTeamStatus(
+      {
+        dates: local?.dates ?? [],
+        lockedDates: local?.lockedDates ?? {},
+        updatedAt: local?.updatedAt,
+      },
+      team
+    );
+  }
+  try {
+    const snap = await getDoc(attendanceStatusDocRef(database, team));
+    if (snap.exists()) {
+      return normalizeAttendanceTeamStatus(snap.data(), team);
+    }
+  } catch (err) {
+    console.warn(`loadAttendanceTeamStatus failed for ${team}`, err);
+  }
+  const local = readAttendanceLocal(team);
+  return normalizeAttendanceTeamStatus(
+    {
+      dates: local?.dates ?? [],
+      lockedDates: local?.lockedDates ?? {},
+      updatedAt: local?.updatedAt,
+    },
+    team
+  );
+}
+
+export async function loadAthleteAttendanceCheckin(
+  team: Team,
+  date: string,
+  uid: string
+): Promise<AttendanceCheckin | null> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return null;
+  try {
+    const snap = await getDoc(attendanceCheckinDocRef(database, team, date, uid));
+    if (!snap.exists()) return null;
+    return normalizeAttendanceCheckin(snap.data(), snap.id);
+  } catch (err) {
+    console.warn(`loadAthleteAttendanceCheckin failed for ${team} ${date}`, err);
+    return null;
+  }
+}
+
+export async function listAttendanceCheckinsForDate(
+  team: Team,
+  date: string
+): Promise<AttendanceCheckin[]> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return [];
+  try {
+    const snap = await getDocs(
+      query(
+        collection(database, ATTENDANCE_CHECKINS_COLLECTION),
+        where("dayKey", "==", buildAttendanceDayKey(team, date)),
+        limit(600)
+      )
+    );
+    return snap.docs
+      .map((docSnap) => normalizeAttendanceCheckin(docSnap.data(), docSnap.id))
+      .filter((row): row is AttendanceCheckin => row !== null)
+      .sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
+  } catch (err) {
+    console.warn(`listAttendanceCheckinsForDate failed for ${team} ${date}`, err);
+    return [];
+  }
+}
+
+export async function submitAthleteAttendanceCheckin(options: {
+  team: Team;
+  uid: string;
+  firstName?: string;
+  lastName?: string;
+  date?: string;
+}): Promise<AttendanceCheckin> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    throw new Error("Firebase is required for attendance check-in.");
+  }
+  const team = options.team;
+  const uid = options.uid.trim();
+  const firstName = sanitizeName(options.firstName ?? "");
+  const lastName = sanitizeName(options.lastName ?? "");
+  const date = (options.date ?? formatLocalDateInput(new Date())).trim();
+  if (!uid) {
+    throw new Error("Missing athlete UID for attendance check-in.");
+  }
+  if (!date) {
+    throw new Error("Missing attendance check-in date.");
+  }
+
+  const checkin = await runTransaction(database, async (tx) => {
+    const statusRef = attendanceStatusDocRef(database, team);
+    const checkinRef = attendanceCheckinDocRef(database, team, date, uid);
+    const statusSnap = await tx.get(statusRef);
+    const status = normalizeAttendanceTeamStatus(statusSnap.data(), team);
+    if (!status.dates.includes(date)) {
+      throw new Error("attendance/checkin-closed");
+    }
+    if (status.lockedDates[date]) {
+      throw new Error("attendance/date-locked");
+    }
+
+    const existingSnap = await tx.get(checkinRef);
+    if (existingSnap.exists()) {
+      const existing = normalizeAttendanceCheckin(existingSnap.data(), checkinRef.id);
+      if (existing) return existing;
+      throw new Error("attendance/checkin-invalid");
+    }
+
+    const now = Date.now();
+    const created: AttendanceCheckin = {
+      id: checkinRef.id,
+      team,
+      date,
+      dayKey: buildAttendanceDayKey(team, date),
+      uid,
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      status: "pending",
+      submittedAt: now,
+    };
+    tx.set(checkinRef, {
+      team,
+      date,
+      dayKey: created.dayKey,
+      uid,
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      status: "pending",
+      submittedAt: serverTimestamp(),
+    });
+    return created;
+  });
+
+  return checkin;
+}
+
+export async function reviewAttendanceCheckin(options: {
+  team: Team;
+  date: string;
+  uid: string;
+  status: "approved" | "rejected";
+  reviewedByName?: string;
+}): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const reviewerUid = handles?.auth?.currentUser?.uid ?? undefined;
+  if (!database) {
+    throw new Error("Firebase is required to review attendance check-ins.");
+  }
+
+  const team = options.team;
+  const date = options.date.trim();
+  const uid = options.uid.trim();
+  const reviewedByName = sanitizeName(options.reviewedByName ?? "");
+  const status = options.status;
+  if (!date || !uid) {
+    throw new Error("Missing check-in review target.");
+  }
+
+  await runTransaction(database, async (tx) => {
+    const attendanceRef = attendanceDocRef(database, team);
+    const statusRef = attendanceStatusDocRef(database, team);
+    const checkinRef = attendanceCheckinDocRef(database, team, date, uid);
+
+    const checkinSnap = await tx.get(checkinRef);
+    if (!checkinSnap.exists()) {
+      throw new Error("attendance/checkin-not-found");
+    }
+    const checkin = normalizeAttendanceCheckin(checkinSnap.data(), checkinRef.id);
+    if (!checkin) {
+      throw new Error("attendance/checkin-invalid");
+    }
+
+    const attendanceSnap = await tx.get(attendanceRef);
+    const statusSnap = await tx.get(statusRef);
+    const baseSheet = attendanceSnap.exists()
+      ? normalizeAttendanceSheet(attendanceSnap.data(), team)
+      : defaultAttendanceSheet(team);
+    const baseStatus = statusSnap.exists()
+      ? normalizeAttendanceTeamStatus(statusSnap.data(), team)
+      : normalizeAttendanceTeamStatus(
+          { dates: baseSheet.dates, lockedDates: baseSheet.lockedDates },
+          team
+        );
+
+    const nextDates = baseSheet.dates.includes(date)
+      ? [...baseSheet.dates]
+      : [...baseSheet.dates, date].sort((a, b) => a.localeCompare(b));
+    const nextLockedDates = normalizeAttendanceLockedDates(
+      nextDates,
+      Object.keys(baseSheet.lockedDates).length > 0 ? baseSheet.lockedDates : baseStatus.lockedDates
+    );
+    const nextAthletes = [...baseSheet.athletes];
+    let nextRecords = ensureAttendanceRowsForDates(baseSheet.records, nextAthletes, nextDates);
+
+    let matchedAthlete = findAttendanceAthleteForCheckin(baseSheet, team, {
+      uid: checkin.uid,
+      athleteId: checkin.athleteId,
+      firstName: checkin.firstName,
+      lastName: checkin.lastName,
+    });
+
+    if (!matchedAthlete && status === "approved") {
+      const firstName = sanitizeName(checkin.firstName ?? "");
+      const lastName = sanitizeName(checkin.lastName ?? "");
+      matchedAthlete = {
+        id: buildAttendanceAthleteIdForUid(checkin.uid),
+        uid: checkin.uid,
+        firstName: firstName || "Athlete",
+        lastName,
+        level: team,
+      };
+      nextAthletes.push(matchedAthlete);
+      nextRecords = ensureAttendanceRowsForDates(nextRecords, nextAthletes, nextDates);
+    }
+
+    if (matchedAthlete) {
+      const athleteIndex = nextAthletes.findIndex((row) => row.id === matchedAthlete!.id);
+      if (athleteIndex >= 0) {
+        const athleteRow = nextAthletes[athleteIndex];
+        if (!athleteRow.uid) {
+          nextAthletes[athleteIndex] = {
+            ...athleteRow,
+            uid: checkin.uid,
+          };
+        }
+      }
+      const row = { ...(nextRecords[matchedAthlete.id] ?? {}) };
+      nextDates.forEach((value) => {
+        if (!(value in row)) row[value] = false;
+      });
+      row[date] = status === "approved";
+      nextRecords[matchedAthlete.id] = row;
+    }
+
+    tx.set(
+      attendanceRef,
+      {
+        dates: nextDates,
+        athletes: nextAthletes,
+        records: nextRecords,
+        lockedDates: nextLockedDates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    tx.set(
+      statusRef,
+      {
+        dates: nextDates,
+        lockedDates: nextLockedDates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    tx.set(
+      checkinRef,
+      {
+        status,
+        reviewedAt: serverTimestamp(),
+        ...(reviewerUid ? { reviewedBy: reviewerUid } : {}),
+        ...(reviewedByName ? { reviewedByName } : {}),
+        ...(matchedAthlete ? { athleteId: matchedAthlete.id } : {}),
+      },
+      { merge: true }
+    );
+  });
+}
+
+export async function setAttendanceDateLocked(
+  team: Team,
+  date: string,
+  locked: boolean
+): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    throw new Error("Firebase is required to lock attendance dates.");
+  }
+  const targetDate = date.trim();
+  if (!targetDate) {
+    throw new Error("Missing attendance date.");
+  }
+
+  if (locked) {
+    const existing = await listAttendanceCheckinsForDate(team, targetDate);
+    if (existing.some((row) => row.status === "pending")) {
+      throw new Error("attendance/pending-checkins");
+    }
+  }
+
+  await runTransaction(database, async (tx) => {
+    const attendanceRef = attendanceDocRef(database, team);
+    const statusRef = attendanceStatusDocRef(database, team);
+    const attendanceSnap = await tx.get(attendanceRef);
+    const statusSnap = await tx.get(statusRef);
+
+    const baseSheet = attendanceSnap.exists()
+      ? normalizeAttendanceSheet(attendanceSnap.data(), team)
+      : defaultAttendanceSheet(team);
+    const baseStatus = statusSnap.exists()
+      ? normalizeAttendanceTeamStatus(statusSnap.data(), team)
+      : normalizeAttendanceTeamStatus(
+          { dates: baseSheet.dates, lockedDates: baseSheet.lockedDates },
+          team
+        );
+    const dates = baseSheet.dates.length > 0 ? baseSheet.dates : baseStatus.dates;
+    if (!dates.includes(targetDate)) {
+      throw new Error("attendance/date-not-found");
+    }
+    const lockedDates = normalizeAttendanceLockedDates(
+      dates,
+      Object.keys(baseSheet.lockedDates).length > 0 ? baseSheet.lockedDates : baseStatus.lockedDates
+    );
+    lockedDates[targetDate] = locked;
+
+    tx.set(
+      attendanceRef,
+      {
+        dates,
+        lockedDates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    tx.set(
+      statusRef,
+      {
+        dates,
+        lockedDates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   });
 }
 

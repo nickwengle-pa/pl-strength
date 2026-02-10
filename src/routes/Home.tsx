@@ -1,7 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
-import { fetchAthleteSessions, listRoster, loadProfileRemote, ensureAnon, saveProfile, getStoredTeamSelection, TEAM_DEFINITIONS, type SessionRecord, type RosterEntry, type Profile, type Team, type Lift } from "../lib/db";
+import {
+  fetchAthleteSessions,
+  listRoster,
+  loadProfileRemote,
+  ensureAnon,
+  getStoredTeamSelection,
+  TEAM_DEFINITIONS,
+  loadAttendanceTeamStatus,
+  loadAthleteAttendanceCheckin,
+  submitAthleteAttendanceCheckin,
+  normalizeTeam,
+  formatTeamLabel,
+  type AttendanceCheckin,
+  type SessionRecord,
+  type RosterEntry,
+  type Profile,
+  type Team,
+  type Lift,
+} from "../lib/db";
 import { roundToPlate } from "../lib/tm";
 import OnboardingWizard from "../components/OnboardingWizard";
 
@@ -49,14 +67,35 @@ type AthleteActivity = {
   prCount: number;
 };
 
+type AthleteCheckinViewState = {
+  team: Team;
+  date: string;
+  scheduled: boolean;
+  locked: boolean;
+  checkin: AttendanceCheckin | null;
+};
+
+const formatLocalDateInput = (value: Date): string => {
+  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
+  const year = local.getFullYear();
+  const month = `${local.getMonth() + 1}`.padStart(2, "0");
+  const day = `${local.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function Home() {
   const navigate = useNavigate();
-  const { isCoach, loading: coachLoading } = useActiveAthlete();
+  const { isCoach } = useActiveAthlete();
   const [athleteActivity, setAthleteActivity] = useState<AthleteActivity[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
+  const [checkinState, setCheckinState] = useState<AthleteCheckinViewState | null>(null);
+  const [loadingCheckinState, setLoadingCheckinState] = useState(false);
+  const [submittingCheckin, setSubmittingCheckin] = useState(false);
+  const [checkinError, setCheckinError] = useState<string | null>(null);
+  const [checkinNotice, setCheckinNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -97,6 +136,70 @@ export default function Home() {
       }
     })();
   }, [isCoach, teamSelection]);
+
+  useEffect(() => {
+    if (isCoach || !profile?.uid) {
+      setCheckinState(null);
+      setLoadingCheckinState(false);
+      setCheckinError(null);
+      setCheckinNotice(null);
+      return;
+    }
+
+    const resolvedTeam = normalizeTeam(
+      teamSelection || profile.team || profile.teamAnchor || ""
+    );
+    if (!resolvedTeam) {
+      setCheckinState(null);
+      setLoadingCheckinState(false);
+      setCheckinError(null);
+      return;
+    }
+
+    const today = formatLocalDateInput(new Date());
+    let active = true;
+    setLoadingCheckinState(true);
+    setCheckinError(null);
+    setCheckinNotice(null);
+
+    (async () => {
+      try {
+        const status = await loadAttendanceTeamStatus(resolvedTeam);
+        const scheduled = status.dates.includes(today);
+        const locked = Boolean(status.lockedDates?.[today]);
+        const checkin = scheduled
+          ? await loadAthleteAttendanceCheckin(resolvedTeam, today, profile.uid)
+          : null;
+        if (!active) return;
+        setCheckinState({
+          team: resolvedTeam,
+          date: today,
+          scheduled,
+          locked,
+          checkin,
+        });
+      } catch (err) {
+        if (!active) return;
+        console.debug("Could Not Load Attendance Check-In State", err);
+        setCheckinError("Could Not Load Today's Check-In Status.");
+        setCheckinState({
+          team: resolvedTeam,
+          date: today,
+          scheduled: false,
+          locked: false,
+          checkin: null,
+        });
+      } finally {
+        if (active) {
+          setLoadingCheckinState(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isCoach, profile?.uid, profile?.team, profile?.teamAnchor, teamSelection]);
 
   // Load athlete activity for coaches
   useEffect(() => {
@@ -182,6 +285,91 @@ export default function Home() {
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     localStorage.setItem("pl-onboarding-skipped", "true");
+  };
+
+  const checkinTeamLabel = checkinState ? formatTeamLabel(checkinState.team) : "";
+  const checkinDateLabel = checkinState
+    ? new Date(`${checkinState.date}T12:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
+    : "";
+  const checkinStatus = checkinState?.checkin?.status ?? null;
+  const showCheckinPanel =
+    !isCoach &&
+    !!profile &&
+    (loadingCheckinState ||
+      !!checkinError ||
+      !!checkinNotice ||
+      Boolean(checkinState?.checkin) ||
+      Boolean(checkinState?.scheduled));
+
+  const handleAthleteCheckIn = async () => {
+    if (!profile || !checkinState) return;
+    if (!checkinState.scheduled) {
+      setCheckinError("No Lift-Day Attendance Is Open Right Now.");
+      return;
+    }
+    if (checkinState.locked) {
+      setCheckinError("Coach Already Locked Today's Attendance.");
+      return;
+    }
+    if (checkinState.checkin) {
+      setCheckinNotice("You're Already Checked In For Today.");
+      return;
+    }
+
+    setSubmittingCheckin(true);
+    setCheckinError(null);
+    setCheckinNotice(null);
+
+    try {
+      const created = await submitAthleteAttendanceCheckin({
+        team: checkinState.team,
+        date: checkinState.date,
+        uid: profile.uid,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      });
+      setCheckinState((prev) =>
+        prev
+          ? {
+              ...prev,
+              checkin: created,
+            }
+          : prev
+      );
+      setCheckinNotice("Check-In Submitted. Coach Verification Is Pending.");
+    } catch (err: any) {
+      const code = err?.message ?? "";
+      if (code === "attendance/checkin-closed") {
+        setCheckinError("Check-In Is Closed For Today.");
+      } else if (code === "attendance/date-locked") {
+        setCheckinError("Coach Already Locked This Attendance Date.");
+      } else {
+        setCheckinError(err?.message ?? "Could Not Submit Attendance Check-In.");
+      }
+      try {
+        const latest = await loadAthleteAttendanceCheckin(
+          checkinState.team,
+          checkinState.date,
+          profile.uid
+        );
+        setCheckinState((prev) =>
+          prev
+            ? {
+                ...prev,
+                checkin: latest,
+              }
+            : prev
+        );
+      } catch (_) {
+        // ignore follow-up refresh errors
+      }
+    } finally {
+      setSubmittingCheckin(false);
+    }
   };
 
   const getLiftStatus = (lift: Lift) => {
@@ -341,6 +529,64 @@ export default function Home() {
         {/* Athlete View - Dark Athletic Theme */}
         {!isCoach && profile && (
           <div className="space-y-6">
+            {showCheckinPanel && (
+              <div className="rounded-2xl border border-red-700/60 bg-zinc-900/95 p-4 shadow-lg shadow-black/30">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-black uppercase tracking-[0.18em] text-red-300">
+                    Lift Day Check-In
+                  </h2>
+                  {checkinState && (
+                    <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                      {checkinTeamLabel}
+                    </span>
+                  )}
+                </div>
+
+                {checkinState && (
+                  <p className="mt-1 text-xs uppercase tracking-wide text-zinc-400">
+                    {checkinDateLabel}
+                  </p>
+                )}
+
+                {loadingCheckinState ? (
+                  <p className="mt-3 text-sm text-zinc-300">Checking Today's Attendance Window...</p>
+                ) : checkinError ? (
+                  <p className="mt-3 text-sm font-semibold text-rose-300">{checkinError}</p>
+                ) : checkinState?.checkin ? (
+                  <div className="mt-3 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2">
+                    <p className="text-sm font-semibold text-zinc-100">
+                      {checkinStatus === "approved"
+                        ? "Coach Marked You Present."
+                        : checkinStatus === "rejected"
+                        ? "Coach Marked This Check-In As Not Present."
+                        : "You're Checked In. Coach Verification Is Pending."}
+                    </p>
+                    {checkinNotice && (
+                      <p className="mt-1 text-xs text-zinc-300">{checkinNotice}</p>
+                    )}
+                  </div>
+                ) : checkinState?.scheduled && !checkinState.locked ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-zinc-200">
+                      Tap Once When You're In The Weight Room.
+                    </p>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-65"
+                      onClick={handleAthleteCheckIn}
+                      disabled={submittingCheckin}
+                    >
+                      {submittingCheckin ? "Submitting..." : "Check In Now"}
+                    </button>
+                  </div>
+                ) : checkinState?.scheduled && checkinState.locked ? (
+                  <p className="mt-3 text-sm font-semibold text-amber-300">
+                    Coach Locked This Lift Day. Check-In Is Closed.
+                  </p>
+                ) : null}
+              </div>
+            )}
+
             {/* Hero - Shorter */}
             <div className="text-center py-1">
               <h1 className="text-2xl font-black uppercase tracking-wider text-white">

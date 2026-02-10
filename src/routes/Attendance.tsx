@@ -4,10 +4,14 @@ import {
   formatTeamLabel,
   getStoredTeamSelection,
   getTeamDefinition,
+  listAttendanceCheckinsForDate,
   loadAttendanceSheet,
+  reviewAttendanceCheckin,
   saveAttendanceSheet,
+  setAttendanceDateLocked,
   fetchAthleteSessions,
   listRoster,
+  type AttendanceCheckin,
   type AttendanceSheet,
   type Team,
 } from "../lib/db";
@@ -25,6 +29,7 @@ const createEmptySheet = (team: Team): AttendanceSheet => ({
   dates: [],
   athletes: [],
   records: {},
+  lockedDates: {},
   updatedAt: undefined,
 });
 
@@ -41,6 +46,16 @@ const normalizeRuntimeSheet = (
     sheet.records && typeof sheet.records === "object" && !Array.isArray(sheet.records)
       ? sheet.records
       : {};
+  const lockedSource =
+    sheet.lockedDates &&
+    typeof sheet.lockedDates === "object" &&
+    !Array.isArray(sheet.lockedDates)
+      ? sheet.lockedDates
+      : {};
+  const lockedDates: Record<string, boolean> = {};
+  dates.forEach((date) => {
+    lockedDates[date] = lockedSource[date] === true;
+  });
   return {
     ...createEmptySheet(team),
     ...sheet,
@@ -48,6 +63,7 @@ const normalizeRuntimeSheet = (
     dates,
     athletes,
     records,
+    lockedDates,
   };
 };
 
@@ -246,6 +262,17 @@ const formatMonthDay = (value: string): string => {
   const parsed = parseLocalDate(value);
   if (!parsed) return value;
   return `${parsed.getMonth() + 1}/${parsed.getDate()}`;
+};
+
+const formatDateLabel = (value: string): string => {
+  const parsed = parseLocalDate(value);
+  if (!parsed) return value;
+  return parsed.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 const getWeekStartKey = (value: string): string => {
@@ -480,6 +507,11 @@ export default function Attendance() {
   const [isReportSectionCollapsed, setIsReportSectionCollapsed] = useState<boolean>(() =>
     isMobileDevice()
   );
+  const [reviewDate, setReviewDate] = useState("");
+  const [reviewCheckins, setReviewCheckins] = useState<AttendanceCheckin[]>([]);
+  const [loadingReviewCheckins, setLoadingReviewCheckins] = useState(false);
+  const [reviewingCheckinId, setReviewingCheckinId] = useState<string | null>(null);
+  const [lockingDate, setLockingDate] = useState<string | null>(null);
   const sheetsRef = useRef<TeamMap<AttendanceSheet>>(sheets);
   const saveInFlightRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
   const saveQueuedRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
@@ -656,6 +688,59 @@ export default function Attendance() {
     () => [...selectedSheet.dates].sort((a, b) => a.localeCompare(b)),
     [selectedSheet.dates]
   );
+  const reviewDateLocked = Boolean(selectedSheet.lockedDates?.[reviewDate]);
+  const pendingReviewCheckins = useMemo(
+    () => reviewCheckins.filter((row) => row.status === "pending"),
+    [reviewCheckins]
+  );
+  const approvedReviewCount = useMemo(
+    () => reviewCheckins.filter((row) => row.status === "approved").length,
+    [reviewCheckins]
+  );
+  const rejectedReviewCount = useMemo(
+    () => reviewCheckins.filter((row) => row.status === "rejected").length,
+    [reviewCheckins]
+  );
+
+  useEffect(() => {
+    if (reportSourceDates.length === 0) {
+      setReviewDate("");
+      setReviewCheckins([]);
+      return;
+    }
+    setReviewDate((prev) => {
+      if (prev && reportSourceDates.includes(prev)) return prev;
+      return reportSourceDates[reportSourceDates.length - 1];
+    });
+  }, [selectedTeam, reportSourceDates]);
+
+  useEffect(() => {
+    if (authLoading || !isCoach || !reviewDate) {
+      setReviewCheckins([]);
+      setLoadingReviewCheckins(false);
+      return;
+    }
+    let active = true;
+    setLoadingReviewCheckins(true);
+    (async () => {
+      try {
+        const rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
+        if (!active) return;
+        setReviewCheckins(rows);
+      } catch (err) {
+        if (!active) return;
+        console.warn("Failed to load attendance check-ins", err);
+        setReviewCheckins([]);
+      } finally {
+        if (active) {
+          setLoadingReviewCheckins(false);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [authLoading, isCoach, selectedTeam, reviewDate]);
 
   useEffect(() => {
     if (reportSourceDates.length === 0) {
@@ -967,12 +1052,18 @@ export default function Attendance() {
       }
       const nextDates = [...current.dates, newDate];
       const nextRecords = { ...current.records };
+      const nextLockedDates = { ...current.lockedDates, [newDate]: false };
       current.athletes.forEach((athlete) => {
         const row = { ...(nextRecords[athlete.id] ?? {}) };
         row[newDate] = row[newDate] ?? false;
         nextRecords[athlete.id] = row;
       });
-      return { ...current, dates: nextDates, records: nextRecords };
+      return {
+        ...current,
+        dates: nextDates,
+        records: nextRecords,
+        lockedDates: nextLockedDates,
+      };
     });
     handleSetError(team, null);
   };
@@ -982,6 +1073,8 @@ export default function Attendance() {
       if (!current.dates.includes(date)) return current;
       const nextDates = current.dates.filter((d) => d !== date);
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextLockedDates = { ...current.lockedDates };
+      delete nextLockedDates[date];
       Object.entries(current.records).forEach(([athleteId, row]) => {
         const nextRow = { ...row };
         delete nextRow[date];
@@ -990,7 +1083,12 @@ export default function Attendance() {
         });
         nextRecords[athleteId] = nextRow;
       });
-      return { ...current, dates: nextDates, records: nextRecords };
+      return {
+        ...current,
+        dates: nextDates,
+        records: nextRecords,
+        lockedDates: nextLockedDates,
+      };
     });
     handleSetError(team, null);
   };
@@ -1004,6 +1102,10 @@ export default function Attendance() {
       handleRemoveDate(team, currentDate);
       return;
     }
+    if (teamSheet.lockedDates?.[currentDate]) {
+      handleSetError(team, "Unlock This Date Before Renaming It.");
+      return;
+    }
     if (teamSheet.dates.some((date, idx) => date === next && idx !== index)) {
       handleSetError(team, "That Date Already Exists On This Sheet.");
       return;
@@ -1012,6 +1114,10 @@ export default function Attendance() {
       const nextDates = [...current.dates];
       nextDates[index] = next;
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextLockedDates = { ...current.lockedDates };
+      const wasLocked = nextLockedDates[currentDate] === true;
+      delete nextLockedDates[currentDate];
+      nextLockedDates[next] = wasLocked;
       Object.entries(current.records).forEach(([athleteId, row]) => {
         const existing = { ...row };
         if (existing[currentDate] !== undefined) {
@@ -1023,12 +1129,22 @@ export default function Attendance() {
         }
         nextRecords[athleteId] = existing;
       });
-      return { ...current, dates: nextDates, records: nextRecords };
+      return {
+        ...current,
+        dates: nextDates,
+        records: nextRecords,
+        lockedDates: nextLockedDates,
+      };
     });
     handleSetError(team, null);
   };
 
   const handleToggle = (team: Team, athleteId: string, date: string) => {
+    const sheet = normalizeRuntimeSheet(sheetsRef.current[team], team);
+    if (sheet.lockedDates?.[date]) {
+      setFlash("This Date Is Locked. Unlock It To Make Changes.");
+      return;
+    }
     updateSheet(team, (current) => {
       const nextRecords = { ...current.records };
       const row = { ...(nextRecords[athleteId] ?? {}) };
@@ -1741,6 +1857,106 @@ export default function Attendance() {
     );
   };
 
+  const refreshTeamAfterReview = async (team: Team) => {
+    const [freshSheet, freshCheckins] = await Promise.all([
+      loadAttendanceSheet(team),
+      reviewDate ? listAttendanceCheckinsForDate(team, reviewDate) : Promise.resolve([]),
+    ]);
+    setSheets((prev) => {
+      const next = {
+        ...prev,
+        [team]: freshSheet,
+      };
+      sheetsRef.current = next;
+      return next;
+    });
+    setDirty((prev) => ({ ...prev, [team]: false }));
+    setTeamErrors((prev) => ({ ...prev, [team]: null }));
+    setReviewCheckins(freshCheckins);
+  };
+
+  const handleReviewCheckin = async (
+    checkin: AttendanceCheckin,
+    status: "approved" | "rejected"
+  ) => {
+    if (!reviewDate || checkin.date !== reviewDate) return;
+    if (selectedDirty) {
+      setFlash("Save Attendance Before Reviewing Check-Ins.");
+      return;
+    }
+    if (reviewDateLocked) {
+      setFlash("Unlock This Date Before Reviewing Check-Ins.");
+      return;
+    }
+
+    const coachDisplayName =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
+        : undefined;
+
+    setReviewingCheckinId(checkin.id);
+    try {
+      await reviewAttendanceCheckin({
+        team: selectedTeam,
+        date: checkin.date,
+        uid: checkin.uid,
+        status,
+        reviewedByName: coachDisplayName,
+      });
+      await refreshTeamAfterReview(selectedTeam);
+      setFlash(
+        status === "approved"
+          ? "Check-In Approved And Attendance Updated."
+          : "Check-In Rejected."
+      );
+    } catch (err: any) {
+      const code = err?.message ?? "";
+      if (code === "attendance/checkin-not-found") {
+        setFlash("That Check-In Is No Longer Available. Refreshing...");
+      } else if (code === "attendance/date-locked") {
+        setFlash("This Date Is Locked.");
+      } else {
+        setFlash(err?.message ?? "Could Not Review Check-In.");
+      }
+      try {
+        await refreshTeamAfterReview(selectedTeam);
+      } catch (_) {
+        // ignore secondary refresh errors
+      }
+    } finally {
+      setReviewingCheckinId(null);
+    }
+  };
+
+  const handleToggleDateLock = async (team: Team, date: string, lockNext: boolean) => {
+    if (!date) return;
+    if (dirty[team]) {
+      setFlash("Save Attendance Before Locking Dates.");
+      return;
+    }
+    setLockingDate(date);
+    try {
+      await setAttendanceDateLocked(team, date, lockNext);
+      await refreshTeamAfterReview(team);
+      setFlash(
+        lockNext
+          ? `Locked ${formatDateLabel(date)}.`
+          : `Unlocked ${formatDateLabel(date)}.`
+      );
+    } catch (err: any) {
+      const code = err?.message ?? "";
+      if (code === "attendance/pending-checkins") {
+        setFlash("Review All Pending Check-Ins Before Locking This Date.");
+      } else if (code === "attendance/date-not-found") {
+        setFlash("That Date Was Not Found On This Sheet.");
+      } else {
+        setFlash(err?.message ?? "Could Not Update Date Lock.");
+      }
+    } finally {
+      setLockingDate(null);
+    }
+  };
+
   const handleSave = async (team: Team) => {
     clearToggleSaveTimer(team);
     await persistTeamSheet(team, { showFlash: true });
@@ -2050,19 +2266,52 @@ export default function Attendance() {
                 {selectedSheet.dates.map((date, index) => (
                   <th key={date} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">
                     <div className="flex flex-col items-center gap-1">
+                      {selectedSheet.lockedDates?.[date] ? (
+                        <span className="rounded-full bg-rose-100 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+                          Locked
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                          Open
+                        </span>
+                      )}
                       <input
                         type="date"
                         value={date}
                         onChange={(event) =>
                           handleDateChange(selectedTeam, index, event.target.value)
                         }
+                        disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
                         className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs"
                       />
                       <button
                         type="button"
+                        className={[
+                          "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                          selectedSheet.lockedDates?.[date]
+                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                        ].join(" ")}
+                        onClick={() =>
+                          handleToggleDateLock(
+                            selectedTeam,
+                            date,
+                            !Boolean(selectedSheet.lockedDates?.[date])
+                          )
+                        }
+                        disabled={selectedSaving || lockingDate === date}
+                      >
+                        {lockingDate === date
+                          ? "Saving..."
+                          : selectedSheet.lockedDates?.[date]
+                          ? "Unlock"
+                          : "Lock"}
+                      </button>
+                      <button
+                        type="button"
                         className="text-xs text-rose-500 hover:text-rose-600"
                         onClick={() => handleRemoveDate(selectedTeam, date)}
-                        disabled={selectedSaving}
+                        disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
                       >
                         Remove
                       </button>
@@ -2114,6 +2363,7 @@ export default function Attendance() {
                           className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                           checked={Boolean(selectedSheet.records[athlete.id]?.[date])}
                           onChange={() => handleToggle(selectedTeam, athlete.id, date)}
+                          disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
                         />
                       </td>
                     ))}
@@ -2132,6 +2382,151 @@ export default function Attendance() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                Athlete Check-In Review
+              </h3>
+              <p className="text-xs text-slate-600">
+                Athletes Can Check In For Open Dates. Coaches Approve/Reject, Then Lock The Day.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Date
+              </label>
+              <select
+                className="field min-w-44 bg-white text-sm"
+                value={reviewDate}
+                onChange={(event) => setReviewDate(event.target.value)}
+                disabled={reportSourceDates.length === 0}
+              >
+                {reportSourceDates.length === 0 ? (
+                  <option value="">No Dates</option>
+                ) : (
+                  reportSourceDates.map((date) => (
+                    <option key={date} value={date}>
+                      {formatDateLabel(date)}
+                    </option>
+                  ))
+                )}
+              </select>
+              {reviewDate && (
+                <button
+                  type="button"
+                  className={[
+                    "rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm transition",
+                    reviewDateLocked
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-slate-800 hover:bg-slate-900",
+                  ].join(" ")}
+                  onClick={() =>
+                    handleToggleDateLock(selectedTeam, reviewDate, !reviewDateLocked)
+                  }
+                  disabled={lockingDate === reviewDate || selectedSaving}
+                >
+                  {lockingDate === reviewDate
+                    ? "Saving..."
+                    : reviewDateLocked
+                    ? "Unlock Date"
+                    : "Lock Date"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {reviewDate ? (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-700">
+                Pending {pendingReviewCheckins.length}
+              </span>
+              <span className="inline-flex items-center rounded-lg bg-emerald-100 px-2 py-1 font-medium text-emerald-700">
+                Approved {approvedReviewCount}
+              </span>
+              <span className="inline-flex items-center rounded-lg bg-rose-100 px-2 py-1 font-medium text-rose-700">
+                Rejected {rejectedReviewCount}
+              </span>
+              <span
+                className={[
+                  "inline-flex items-center rounded-lg px-2 py-1 font-medium",
+                  reviewDateLocked
+                    ? "bg-rose-100 text-rose-700"
+                    : "bg-emerald-100 text-emerald-700",
+                ].join(" ")}
+              >
+                {reviewDateLocked ? "Date Locked" : "Date Open"}
+              </span>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              Add An Attendance Date To Start Athlete Check-Ins.
+            </div>
+          )}
+
+          {reviewDate && (
+            <>
+              {loadingReviewCheckins ? (
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+                  Loading Check-Ins...
+                </div>
+              ) : pendingReviewCheckins.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+                  No Pending Check-Ins For This Date.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pendingReviewCheckins.map((checkin) => {
+                    const athleteName = [checkin.firstName, checkin.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const submittedLabel = checkin.submittedAt
+                      ? new Date(checkin.submittedAt).toLocaleString()
+                      : "Recently Submitted";
+                    const disabledAction =
+                      reviewingCheckinId === checkin.id || reviewDateLocked;
+                    return (
+                      <div
+                        key={checkin.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="text-sm font-semibold text-slate-800">
+                            {athleteName || "Unknown Athlete"}
+                          </div>
+                          <div className="text-xs text-slate-600">
+                            UID <code className="rounded bg-slate-100 px-1 py-[1px]">{checkin.uid}</code>
+                          </div>
+                          <div className="text-[11px] text-slate-500">{submittedLabel}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => handleReviewCheckin(checkin, "approved")}
+                            disabled={disabledAction}
+                          >
+                            {reviewingCheckinId === checkin.id ? "Saving..." : "Approve"}
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => handleReviewCheckin(checkin, "rejected")}
+                            disabled={disabledAction}
+                          >
+                            {reviewingCheckinId === checkin.id ? "Saving..." : "Reject"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Attendance Report Section */}
