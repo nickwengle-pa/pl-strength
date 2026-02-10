@@ -510,37 +510,75 @@ export default function Attendance() {
         }
         
         const totalCount = Object.values(athletesByLevel).reduce((sum, arr) => sum + arr.length, 0);
-        
+
         if (totalCount === 0) {
           setFlash(errors.length > 0 ? errors.join('; ') : 'No Valid Athletes Found In CSV');
           event.target.value = '';
           return;
         }
-        
-        // Add athletes to sheets
+
+        // Add or update athletes in sheets
+        let totalNew = 0;
+        let totalUpdated = 0;
+
         Object.entries(athletesByLevel).forEach(([levelKey, athletes]) => {
           const level = levelKey as Team;
           updateSheet(level, (current) => {
-            const nextAthletes = [...current.athletes, ...athletes];
+            const nextAthletes = [...current.athletes];
             const nextRecords = { ...current.records };
-            
-            athletes.forEach(athlete => {
-              const row: Record<string, boolean> = {};
-              current.dates.forEach((date) => {
-                row[date] = false;
-              });
-              nextRecords[athlete.id] = row;
+
+            athletes.forEach(importedAthlete => {
+              // Check if athlete already exists (match by firstName, lastName, and level)
+              const existingIndex = nextAthletes.findIndex(
+                a => a.firstName.toLowerCase() === importedAthlete.firstName.toLowerCase() &&
+                     a.lastName.toLowerCase() === importedAthlete.lastName.toLowerCase() &&
+                     a.level === importedAthlete.level
+              );
+
+              if (existingIndex >= 0) {
+                // Update existing athlete's data (only include fields with values)
+                const updates: Partial<typeof importedAthlete> = {};
+                if (importedAthlete.number) updates.number = importedAthlete.number;
+                if (importedAthlete.grade) updates.grade = importedAthlete.grade;
+                if (importedAthlete.height) updates.height = importedAthlete.height;
+                if (importedAthlete.weight) updates.weight = importedAthlete.weight;
+                if (importedAthlete.position) updates.position = importedAthlete.position;
+                if (importedAthlete.letter) updates.letter = importedAthlete.letter;
+
+                nextAthletes[existingIndex] = {
+                  ...nextAthletes[existingIndex],
+                  ...updates,
+                };
+                totalUpdated++;
+              } else {
+                // Add new athlete
+                nextAthletes.push(importedAthlete);
+
+                // Initialize attendance records for new athlete
+                const row: Record<string, boolean> = {};
+                current.dates.forEach((date) => {
+                  row[date] = false;
+                });
+                nextRecords[importedAthlete.id] = row;
+                totalNew++;
+              }
             });
-            
+
             return { ...current, athletes: nextAthletes, records: nextRecords };
           });
         });
-        
+
         const summary = Object.entries(athletesByLevel)
           .map(([level, athletes]) => `${athletes.length} to ${formatTeamLabel(level as Team)}`)
           .join(', ');
-        
-        setFlash(`Imported ${totalCount} Athletes: ${summary}${errors.length > 0 ? `. ${errors.length} Errors` : ''}`);
+
+        const statusMsg = totalNew > 0 && totalUpdated > 0
+          ? `${totalNew} New, ${totalUpdated} Updated`
+          : totalNew > 0
+          ? `${totalNew} New`
+          : `${totalUpdated} Updated`;
+
+        setFlash(`Imported ${totalCount} Athletes (${statusMsg}): ${summary}${errors.length > 0 ? `. ${errors.length} Errors` : ''}`);
         
       } catch (err: any) {
         setFlash(`CSV Import Error: ${err.message}`);
@@ -834,6 +872,9 @@ export default function Attendance() {
           <h3 className="text-sm font-semibold text-blue-900">Import From CSV/Excel</h3>
           <p className="text-xs text-blue-700">
             Upload A CSV File With Columns: <strong>Number, FirstName, LastName, Grade, Team, Height, Weight, Position, Letter</strong>
+          </p>
+          <p className="text-xs text-blue-600 italic">
+            💡 Re-importing the full roster will update existing athletes instead of creating duplicates, making it easy to add new players.
           </p>
           <div className="flex items-center gap-3">
             <label className="btn btn-secondary cursor-pointer">
