@@ -1541,51 +1541,49 @@ export default function Roster() {
         </div>
       )}
 
-      <div className="card">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <h3 className="text-lg font-semibold">Coaches</h3>
+      <div className="card !py-2 !px-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h3 className="text-sm font-semibold text-gray-700">Coaches <span className="text-xs font-normal text-gray-400">({filteredCoachRows.length})</span></h3>
           {!isAdminUser && coachTeam && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600">Level:</span>
-              <div className="inline-flex rounded-lg border border-gray-200 p-1 gap-1">
+            <div className="flex items-center gap-1">
+              <div className="inline-flex rounded border border-gray-200 p-0.5 gap-0.5">
                 <button
                   onClick={() => setCoachLevelFilter("varsity")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
                     coachLevelFilter === "varsity"
                       ? "bg-brand-500 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
+                      : "text-gray-500 hover:bg-gray-100"
                   }`}
                 >
                   Varsity
                 </button>
                 <button
                   onClick={() => setCoachLevelFilter("juniorHigh")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
                     coachLevelFilter === "juniorHigh"
                       ? "bg-brand-500 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
+                      : "text-gray-500 hover:bg-gray-100"
                   }`}
                 >
-                  Junior High
+                  JH
                 </button>
                 <button
                   onClick={() => setCoachLevelFilter("both")}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
                     coachLevelFilter === "both"
                       ? "bg-brand-500 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
+                      : "text-gray-500 hover:bg-gray-100"
                   }`}
                 >
-                  Both
+                  All
                 </button>
               </div>
             </div>
           )}
           {isAdminUser && (
-            <label className="flex items-center gap-2 text-xs text-gray-600">
-              <span>Filter By Team</span>
+            <label className="flex items-center gap-1 text-[10px] text-gray-500">
               <select
-                className="field !text-xs"
+                className="field !text-[10px] !py-0.5 !px-1"
                 value={adminCoachFilter}
                 onChange={(event) => setAdminCoachFilter(event.target.value as Team | "all")}
               >
@@ -1600,14 +1598,13 @@ export default function Roster() {
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border rounded-xl overflow-hidden">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-2 text-left">First</th>
-                <th className="p-2 text-left">Last</th>
-                <th className="p-2 text-left">Access</th>
-                <th className="p-2 text-left">Team</th>
-                <th className="p-2 text-left">Actions</th>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
+                <th className="py-1 px-1.5 text-left font-medium">Name</th>
+                <th className="py-1 px-1.5 text-left font-medium">Access</th>
+                <th className="py-1 px-1.5 text-left font-medium">Team</th>
+                {isAdminUser && <th className="py-1 px-1.5 text-left font-medium"></th>}
               </tr>
             </thead>
             <tbody>
@@ -1617,35 +1614,32 @@ export default function Roster() {
                 return (
                   <tr
                     key={r.uid}
-                    className={`border-t ${admin ? "bg-purple-50/60" : ""}`}
+                    className={`border-t border-gray-100 ${admin ? "bg-purple-50/40" : ""}`}
                   >
-                    <td className="p-2 font-medium text-gray-800">{r.firstName || "-"}</td>
-                    <td className="p-2">{r.lastName || "-"}</td>
-                    <td className="p-2">
+                    <td className="py-1 px-1.5 font-medium text-gray-700">{r.firstName || "-"} {r.lastName || ""}</td>
+                    <td className="py-1 px-1.5">
                       <RoleBadges roles={r.roles} />
                     </td>
-                    <td className="p-2">{formatTeamLabel(r.team, "-")}</td>
-                    <td className="p-2">
-                      {isAdminUser ? (
+                    <td className="py-1 px-1.5 text-gray-500">{formatTeamLabel(r.team, "-")}</td>
+                    {isAdminUser && (
+                      <td className="py-1 px-1.5">
                         <button
                           type="button"
-                          className="btn btn-sm text-xs text-red-700 border-red-300 hover:bg-red-50"
+                          className="text-[10px] text-red-600 hover:text-red-800"
                           onClick={() => handleDelete(r, "coach")}
                           disabled={deleteUid === r.uid}
                         >
-                          {deleteUid === r.uid ? "Removing..." : "Remove"}
+                          {deleteUid === r.uid ? "..." : "Remove"}
                         </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">Admin Only</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
               {filteredCoachRows.length === 0 && (
                 <tr>
-                  <td className="p-2 text-gray-500" colSpan={5}>
-                    No Coaches Found For The Selected Team.
+                  <td className="py-1 px-1.5 text-gray-400" colSpan={isAdminUser ? 4 : 3}>
+                    No coaches found.
                   </td>
                 </tr>
               )}
@@ -1656,42 +1650,68 @@ export default function Roster() {
 
       {/* Live Activity Feed */}
       {liveSessionFeed.length > 0 && (
-        <div className="card border-l-4 border-l-green-500">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="relative flex h-3 w-3">
+        <div className="card !py-2 !px-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            <h3 className="text-lg font-semibold">Live Activity</h3>
-            <span className="text-xs text-gray-500">(Last 24 hours)</span>
+            <h3 className="text-sm font-semibold text-gray-700">Live Activity</h3>
+            <span className="text-[10px] text-gray-400">{liveSessionFeed.length} session{liveSessionFeed.length !== 1 ? "s" : ""} today</span>
           </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {liveSessionFeed.slice(0, 10).map((session, idx) => {
-              const athlete = rows.find(r => r.uid === session.athleteId);
-              const name = athlete 
-                ? `${athlete.firstName} ${athlete.lastName}`.trim() 
-                : session.athleteId.slice(0, 8);
-              const timeAgo = session.createdAt 
-                ? formatTimeAgo(session.createdAt)
-                : "";
-              return (
-                <div 
-                  key={`${session.id}-${idx}`}
-                  className="flex items-center justify-between text-sm py-1 px-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-800">{name}</span>
-                    <span className="text-gray-500">•</span>
-                    <span className="capitalize text-brand-600 font-medium">{session.lift}</span>
-                    <span className="text-gray-500">Week {session.week}</span>
-                    {session.pr && (
-                      <span className="text-yellow-600 font-semibold">🏆 PR!</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500">{timeAgo}</div>
-                </div>
-              );
-            })}
+          <div className="overflow-x-auto max-h-60 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-white">
+                <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
+                  <th className="py-1 px-1.5 text-left font-medium">Athlete</th>
+                  <th className="py-1 px-1.5 text-left font-medium">Lift</th>
+                  <th className="py-1 px-1.5 text-center font-medium">Wk</th>
+                  <th className="py-1 px-1.5 text-right font-medium">AMRAP</th>
+                  <th className="py-1 px-1.5 text-right font-medium">Est 1RM</th>
+                  <th className="py-1 px-1.5 text-right font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liveSessionFeed.slice(0, 20).map((session, idx) => {
+                  const athlete = rows.find(r => r.uid === session.athleteId);
+                  const name = athlete
+                    ? `${athlete.firstName} ${athlete.lastName}`.trim()
+                    : session.athleteId.slice(0, 8);
+                  const timeAgo = session.createdAt
+                    ? formatTimeAgo(session.createdAt)
+                    : "";
+                  const liftColor =
+                    session.lift === "squat" ? "bg-red-500"
+                    : session.lift === "bench" ? "bg-blue-500"
+                    : "bg-green-600";
+                  return (
+                    <tr
+                      key={`${session.id}-${idx}`}
+                      className="border-t border-gray-100 hover:bg-gray-50/60 transition-colors"
+                    >
+                      <td className="py-1 px-1.5 font-medium text-gray-700 whitespace-nowrap">
+                        {name}
+                        {session.pr && <span className="ml-1 text-yellow-500 text-[10px]" title="PR">&#9733;</span>}
+                      </td>
+                      <td className="py-1 px-1.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${liftColor}`}></span>
+                          <span className="capitalize text-gray-600">{session.lift}</span>
+                        </span>
+                      </td>
+                      <td className="py-1 px-1.5 text-center text-gray-500">{session.week}</td>
+                      <td className="py-1 px-1.5 text-right text-gray-600 tabular-nums whitespace-nowrap">
+                        {session.amrap ? `${session.amrap.weight}×${session.amrap.reps}` : "-"}
+                      </td>
+                      <td className="py-1 px-1.5 text-right font-medium text-gray-700 tabular-nums">
+                        {session.est1rm ? Math.round(session.est1rm) : "-"}
+                      </td>
+                      <td className="py-1 px-1.5 text-right text-gray-400 whitespace-nowrap">{timeAgo}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

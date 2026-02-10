@@ -458,14 +458,18 @@ export default function Session() {
       setPrFlag(pr);
       setEst(est1rm);
 
-      const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
-      setHistory(rows.reverse());
-      notifyProfileChange();
-
       if (week === 3) {
+        // Advance BEFORE refreshing history to prevent the
+        // maybeAutoAdvanceWeek3 useEffect from firing a second advance.
+        autoAdvanceRef.current = true;
         const nextCycle = nextCycleAfter(cycle);
         const resetCycle = clampCycle(cycle) === 3;
         await advanceWeek();
+
+        const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
+        setHistory(rows.reverse());
+        notifyProfileChange();
+
         alert(
           resetCycle
             ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
@@ -475,6 +479,10 @@ export default function Session() {
         navigate("/");
         return;
       }
+
+      const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
+      setHistory(rows.reverse());
+      notifyProfileChange();
 
       // For Simple mode, navigate to home after save
       // For Full mode, show week advance prompt
@@ -489,6 +497,7 @@ export default function Session() {
     } finally {
       setSaving(false);
       savingRef.current = false;
+      autoAdvanceRef.current = false;
     }
   }
 
@@ -560,8 +569,8 @@ export default function Session() {
 
   // Advance to next week (1->2->3->1) and bump TMs on new cycle
   const advanceWeek = async () => {
-    if (autoAdvanceRef.current) return;
-    autoAdvanceRef.current = true;
+    const alreadyLocked = autoAdvanceRef.current;
+    if (!alreadyLocked) autoAdvanceRef.current = true;
     const effectiveWeek: Week = week;
     try {
       if (effectiveWeek === 3) {
@@ -576,7 +585,10 @@ export default function Session() {
       }
       setShowWeekAdvancePrompt(false);
     } finally {
-      autoAdvanceRef.current = false;
+      // Only release the lock if we acquired it ourselves.
+      // When save() pre-locks the ref, it stays locked until
+      // save() finishes so the useEffect can't double-fire.
+      if (!alreadyLocked) autoAdvanceRef.current = false;
     }
   };
 
