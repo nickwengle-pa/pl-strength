@@ -62,7 +62,7 @@ const checkAndClearCacheOnVersionChange = async () => {
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
-  <HashRouter>
+  <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <DeviceProvider>
       <AuthProvider>
         <ErrorBoundary>

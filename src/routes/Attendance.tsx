@@ -28,6 +28,29 @@ const createEmptySheet = (team: Team): AttendanceSheet => ({
   updatedAt: undefined,
 });
 
+const normalizeRuntimeSheet = (
+  sheet: AttendanceSheet | undefined,
+  team: Team
+): AttendanceSheet => {
+  if (!sheet || typeof sheet !== "object") {
+    return createEmptySheet(team);
+  }
+  const dates = Array.isArray(sheet.dates) ? sheet.dates : [];
+  const athletes = Array.isArray(sheet.athletes) ? sheet.athletes : [];
+  const records =
+    sheet.records && typeof sheet.records === "object" && !Array.isArray(sheet.records)
+      ? sheet.records
+      : {};
+  return {
+    ...createEmptySheet(team),
+    ...sheet,
+    team,
+    dates,
+    athletes,
+    records,
+  };
+};
+
 const createId = (): string => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -406,7 +429,7 @@ const isMobileDevice = (): boolean => {
   );
 };
 
-const DEFAULT_TEAM: Team = FALLBACK_TEAMS[0] ?? ALL_TEAMS[0];
+const DEFAULT_TEAM: Team = FALLBACK_TEAMS[0] ?? ALL_TEAMS[0] ?? "football-varsity";
 const TOGGLE_AUTOSAVE_DELAY_MS = 350;
 
 export default function Attendance() {
@@ -486,7 +509,7 @@ export default function Attendance() {
 
   useEffect(() => {
     if (!visibleTeams.includes(selectedTeam)) {
-      setSelectedTeam(visibleTeams[0]);
+      setSelectedTeam(visibleTeams[0] ?? DEFAULT_TEAM);
     }
   }, [visibleTeams, selectedTeam]);
 
@@ -625,7 +648,7 @@ export default function Attendance() {
     return () => window.clearTimeout(timer);
   }, [flash]);
 
-  const selectedSheet = sheets[selectedTeam];
+  const selectedSheet = normalizeRuntimeSheet(sheets[selectedTeam], selectedTeam);
   const selectedError = teamErrors[selectedTeam];
   const selectedDirty = dirty[selectedTeam];
   const selectedSaving = saving[selectedTeam];
@@ -880,7 +903,7 @@ export default function Attendance() {
     handleSetError(team, null);
 
     try {
-      await saveAttendanceSheet(sheetsRef.current[team]);
+      await saveAttendanceSheet(normalizeRuntimeSheet(sheetsRef.current[team], team));
       const fresh = await loadAttendanceSheet(team);
       setSheets((prev) => {
         const next = {
@@ -921,7 +944,7 @@ export default function Attendance() {
 
   const updateSheet = (team: Team, updater: (sheet: AttendanceSheet) => AttendanceSheet) => {
     setSheets((prev) => {
-      const nextSheet = updater(prev[team]);
+      const nextSheet = normalizeRuntimeSheet(updater(normalizeRuntimeSheet(prev[team], team)), team);
       const next = {
         ...prev,
         [team]: nextSheet,
@@ -936,7 +959,7 @@ export default function Attendance() {
   };
 
   const handleAddDate = (team: Team) => {
-    const sheet = sheets[team];
+    const sheet = normalizeRuntimeSheet(sheets[team], team);
     const newDate = nextAvailableDate(sheet.dates);
     updateSheet(team, (current) => {
       if (current.dates.includes(newDate)) {
@@ -974,13 +997,14 @@ export default function Attendance() {
 
   const handleDateChange = (team: Team, index: number, value: string) => {
     const next = value.trim();
-    const currentDate = sheets[team].dates[index];
+    const teamSheet = normalizeRuntimeSheet(sheets[team], team);
+    const currentDate = teamSheet.dates[index];
     if (!currentDate) return;
     if (!next) {
       handleRemoveDate(team, currentDate);
       return;
     }
-    if (sheets[team].dates.some((date, idx) => date === next && idx !== index)) {
+    if (teamSheet.dates.some((date, idx) => date === next && idx !== index)) {
       handleSetError(team, "That Date Already Exists On This Sheet.");
       return;
     }
@@ -1535,13 +1559,13 @@ export default function Attendance() {
 
     const background = ctx.createLinearGradient(0, 0, width, height);
     if (isHype) {
-      background.addColorStop(0, "#052e16");
-      background.addColorStop(0.5, "#065f46");
-      background.addColorStop(1, "#10b981");
+      background.addColorStop(0, "#111217");
+      background.addColorStop(0.55, "#232a34");
+      background.addColorStop(1, "#8b1d1d");
     } else {
-      background.addColorStop(0, "#3f0f0f");
-      background.addColorStop(0.5, "#7f1d1d");
-      background.addColorStop(1, "#dc2626");
+      background.addColorStop(0, "#1b1012");
+      background.addColorStop(0.5, "#3f1418");
+      background.addColorStop(1, "#9f1d1d");
     }
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, width, height);
@@ -1557,17 +1581,30 @@ export default function Attendance() {
     ctx.globalAlpha = 1;
 
     if (dragonLogo) {
-      const maxWidth = width * 0.84;
-      const maxHeight = height * 0.7;
-      const scale = Math.min(maxWidth / dragonLogo.width, maxHeight / dragonLogo.height);
-      const drawWidth = dragonLogo.width * scale;
-      const drawHeight = dragonLogo.height * scale;
-      const drawX = (width - drawWidth) / 2;
-      const drawY = (height - drawHeight) / 2 + 70;
-      ctx.save();
-      ctx.globalAlpha = isHype ? 0.15 : 0.11;
-      ctx.drawImage(dragonLogo, drawX, drawY, drawWidth, drawHeight);
-      ctx.restore();
+      if (isHype) {
+        const bannerWidth = width * 1.08;
+        const scale = bannerWidth / dragonLogo.width;
+        const drawWidth = dragonLogo.width * scale;
+        const drawHeight = dragonLogo.height * scale;
+        const drawX = (width - drawWidth) / 2;
+        const drawY = 8;
+        ctx.save();
+        ctx.globalAlpha = 0.24;
+        ctx.drawImage(dragonLogo, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
+      } else {
+        const maxWidth = width * 0.84;
+        const maxHeight = height * 0.7;
+        const scale = Math.min(maxWidth / dragonLogo.width, maxHeight / dragonLogo.height);
+        const drawWidth = dragonLogo.width * scale;
+        const drawHeight = dragonLogo.height * scale;
+        const drawX = (width - drawWidth) / 2;
+        const drawY = (height - drawHeight) / 2 + 70;
+        ctx.save();
+        ctx.globalAlpha = 0.11;
+        ctx.drawImage(dragonLogo, drawX, drawY, drawWidth, drawHeight);
+        ctx.restore();
+      }
     }
 
     if (plLogo) {
@@ -1595,59 +1632,45 @@ export default function Attendance() {
       ctx.restore();
     }
 
-    ctx.fillStyle = "rgba(255,255,255,0.13)";
-    drawRoundedRect(ctx, 44, 34, width - 88, 170, 24);
+    ctx.fillStyle = isHype ? "rgba(17,24,39,0.40)" : "rgba(255,255,255,0.13)";
+    drawRoundedRect(ctx, 44, 34, width - 88, 150, 24);
     ctx.fill();
-
-    ctx.fillStyle = "#dbeafe";
-    ctx.font = '700 26px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(formatTeamLabel(selectedTeam).toUpperCase(), 76, 84);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = '800 56px "Segoe UI", Arial, sans-serif';
     ctx.fillText(
       isHype ? "ATTENDANCE LEADERS" : "ATTENDANCE ALERT",
       76,
-      148
+      120
     );
 
-    ctx.fillStyle = isHype ? "#bbf7d0" : "#fecaca";
+    ctx.fillStyle = "#fecaca";
     ctx.font = '600 22px "Segoe UI", Arial, sans-serif';
     const subtitle = isHype
-      ? "Celebrating consistency and commitment"
+      ? "Consistency And Commitment"
       : reportSummary.atRiskAthletes.length > 0
       ? "Players below 70% attendance in this range"
       : "Closest to at-risk in this selected range";
-    ctx.fillText(subtitle, 76, 186);
-
-    ctx.fillStyle = "rgba(255,255,255,0.94)";
-    ctx.font = '600 20px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(`Range: ${reportRangeLabel}`, 76, 236);
-    ctx.fillText(`Preset: ${reportPresetLabel}`, 76, 266);
-    ctx.fillText(
-      `Team Avg: ${reportSummary.teamAveragePct.toFixed(1)}%   Sessions: ${reportSummary.sessionCount}`,
-      76,
-      296
-    );
+    ctx.fillText(subtitle, 76, 158);
 
     const cardX = 58;
     const cardWidth = width - cardX * 2;
     const cardHeight = 140;
     const cardGap = 14;
-    const listStartY = 330;
+    const listStartY = 220;
 
     players.forEach((row, index) => {
       const y = listStartY + index * (cardHeight + cardGap);
-      ctx.fillStyle = "rgba(255,255,255,0.96)";
+      ctx.fillStyle = isHype ? "rgba(248,250,252,0.97)" : "rgba(255,255,255,0.96)";
       drawRoundedRect(ctx, cardX, y, cardWidth, cardHeight, 20);
       ctx.fill();
 
-      ctx.strokeStyle = isHype ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)";
+      ctx.strokeStyle = isHype ? "rgba(185,28,28,0.42)" : "rgba(239,68,68,0.35)";
       ctx.lineWidth = 2;
       drawRoundedRect(ctx, cardX, y, cardWidth, cardHeight, 20);
       ctx.stroke();
 
-      ctx.fillStyle = isHype ? "#065f46" : "#991b1b";
+      ctx.fillStyle = isHype ? "#b91c1c" : "#991b1b";
       ctx.beginPath();
       ctx.arc(cardX + 44, y + 40, 24, 0, Math.PI * 2);
       ctx.fill();
@@ -1670,7 +1693,7 @@ export default function Attendance() {
       ctx.fillText(details, cardX + 84, y + 88);
 
       const streakText = row.missedStreak > 0 ? `${row.missedStreak} missed in a row` : "No current missed streak";
-      ctx.fillStyle = isHype ? "#065f46" : "#991b1b";
+      ctx.fillStyle = "#991b1b";
       ctx.font = '600 18px "Segoe UI", Arial, sans-serif';
       ctx.fillText(streakText, cardX + 84, y + 116);
 
@@ -1681,7 +1704,13 @@ export default function Attendance() {
       ctx.textAlign = "left";
 
       const statusColor =
-        row.tier === "high" ? "#166534" : row.tier === "low" ? "#be123c" : "#92400e";
+        row.tier === "high"
+          ? isHype
+            ? "#991b1b"
+            : "#166534"
+          : row.tier === "low"
+          ? "#be123c"
+          : "#92400e";
       ctx.fillStyle = statusColor;
       ctx.font = '700 19px "Segoe UI", Arial, sans-serif';
       ctx.textAlign = "right";
@@ -2205,7 +2234,7 @@ export default function Attendance() {
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                    className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-900"
                     onClick={() => handleExportSocialPng("hype")}
                   >
                     Export Hype PNG
@@ -2226,26 +2255,23 @@ export default function Attendance() {
             </div>
           ) : (
             <>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Players</p>
-                  <p className="text-xl font-semibold text-slate-900">{reportSummary.playerCount}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Sessions</p>
-                  <p className="text-xl font-semibold text-slate-900">{reportSummary.sessionCount}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Team Average</p>
-                  <p className="text-xl font-semibold text-slate-900">{reportSummary.teamAveragePct.toFixed(1)}%</p>
-                </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-emerald-700">High Attendance</p>
-                  <p className="text-xl font-semibold text-emerald-800">{reportSummary.highCount}</p>
-                </div>
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-rose-700">At Risk</p>
-                  <p className="text-xl font-semibold text-rose-800">{reportSummary.lowCount}</p>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
+                    Players <strong className="text-slate-900">{reportSummary.playerCount}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
+                    Sessions <strong className="text-slate-900">{reportSummary.sessionCount}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
+                    Team Avg <strong className="text-slate-900">{reportSummary.teamAveragePct.toFixed(1)}%</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 font-medium text-emerald-700">
+                    High Att <strong className="text-emerald-800">{reportSummary.highCount}</strong>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 font-medium text-rose-700">
+                    At Risk <strong className="text-rose-800">{reportSummary.lowCount}</strong>
+                  </span>
                 </div>
               </div>
 
