@@ -9,6 +9,7 @@ import {
   reviewAttendanceCheckin,
   saveAttendanceSheet,
   setAttendanceDateLocked,
+  updateAttendanceCheckinStatus,
   fetchAthleteSessions,
   listRoster,
   type AttendanceCheckin,
@@ -273,6 +274,62 @@ const formatDateLabel = (value: string): string => {
     day: "numeric",
     year: "numeric",
   });
+};
+
+const findSheetAthleteIdForCheckin = (
+  sheet: AttendanceSheet,
+  team: Team,
+  checkin: AttendanceCheckin
+): string | null => {
+  if (checkin.athleteId) {
+    const byId = sheet.athletes.find((athlete) => athlete.id === checkin.athleteId);
+    if (byId) return byId.id;
+  }
+
+  const byUid = sheet.athletes.find(
+    (athlete) => athlete.level === team && athlete.uid === checkin.uid
+  );
+  if (byUid) return byUid.id;
+
+  const first = (checkin.firstName ?? "").trim().toLowerCase();
+  const last = (checkin.lastName ?? "").trim().toLowerCase();
+  if (!first && !last) return null;
+
+  const byName = sheet.athletes.find(
+    (athlete) =>
+      athlete.level === team &&
+      athlete.firstName.trim().toLowerCase() === first &&
+      athlete.lastName.trim().toLowerCase() === last
+  );
+  return byName?.id ?? null;
+};
+
+const applyPendingCheckinsToSheet = (
+  sheet: AttendanceSheet,
+  team: Team,
+  checkins: AttendanceCheckin[]
+): AttendanceSheet => {
+  const pendingRows = checkins.filter((row) => row.status === "pending");
+  if (pendingRows.length === 0) return sheet;
+
+  const nextRecords = { ...sheet.records };
+  let changed = false;
+  pendingRows.forEach((checkin) => {
+    const athleteId = findSheetAthleteIdForCheckin(sheet, team, checkin);
+    if (!athleteId) return;
+    const row = { ...(nextRecords[athleteId] ?? {}) };
+    if (row[checkin.date] !== true) {
+      row[checkin.date] = true;
+      nextRecords[athleteId] = row;
+      changed = true;
+    }
+  });
+
+  if (!changed) return sheet;
+  return {
+    ...sheet,
+    records: nextRecords,
+  };
 };
 
 const getWeekStartKey = (value: string): string => {
@@ -727,6 +784,17 @@ export default function Attendance() {
         const rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
         if (!active) return;
         setReviewCheckins(rows);
+        setSheets((prev) => {
+          const currentSheet = normalizeRuntimeSheet(prev[selectedTeam], selectedTeam);
+          const hydratedSheet = applyPendingCheckinsToSheet(currentSheet, selectedTeam, rows);
+          if (hydratedSheet === currentSheet) return prev;
+          const next = {
+            ...prev,
+            [selectedTeam]: hydratedSheet,
+          };
+          sheetsRef.current = next;
+          return next;
+        });
       } catch (err) {
         if (!active) return;
         console.warn("Failed to load attendance check-ins", err);
@@ -1145,14 +1213,51 @@ export default function Attendance() {
       setFlash("This Date Is Locked. Unlock It To Make Changes.");
       return;
     }
+    const athlete = sheet.athletes.find((row) => row.id === athleteId);
+    const nextValue = !Boolean(sheet.records[athleteId]?.[date]);
     updateSheet(team, (current) => {
       const nextRecords = { ...current.records };
       const row = { ...(nextRecords[athleteId] ?? {}) };
-      row[date] = !row[date];
+      row[date] = nextValue;
       nextRecords[athleteId] = row;
       return { ...current, records: nextRecords };
     });
     queueToggleAutosave(team);
+
+    if (athlete?.uid) {
+      const coachDisplayName =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
+          : undefined;
+      const nextStatus = nextValue ? "approved" : "rejected";
+      void updateAttendanceCheckinStatus({
+        team,
+        date,
+        uid: athlete.uid,
+        status: nextStatus,
+        reviewedByName: coachDisplayName,
+      })
+        .then((updated) => {
+          if (!updated) return;
+          if (team === selectedTeam && reviewDate === date) {
+            setReviewCheckins((prev) =>
+              prev.map((row) =>
+                row.uid === athlete.uid && row.date === date
+                  ? {
+                      ...row,
+                      status: nextStatus,
+                      reviewedByName: coachDisplayName,
+                      reviewedAt: Date.now(),
+                    }
+                  : row
+              )
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to sync check-in status from table toggle", err);
+        });
+    }
   };
 
   const handleRemoveAthlete = (team: Team, athleteId: string) => {
@@ -1862,10 +1967,11 @@ export default function Attendance() {
       loadAttendanceSheet(team),
       reviewDate ? listAttendanceCheckinsForDate(team, reviewDate) : Promise.resolve([]),
     ]);
+    const hydratedSheet = applyPendingCheckinsToSheet(freshSheet, team, freshCheckins);
     setSheets((prev) => {
       const next = {
         ...prev,
-        [team]: freshSheet,
+        [team]: hydratedSheet,
       };
       sheetsRef.current = next;
       return next;

@@ -1763,6 +1763,8 @@ export async function backfillCreatedAtDates(): Promise<{ updated: number; skipp
   const database = handles?.db;
   if (!database) throw new Error("Database unavailable");
 
+  const secondaryAuth = getSecondaryAuth();
+
   let updated = 0;
   let skipped = 0;
   let errors = 0;
@@ -1781,25 +1783,41 @@ export async function backfillCreatedAtDates(): Promise<{ updated: number; skipp
       }
 
       try {
-        // Try to get the athlete's first session date to use as creation date
         let createdAtDate: number | null = null;
 
-        // Query for the athlete's sessions
-        const sessionsQuery = query(
-          collectionGroup(database, "session"),
-          where("athleteId", "==", athleteId),
-          orderBy("createdAt", "asc"),
-          limit(1)
-        );
-
-        const sessionsSnapshot = await getDocs(sessionsQuery);
-
-        if (!sessionsSnapshot.empty) {
-          const firstSession = sessionsSnapshot.docs[0].data();
-          createdAtDate = toMillis(firstSession.createdAt);
+        // 1. Try to get the account creation date from Firebase Auth
+        if (secondaryAuth && profile.firstName && profile.lastName && profile.accessCode) {
+          try {
+            const email = buildAthleteEmail(profile.firstName, profile.lastName);
+            const password = passcodeToPassword(profile.accessCode);
+            const credential = await signInWithEmailAndPassword(secondaryAuth, email, password);
+            const authCreationTime = credential.user.metadata.creationTime;
+            if (authCreationTime) {
+              createdAtDate = new Date(authCreationTime).getTime();
+            }
+          } catch (authErr) {
+            console.warn(`Could not sign in as ${athleteId} to read auth creation time:`, authErr);
+          }
         }
 
-        // If no sessions found, fall back to today's date
+        // 2. Fall back to the athlete's first session date
+        if (!createdAtDate) {
+          const sessionsQuery = query(
+            collectionGroup(database, "session"),
+            where("athleteId", "==", athleteId),
+            orderBy("createdAt", "asc"),
+            limit(1)
+          );
+
+          const sessionsSnapshot = await getDocs(sessionsQuery);
+
+          if (!sessionsSnapshot.empty) {
+            const firstSession = sessionsSnapshot.docs[0].data();
+            createdAtDate = toMillis(firstSession.createdAt);
+          }
+        }
+
+        // 3. Last resort: fall back to today's date
         if (!createdAtDate) {
           createdAtDate = Date.now();
         }
@@ -2470,6 +2488,42 @@ export async function submitAthleteAttendanceCheckin(options: {
   });
 
   return checkin;
+}
+
+export async function updateAttendanceCheckinStatus(options: {
+  team: Team;
+  date: string;
+  uid: string;
+  status: "approved" | "rejected";
+  reviewedByName?: string;
+}): Promise<boolean> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const reviewerUid = handles?.auth?.currentUser?.uid ?? undefined;
+  if (!database) return false;
+
+  const team = options.team;
+  const date = options.date.trim();
+  const uid = options.uid.trim();
+  const status = options.status;
+  const reviewedByName = sanitizeName(options.reviewedByName ?? "");
+  if (!date || !uid) return false;
+
+  const checkinRef = attendanceCheckinDocRef(database, team, date, uid);
+  const checkinSnap = await getDoc(checkinRef);
+  if (!checkinSnap.exists()) return false;
+
+  await setDoc(
+    checkinRef,
+    {
+      status,
+      reviewedAt: serverTimestamp(),
+      ...(reviewerUid ? { reviewedBy: reviewerUid } : {}),
+      ...(reviewedByName ? { reviewedByName } : {}),
+    },
+    { merge: true }
+  );
+  return true;
 }
 
 export async function reviewAttendanceCheckin(options: {
