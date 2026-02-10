@@ -1649,8 +1649,8 @@ export default function Attendance() {
     const subtitle = isHype
       ? "Consistency And Commitment"
       : reportSummary.atRiskAthletes.length > 0
-      ? "Players below 70% attendance in this range"
-      : "Closest to at-risk in this selected range";
+      ? "Players below 70% attendance"
+      : "Closest to at-risk";
     ctx.fillText(subtitle, 76, 158);
 
     const cardX = 58;
