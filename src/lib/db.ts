@@ -1421,8 +1421,6 @@ export async function signInOrCreateAthleteAccount(
     credential = await signInWithEmailAndPassword(auth, email, password);
   } catch (err) {
     const error = err as AuthError;
-    console.log("Sign-in error caught:", error.code, error.message);
-
     // Try to create account for any auth failure - if email exists, we'll get a specific error
     const canCreate =
       error.code === "auth/user-not-found" ||
@@ -1430,14 +1428,11 @@ export async function signInOrCreateAthleteAccount(
       error.code === "auth/wrong-password";
 
     if (canCreate) {
-      console.log("Attempting to create account...");
       try {
         credential = await createUserWithEmailAndPassword(auth, email, password);
         createdAccount = true;
-        console.log("Account created successfully!");
       } catch (createErr: any) {
         const createError = createErr as AuthError;
-        console.log("Create account error:", createError.code, createError.message);
         // If email already exists, the original password was wrong
         if (createError.code === "auth/email-already-in-use") {
           throw new AthleteAuthError("auth/wrong-password", "Incorrect passcode.");
@@ -1445,13 +1440,11 @@ export async function signInOrCreateAthleteAccount(
         throw createError;
       }
     } else {
-      console.log("Error not eligible for account creation, rethrowing:", error.code);
       throw error;
     }
   }
 
   const uid = credential?.user?.uid ?? auth.currentUser?.uid;
-  console.log("Got UID:", uid);
   if (!uid) {
     throw new AthleteAuthError("auth/internal-error", "We could not sign you in.");
   }
@@ -1459,14 +1452,12 @@ export async function signInOrCreateAthleteAccount(
   let existingProfile: Profile | null = null;
   try {
     existingProfile = await loadProfileRemote(uid);
-    console.log("Loaded existing profile:", existingProfile ? "exists" : "null");
   } catch (err) {
     console.warn("Failed to load existing profile before athlete save", err);
   }
 
   // Skip passcode uniqueness check - athletes are unique by name/email
   // Passcode can be reused as long as the first+last name combination is unique
-  console.log("Skipping passcode uniqueness check - allowing reuse");
 
   const resolvedTeam = options.team ? normalizeTeam(options.team) : normalizeTeam(existingProfile?.team);
   const teamAnchor = normalizeTeam(existingProfile?.teamAnchor ?? existingProfile?.team) ?? resolvedTeam;
@@ -1519,7 +1510,6 @@ export async function signInOrCreateAthleteAccount(
 
   await saveProfile(profile);
 
-  console.log("Profile saved! Returning success.");
   return {
     profile,
     createdAccount,
