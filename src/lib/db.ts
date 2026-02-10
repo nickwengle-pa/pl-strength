@@ -1830,6 +1830,12 @@ export type AttendanceAthlete = {
   firstName: string;
   lastName: string;
   level: AttendanceLevel;
+  number?: string;
+  grade?: string;
+  height?: string;
+  weight?: string;
+  position?: string;
+  letter?: string;
 };
 
 export type AttendanceSheet = {

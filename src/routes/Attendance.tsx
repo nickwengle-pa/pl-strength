@@ -422,56 +422,91 @@ export default function Attendance() {
   const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
         const lines = text.split(/\r?\n/).filter(line => line.trim());
-        
+
         // Skip header if it looks like a header row
-        const startIndex = lines[0]?.toLowerCase().match(/first|last|name|level|team/) ? 1 : 0;
-        
-        const athletesByLevel: Record<Team, Array<{ id: string; firstName: string; lastName: string; level: Team }>> = {} as any;
+        const startIndex = lines[0]?.toLowerCase().match(/first|last|name|level|team|number|grade|height|weight|position|letter/) ? 1 : 0;
+
+        type AthleteImport = {
+          id: string;
+          firstName: string;
+          lastName: string;
+          level: Team;
+          number?: string;
+          grade?: string;
+          height?: string;
+          weight?: string;
+          position?: string;
+          letter?: string;
+        };
+
+        const athletesByLevel: Record<Team, AthleteImport[]> = {} as any;
         const errors: string[] = [];
-        
+
         for (let i = startIndex; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
-          
+
           // Support both comma and tab separated
-          const parts = line.includes('\t') 
+          const parts = line.includes('\t')
             ? line.split('\t').map(p => p.trim())
             : line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
-          
+
           if (parts.length < 2) {
             errors.push(`Line ${i + 1}: Need At Least First And Last Name`);
             continue;
           }
-          
-          const [firstName, lastName, levelStr] = parts;
-          
+
+          // Parse fields: NUMBER, FIRSTNAME, LASTNAME, GRADE, TEAM, HEIGHT, WEIGHT, POSITION, LETTER
+          const [
+            number,
+            firstName,
+            lastName,
+            grade,
+            levelStr,
+            height,
+            weight,
+            position,
+            letter
+          ] = parts;
+
           if (!firstName || !lastName) {
             errors.push(`Line ${i + 1}: Missing Name`);
             continue;
           }
-          
+
           // Determine level
           let level: Team = selectedTeam;
           if (levelStr) {
             const normalized = levelStr.toLowerCase().trim();
-            const matchedTeam = visibleTeams.find(t => 
-              t.toLowerCase() === normalized || 
+            const matchedTeam = visibleTeams.find(t =>
+              t.toLowerCase() === normalized ||
               formatTeamLabel(t).toLowerCase() === normalized
             );
             if (matchedTeam) {
               level = matchedTeam;
             }
           }
-          
+
           const id = createId();
           if (!athletesByLevel[level]) athletesByLevel[level] = [];
-          athletesByLevel[level].push({ id, firstName, lastName, level });
+          athletesByLevel[level].push({
+            id,
+            firstName,
+            lastName,
+            level,
+            number: number || undefined,
+            grade: grade || undefined,
+            height: height || undefined,
+            weight: weight || undefined,
+            position: position || undefined,
+            letter: letter || undefined,
+          });
         }
         
         const totalCount = Object.values(athletesByLevel).reduce((sum, arr) => sum + arr.length, 0);
@@ -798,7 +833,7 @@ export default function Attendance() {
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-blue-900">Import From CSV/Excel</h3>
           <p className="text-xs text-blue-700">
-            Upload A CSV File With Columns: <strong>FirstName, LastName</strong> (Optional: Level/Team)
+            Upload A CSV File With Columns: <strong>Number, FirstName, LastName, Grade, Team, Height, Weight, Position, Letter</strong>
           </p>
           <div className="flex items-center gap-3">
             <label className="btn btn-secondary cursor-pointer">
@@ -817,14 +852,15 @@ export default function Attendance() {
           <details className="text-xs text-blue-700">
             <summary className="cursor-pointer font-medium">Example CSV Format</summary>
             <pre className="mt-2 bg-white p-2 rounded border border-blue-200 text-[10px] overflow-x-auto">
-FirstName,LastName,Level
-John,Smith,varsity-football-coed
-Jane,Doe,jh-football-coed
-Mike,Johnson
+Number,FirstName,LastName,Grade,Team,Height,Weight,Position,Letter
+12,John,Smith,12,varsity-football-coed,6'2",185,QB,V
+45,Jane,Doe,9,jh-football-coed,5'8",140,RB,JV
+23,Mike,Johnson,11,varsity-football-coed,6'0",175,WR,V
             </pre>
             <p className="mt-1 text-[10px]">
               • First Row Can Be A Header (Will Be Auto-Detected)<br />
-              • Level/Team Is Optional (Uses Selected Team If Not Provided)<br />
+              • Only FirstName and LastName Are Required<br />
+              • All Other Fields Are Optional (Uses Selected Team If Team Not Provided)<br />
               • Supports Excel CSV Exports
             </p>
           </details>
