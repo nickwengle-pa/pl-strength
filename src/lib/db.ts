@@ -1464,43 +1464,9 @@ export async function signInOrCreateAthleteAccount(
     console.warn("Failed to load existing profile before athlete save", err);
   }
 
-  console.log("Checking athlete code...");
-  const codeStatus = await ensureAthleteCode(
-    uid,
-    code,
-    existingProfile?.accessCode ?? null
-  );
-  console.log("Code status:", codeStatus);
-
-  if (codeStatus === "taken") {
-    console.log("Code is taken! Deleting account and signing out.");
-    if (createdAccount && auth.currentUser) {
-      try {
-        await auth.currentUser.delete();
-      } catch (deleteErr) {
-        console.warn("Failed to remove newly created user after code conflict", deleteErr);
-      }
-    }
-    try {
-      await auth.signOut();
-    } catch (signOutErr) {
-      console.warn("Failed to sign out after code conflict", signOutErr);
-    }
-    throw new AthleteAuthError(
-      "athlete-code/taken",
-      "That code is already being used by another athlete."
-    );
-  }
-
-  if (codeStatus === "unavailable") {
-    console.log("Code unavailable!");
-    throw new AthleteAuthError(
-      "athlete-code/unavailable",
-      "We could not verify that code. Try again shortly."
-    );
-  }
-
-  console.log("Code check passed, continuing...");
+  // Skip passcode uniqueness check - athletes are unique by name/email
+  // Passcode can be reused as long as the first+last name combination is unique
+  console.log("Skipping passcode uniqueness check - allowing reuse");
 
   const resolvedTeam = options.team ? normalizeTeam(options.team) : normalizeTeam(existingProfile?.team);
   const teamAnchor = normalizeTeam(existingProfile?.teamAnchor ?? existingProfile?.team) ?? resolvedTeam;
