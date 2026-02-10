@@ -1743,6 +1743,8 @@ export default function Roster() {
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <input
+                  id="athlete-search"
+                  name="search"
                   type="text"
                   placeholder="Search Athletes..."
                   value={searchQuery}
@@ -1768,8 +1770,9 @@ export default function Roster() {
             {/* Team Filter */}
             {isAdminUser && (
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-600 font-medium">Team:</label>
+                <label htmlFor="roster-team-filter" className="text-xs text-gray-600 font-medium">Team:</label>
                 <select
+                  id="roster-team-filter"
                   value={teamFilter}
                   onChange={(e) => setTeamFilter(e.target.value as Team | "all")}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
@@ -1890,9 +1893,13 @@ export default function Roster() {
                 )}
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  <label htmlFor="add-athlete-firstname" className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
                     First name
                     <input
+                      id="add-athlete-firstname"
+                      name="firstName"
+                      type="text"
+                      autoComplete="given-name"
                       className="field"
                       value={addAthleteDraft.firstName}
                       onChange={(event) =>
@@ -1905,9 +1912,13 @@ export default function Roster() {
                       disabled={addAthleteSaving}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  <label htmlFor="add-athlete-lastname" className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
                     Last name
                     <input
+                      id="add-athlete-lastname"
+                      name="lastName"
+                      type="text"
+                      autoComplete="family-name"
                       className="field"
                       value={addAthleteDraft.lastName}
                       onChange={(event) =>
@@ -1923,9 +1934,11 @@ export default function Roster() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
-                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  <label htmlFor="add-athlete-team" className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
                     Team
                     <select
+                      id="add-athlete-team"
+                      name="team"
                       className="field"
                       value={addAthleteDraft.team}
                       onChange={(event) =>
@@ -1944,11 +1957,14 @@ export default function Roster() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
+                  <label htmlFor="add-athlete-code" className="flex flex-col gap-1 text-xs font-semibold text-gray-600">
                     4-digit code
                     <input
+                      id="add-athlete-code"
+                      name="accessCode"
                       className="field text-center font-semibold tracking-widest"
                       type="tel"
+                      autoComplete="off"
                       value={addAthleteDraft.code}
                       onChange={(event) =>
                         setAddAthleteDraft((prev) => ({

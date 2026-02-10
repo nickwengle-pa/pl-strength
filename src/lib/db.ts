@@ -1772,18 +1772,44 @@ export async function backfillCreatedAtDates(): Promise<{ updated: number; skipp
 
     for (const profileDoc of profilesSnapshot.docs) {
       const profile = profileDoc.data();
+      const athleteId = profileDoc.ref.parent.parent?.id;
 
-      if (profile.createdAt) {
+      if (!athleteId) {
+        console.warn(`Skipping profile without athlete ID: ${profileDoc.id}`);
         skipped++;
         continue;
       }
 
       try {
-        const docCreatedAt = profileDoc.createTime?.toMillis() || Date.now();
-        await updateDoc(profileDoc.ref, { createdAt: docCreatedAt });
+        // Try to get the athlete's first session date to use as creation date
+        let createdAtDate: number | null = null;
+
+        // Query for the athlete's sessions
+        const sessionsQuery = query(
+          collectionGroup(database, "session"),
+          where("athleteId", "==", athleteId),
+          orderBy("createdAt", "asc"),
+          limit(1)
+        );
+
+        const sessionsSnapshot = await getDocs(sessionsQuery);
+
+        if (!sessionsSnapshot.empty) {
+          const firstSession = sessionsSnapshot.docs[0].data();
+          createdAtDate = toMillis(firstSession.createdAt);
+        }
+
+        // If no sessions found, fall back to today's date
+        if (!createdAtDate) {
+          createdAtDate = Date.now();
+        }
+
+        // Update the profile with the determined createdAt date
+        await updateDoc(profileDoc.ref, { createdAt: createdAtDate });
         updated++;
+        console.log(`Updated ${athleteId} with createdAt: ${new Date(createdAtDate).toLocaleDateString()}`);
       } catch (err) {
-        console.error(`Failed to update ${profileDoc.id}:`, err);
+        console.error(`Failed to update ${athleteId}:`, err);
         errors++;
       }
     }

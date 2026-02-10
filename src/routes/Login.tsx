@@ -28,11 +28,17 @@ export default function Login() {
       </div>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">First Name</label>
-          <input className="w-full border rounded-xl px-3 py-2" value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="e.g., Alex" />
+          <label htmlFor="login-first-name" className="block text-sm font-medium mb-1">First Name</label>
+          <input
+            id="login-first-name"
+            className="w-full border rounded-xl px-3 py-2"
+            value={firstName}
+            onChange={e=>setFirstName(e.target.value)}
+            placeholder="e.g., Alex"
+          />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Units</label>
+          <span className="block text-sm font-medium mb-1">Units</span>
           <div className="flex gap-3">
             <label className="flex items-center gap-1"><input type="radio" checked={unit==='lb'} onChange={()=>setUnit('lb')} /> lb</label>
             <label className="flex items-center gap-1"><input type="radio" checked={unit==='kg'} onChange={()=>setUnit('kg')} /> kg</label>

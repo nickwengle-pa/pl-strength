@@ -204,14 +204,14 @@ function showUpdatePrompt() {
   document.body.appendChild(prompt);
   
   document.getElementById('update-btn')?.addEventListener('click', () => {
-    // Clear caches and reload
-    if ('caches' in window) {
-      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+    // Clear caches and always reload, even if cache deletion fails.
+    caches
+      .keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .catch(() => undefined)
+      .finally(() => {
         window.location.reload();
       });
-    } else {
-      window.location.reload();
-    }
   });
   
   document.getElementById('dismiss-btn')?.addEventListener('click', () => {
