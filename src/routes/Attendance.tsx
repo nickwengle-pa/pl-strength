@@ -1278,22 +1278,46 @@ export default function Attendance() {
         uid: athlete.uid,
         status: nextStatus,
         reviewedByName: coachDisplayName,
+        athleteId: athlete.id,
+        firstName: athlete.firstName,
+        lastName: athlete.lastName,
       })
         .then((updated) => {
           if (!updated) return;
           if (team === selectedTeam && reviewDate === date) {
-            setReviewCheckins((prev) =>
-              prev.map((row) =>
-                row.uid === athlete.uid && row.date === date
-                  ? {
-                      ...row,
-                      status: nextStatus,
-                      reviewedByName: coachDisplayName,
-                      reviewedAt: Date.now(),
-                    }
-                  : row
-              )
-            );
+            setReviewCheckins((prev) => {
+              const existingIndex = prev.findIndex(
+                (row) => row.uid === athlete.uid && row.date === date
+              );
+              if (existingIndex >= 0) {
+                return prev.map((row, idx) =>
+                  idx === existingIndex
+                    ? {
+                        ...row,
+                        status: nextStatus,
+                        reviewedByName: coachDisplayName,
+                        reviewedAt: Date.now(),
+                      }
+                    : row
+                );
+              }
+              return [
+                ...prev,
+                {
+                  id: `${team}__${date}__${athlete.uid}`,
+                  team,
+                  date,
+                  dayKey: `${team}__${date}`,
+                  uid: athlete.uid,
+                  athleteId: athlete.id,
+                  firstName: athlete.firstName,
+                  lastName: athlete.lastName,
+                  status: nextStatus,
+                  reviewedAt: Date.now(),
+                  reviewedByName: coachDisplayName,
+                },
+              ];
+            });
           }
         })
         .catch((err) => {

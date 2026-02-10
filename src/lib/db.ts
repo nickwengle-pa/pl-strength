@@ -2496,6 +2496,9 @@ export async function updateAttendanceCheckinStatus(options: {
   uid: string;
   status: "approved" | "rejected";
   reviewedByName?: string;
+  athleteId?: string;
+  firstName?: string;
+  lastName?: string;
 }): Promise<boolean> {
   const handles = resolveHandles();
   const database = handles?.db;
@@ -2507,19 +2510,40 @@ export async function updateAttendanceCheckinStatus(options: {
   const uid = options.uid.trim();
   const status = options.status;
   const reviewedByName = sanitizeName(options.reviewedByName ?? "");
+  const athleteId =
+    typeof options.athleteId === "string" && options.athleteId.trim()
+      ? options.athleteId.trim()
+      : undefined;
+  const firstName = sanitizeName(options.firstName ?? "");
+  const lastName = sanitizeName(options.lastName ?? "");
   if (!date || !uid) return false;
 
   const checkinRef = attendanceCheckinDocRef(database, team, date, uid);
   const checkinSnap = await getDoc(checkinRef);
-  if (!checkinSnap.exists()) return false;
+  const createPayload = !checkinSnap.exists()
+    ? {
+        team,
+        date,
+        dayKey: buildAttendanceDayKey(team, date),
+        uid,
+        ...(athleteId ? { athleteId } : {}),
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
+        submittedAt: serverTimestamp(),
+      }
+    : {};
 
   await setDoc(
     checkinRef,
     {
+      ...createPayload,
       status,
       reviewedAt: serverTimestamp(),
       ...(reviewerUid ? { reviewedBy: reviewerUid } : {}),
       ...(reviewedByName ? { reviewedByName } : {}),
+      ...(athleteId ? { athleteId } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
     },
     { merge: true }
   );
