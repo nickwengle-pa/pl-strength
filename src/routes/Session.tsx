@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   estimate1RM,
   warmupPercents,
@@ -123,6 +123,7 @@ const seedLiftCycles = (value: number): Record<Lift, number> => ({
 
 export default function Session() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [lift, setLift] = useState<Lift>(() => {
     const state = location.state as { lift?: Lift } | null;
@@ -143,6 +144,7 @@ export default function Session() {
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const autoAdvanceRef = useRef(false);
+  const savingRef = useRef(false);
 
   const [step, setStep] = useState(5);
   const [amrapReps, setAmrapReps] = useState<number>(0);
@@ -469,10 +471,18 @@ export default function Session() {
             ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
             : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCycle}. Training max updated.`
         );
+        // Navigate to home after week 3 completion
+        navigate("/");
         return;
       }
 
-      setShowWeekAdvancePrompt(true);
+      // For Simple mode, navigate to home after save
+      // For Full mode, show week advance prompt
+      if (sessionMode === "simple") {
+        navigate("/");
+      } else {
+        setShowWeekAdvancePrompt(true);
+      }
     } catch (err) {
       console.warn("Failed to save session", err);
       alert("Unable to save session right now. Please try again.");
@@ -703,7 +713,11 @@ export default function Session() {
           </div>
         )}
 
-        <div className="fixed inset-0 z-50 bg-gradient-to-br from-brand-600 to-brand-800 text-white flex flex-col overflow-hidden">
+        <div className={`fixed inset-0 z-50 text-white flex flex-col overflow-hidden ${
+          currentSet?.phase === 'warm'
+            ? 'bg-gradient-to-br from-blue-600 to-blue-800'
+            : 'bg-gradient-to-br from-orange-600 to-red-700'
+        }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 flex-shrink-0">
           <div>
@@ -722,8 +736,10 @@ export default function Session() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* Set Counter */}
           <div className="px-4 py-3 text-center">
-            <div className="text-xs opacity-80 uppercase tracking-wide">
-              {currentSet?.phase === 'warm' ? 'Warm-Up' : 'Work Set'}
+            <div className={`text-xl font-black uppercase tracking-wide ${
+              currentSet?.phase === 'warm' ? 'text-blue-200' : 'text-yellow-300'
+            }`}>
+              {currentSet?.phase === 'warm' ? 'WARM UP SET' : 'WORK SET'}
             </div>
             <div className="text-5xl font-bold my-1">
               {currentSetIndex + 1} / {allSets.length}
@@ -748,9 +764,9 @@ export default function Session() {
                   </button>
                 )}
                 <div className="text-xl mt-2">
-                  {currentSet.phase === 'warm' 
+                  {currentSet.phase === 'warm'
                     ? `${warmRepLabels[currentSet.index]} reps`
-                    : `${workRepLabels[week][currentSet.index]}`
+                    : `${workRepLabels[week][currentSet.index]} reps`
                   }
                 </div>
                 <div className="text-base opacity-70">
@@ -809,69 +825,72 @@ export default function Session() {
                 </button>
               </div>
 
-              {/* Mark Success/Fail */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    if (currentSet.phase === 'warm') {
-                      setWarmStatus(currentSet.index, 'S');
-                    } else {
-                      setWorkStatus(currentSet.index, 'S');
-                    }
-                    if (!isLastSet) {
-                      setCurrentSetIndex(prev => prev + 1);
-                      // Only auto-start timer if NEXT set is also a work set (not transitioning from warm-up)
-                      const nextSet = allSets[currentSetIndex + 1];
-                      if (currentSet.phase === 'work' && nextSet?.phase === 'work') {
-                        startRestTimer(150); // Auto-start 2:30 rest between work sets
-                      }
-                    }
-                  }}
-                  className="py-5 bg-green-500 hover:bg-green-600 rounded-xl font-bold text-xl shadow-lg"
-                >
-                  ✓ Done
-                </button>
-                <button
-                  onClick={() => {
-                    const reps = prompt('How Many Reps Did You Complete?');
-                    if (reps) {
+              {/* Mark Success/Fail - or Save Session for last AMRAP set */}
+              {!isAMRAPSet ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
                       if (currentSet.phase === 'warm') {
-                        setWarmStatus(currentSet.index, 'F');
-                        setWarmActual(currentSet.index, reps);
+                        setWarmStatus(currentSet.index, 'S');
                       } else {
-                        setWorkStatus(currentSet.index, 'F');
-                        setWorkActual(currentSet.index, reps);
+                        setWorkStatus(currentSet.index, 'S');
                       }
                       if (!isLastSet) {
                         setCurrentSetIndex(prev => prev + 1);
+                        // Only auto-start timer if NEXT set is also a work set (not transitioning from warm-up)
+                        const nextSet = allSets[currentSetIndex + 1];
+                        if (currentSet.phase === 'work' && nextSet?.phase === 'work') {
+                          startRestTimer(150); // Auto-start 2:30 rest between work sets
+                        }
                       }
-                    }
-                  }}
-                  className="py-5 bg-red-500 hover:bg-red-600 rounded-xl font-bold text-xl shadow-lg"
-                >
-                  ✗ Failed
-                </button>
-              </div>
+                    }}
+                    className="py-5 bg-green-500 hover:bg-green-600 rounded-xl font-bold text-xl shadow-lg"
+                  >
+                    ✓ Done
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reps = prompt('How Many Reps Did You Complete?');
+                      if (reps) {
+                        if (currentSet.phase === 'warm') {
+                          setWarmStatus(currentSet.index, 'F');
+                          setWarmActual(currentSet.index, reps);
+                        } else {
+                          setWorkStatus(currentSet.index, 'F');
+                          setWorkActual(currentSet.index, reps);
+                        }
+                        if (!isLastSet) {
+                          setCurrentSetIndex(prev => prev + 1);
+                        }
+                      }
+                    }}
+                    className="py-5 bg-red-500 hover:bg-red-600 rounded-xl font-bold text-xl shadow-lg"
+                  >
+                    ✗ Failed
+                  </button>
+                </div>
+              ) : null}
 
-              {/* Navigation */}
+              {/* Navigation - smaller and less prominent */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
                   disabled={currentSetIndex === 0}
-                  className="py-2 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-30 text-sm"
+                  className="py-1.5 bg-white/5 hover:bg-white/10 rounded-lg disabled:opacity-20 text-xs opacity-60"
                 >
-                  ← Previous
+                  ← Prev
                 </button>
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.min(allSets.length - 1, prev + 1))}
                   disabled={isLastSet}
-                  className="py-2 bg-white/10 hover:bg-white/20 rounded-lg disabled:opacity-30 text-sm"
+                  className="py-1.5 bg-white/5 hover:bg-white/10 rounded-lg disabled:opacity-20 text-xs opacity-60"
                 >
                   Next →
                 </button>
               </div>
 
-              {isLastSet && isAMRAPSet && (
+              {/* AMRAP input and Save Session button (replaces Done/Failed for last set) */}
+              {isAMRAPSet && (
                 <div className="space-y-3">
                   <div className="text-center">
                     <div className="text-sm opacity-80 mb-2">AMRAP Reps Completed</div>
@@ -891,15 +910,13 @@ export default function Session() {
                       </button>
                     </div>
                   </div>
-                  {amrapReps > 0 && (
-                    <button
-                      onClick={save}
-                      disabled={saving}
-                      className="w-full py-5 bg-green-500 hover:bg-green-600 disabled:bg-green-400 rounded-xl font-bold text-xl shadow-lg"
-                    >
-                      {saving ? "Saving..." : "✓ Save Session"}
-                    </button>
-                  )}
+                  <button
+                    onClick={save}
+                    disabled={saving || amrapReps <= 0}
+                    className="w-full py-5 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:opacity-50 rounded-xl font-bold text-xl shadow-lg"
+                  >
+                    {saving ? "Saving..." : amrapReps > 0 ? "✓ Save Session" : "Enter Reps Above"}
+                  </button>
                 </div>
               )}
             </>
