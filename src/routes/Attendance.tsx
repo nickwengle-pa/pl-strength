@@ -781,7 +781,49 @@ export default function Attendance() {
     setLoadingReviewCheckins(true);
     (async () => {
       try {
-        const rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
+        let rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
+        const currentSheet = normalizeRuntimeSheet(sheetsRef.current[selectedTeam], selectedTeam);
+        const reviewRowsToSync = rows
+          .map((row) => {
+            if (row.status === "pending") return null;
+            const athleteId = findSheetAthleteIdForCheckin(currentSheet, selectedTeam, row);
+            if (!athleteId) return null;
+            const markedPresent = Boolean(currentSheet.records[athleteId]?.[row.date]);
+            const desiredStatus = markedPresent ? "approved" : "rejected";
+            if (row.status === desiredStatus) return null;
+            return {
+              uid: row.uid,
+              desiredStatus,
+            };
+          })
+          .filter(
+            (
+              value
+            ): value is {
+              uid: string;
+              desiredStatus: "approved" | "rejected";
+            } => value !== null
+          );
+
+        if (reviewRowsToSync.length > 0) {
+          const coachDisplayName =
+            typeof window !== "undefined"
+              ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
+              : undefined;
+          await Promise.allSettled(
+            reviewRowsToSync.map((row) =>
+              updateAttendanceCheckinStatus({
+                team: selectedTeam,
+                date: reviewDate,
+                uid: row.uid,
+                status: row.desiredStatus,
+                reviewedByName: coachDisplayName,
+              })
+            )
+          );
+          rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
+        }
+
         if (!active) return;
         setReviewCheckins(rows);
         setSheets((prev) => {
