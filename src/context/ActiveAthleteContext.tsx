@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { ensureAnon, isCoach, subscribeToRoleChanges } from "../lib/db";
+import { ensureAnon, isAdmin, isCoach, subscribeToRoleChanges } from "../lib/db";
 
 type ActiveAthlete = {
   uid: string;
@@ -19,6 +19,7 @@ type ActiveAthlete = {
 type ActiveAthleteContextValue = {
   loading: boolean;
   isCoach: boolean;
+  isAdmin: boolean;
   activeAthlete: ActiveAthlete | null;
   setActiveAthlete: (athlete: ActiveAthlete) => void;
   clearActiveAthlete: () => void;
@@ -39,6 +40,7 @@ type ProviderProps = {
 export function ActiveAthleteProvider({ children }: ProviderProps) {
   const [loading, setLoading] = useState(true);
   const [isCoachFlag, setIsCoachFlag] = useState(false);
+  const [isAdminFlag, setIsAdminFlag] = useState(false);
   const [activeAthlete, setActiveAthleteState] = useState<ActiveAthlete | null>(
     () => {
       if (typeof window === "undefined") return null;
@@ -62,10 +64,11 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
     (async () => {
       try {
         await ensureAnon();
-        const flag = await isCoach();
+        const [coachFlag, adminFlag] = await Promise.all([isCoach(), isAdmin()]);
         if (active) {
-          setIsCoachFlag(flag);
-          if (!flag) {
+          setIsCoachFlag(coachFlag);
+          setIsAdminFlag(adminFlag);
+          if (!coachFlag) {
             setActiveAthleteState(null);
             window.localStorage.removeItem(STORAGE_KEY);
           }
@@ -74,6 +77,7 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
         if (active) {
           console.warn("Failed to resolve coach status", err);
           setIsCoachFlag(false);
+          setIsAdminFlag(false);
           setActiveAthleteState(null);
           window.localStorage.removeItem(STORAGE_KEY);
         }
@@ -113,7 +117,9 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
   useEffect(() => {
     const unsubscribe = subscribeToRoleChanges((roles) => {
       const coachAccess = roles.includes("admin") || roles.includes("coach");
+      const adminAccess = roles.includes("admin");
       setIsCoachFlag(coachAccess);
+      setIsAdminFlag(adminAccess);
       if (!coachAccess) {
         clearActiveAthlete();
       }
@@ -129,6 +135,7 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
     () => ({
       loading,
       isCoach: isCoachFlag,
+      isAdmin: isAdminFlag,
       activeAthlete,
       setActiveAthlete,
       clearActiveAthlete,
@@ -138,6 +145,7 @@ export function ActiveAthleteProvider({ children }: ProviderProps) {
     [
       loading,
       isCoachFlag,
+      isAdminFlag,
       activeAthlete,
       setActiveAthlete,
       clearActiveAthlete,

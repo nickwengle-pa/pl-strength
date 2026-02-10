@@ -7,7 +7,7 @@ const HIDDEN_PREFIXES = ["/exercises", "/program-outline"];
 
 export default function ActiveAthleteBanner() {
   const location = useLocation();
-  const { activeAthlete, clearActiveAthlete, isCoach, loading } = useActiveAthlete();
+  const { activeAthlete, clearActiveAthlete, isCoach, isAdmin, loading } = useActiveAthlete();
 
   if (loading || !isCoach || !activeAthlete) return null;
   if (HIDDEN_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) {
@@ -29,6 +29,11 @@ export default function ActiveAthleteBanner() {
             Active Athlete
           </div>
           <div className="text-sm font-semibold sm:text-base">{name}</div>
+          {isAdmin && activeAthlete.uid && (
+            <div className="text-[11px] text-indigo-700 sm:text-xs">
+              UID: <code className="rounded bg-white/70 px-1 py-[1px]">{activeAthlete.uid}</code>
+            </div>
+          )}
           {(teamLabel || activeAthlete.unit) && (
             <div className="text-[11px] text-indigo-700 sm:text-xs">
               {[teamLabel, activeAthlete.unit].filter(Boolean).join(" \u2022 ")}
