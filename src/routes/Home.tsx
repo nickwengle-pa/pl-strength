@@ -72,6 +72,7 @@ type AthleteCheckinViewState = {
   date: string;
   scheduled: boolean;
   locked: boolean;
+  nextSession: { key: string; label: string } | null;
   checkin: AttendanceCheckin | null;
 };
 
@@ -166,7 +167,11 @@ export default function Home() {
       try {
         const status = await loadAttendanceTeamStatus(resolvedTeam);
         const scheduled = status.dates.includes(today);
-        const locked = Boolean(status.lockedDates?.[today]);
+        const sessionsForDate = scheduled ? status.sessionsByDate?.[today] ?? [] : [];
+        const sessionLocks = scheduled ? status.sessionLocks?.[today] ?? {} : {};
+        const nextSession =
+          sessionsForDate.find((session) => sessionLocks[session.key] !== true) ?? null;
+        const locked = scheduled ? !nextSession : false;
         const checkin = scheduled
           ? await loadAthleteAttendanceCheckin(resolvedTeam, today, profile.uid)
           : null;
@@ -176,6 +181,7 @@ export default function Home() {
           date: today,
           scheduled,
           locked,
+          nextSession,
           checkin,
         });
       } catch (err) {
@@ -187,6 +193,7 @@ export default function Home() {
           date: today,
           scheduled: false,
           locked: false,
+          nextSession: null,
           checkin: null,
         });
       } finally {
@@ -296,6 +303,8 @@ export default function Home() {
       })
     : "";
   const checkinStatus = checkinState?.checkin?.status ?? null;
+  const checkinSessionLabel =
+    checkinState?.checkin?.sessionLabel ?? checkinState?.nextSession?.label ?? "";
   const showCheckinPanel =
     !isCoach &&
     !!profile &&
@@ -312,7 +321,7 @@ export default function Home() {
       return;
     }
     if (checkinState.locked) {
-      setCheckinError("Coach Already Locked Today's Attendance.");
+      setCheckinError("All Sessions Are Locked For Today.");
       return;
     }
     if (checkinState.checkin) {
@@ -340,13 +349,17 @@ export default function Home() {
             }
           : prev
       );
-      setCheckinNotice("Check-In Submitted. Coach Verification Is Pending.");
+      setCheckinNotice(
+        created.sessionLabel
+          ? `Check-In Submitted For ${created.sessionLabel}. Coach Verification Is Pending.`
+          : "Check-In Submitted. Coach Verification Is Pending."
+      );
     } catch (err: any) {
       const code = err?.message ?? "";
       if (code === "attendance/checkin-closed") {
         setCheckinError("Check-In Is Closed For Today.");
       } else if (code === "attendance/date-locked") {
-        setCheckinError("Coach Already Locked This Attendance Date.");
+        setCheckinError("All Sessions Are Locked For This Date.");
       } else {
         setCheckinError(err?.message ?? "Could Not Submit Attendance Check-In.");
       }
@@ -561,6 +574,11 @@ export default function Home() {
                         ? "Coach Marked This Check-In As Not Present."
                         : "You're Checked In. Coach Verification Is Pending."}
                     </p>
+                    {checkinSessionLabel && (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-red-300">
+                        Session: {checkinSessionLabel}
+                      </p>
+                    )}
                     {checkinNotice && (
                       <p className="mt-1 text-xs text-zinc-300">{checkinNotice}</p>
                     )}
@@ -569,6 +587,9 @@ export default function Home() {
                   <div className="mt-3 space-y-2">
                     <p className="text-sm text-zinc-200">
                       Tap Once When You're In The Weight Room.
+                      {checkinState.nextSession?.label
+                        ? ` You're Checking Into ${checkinState.nextSession.label}.`
+                        : ""}
                     </p>
                     <button
                       type="button"
@@ -581,7 +602,7 @@ export default function Home() {
                   </div>
                 ) : checkinState?.scheduled && checkinState.locked ? (
                   <p className="mt-3 text-sm font-semibold text-amber-300">
-                    Coach Locked This Lift Day. Check-In Is Closed.
+                    All Sessions Are Locked For Today. Check-In Is Closed.
                   </p>
                 ) : null}
               </div>

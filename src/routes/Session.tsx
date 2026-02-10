@@ -465,10 +465,9 @@ export default function Session() {
         const nextCycle = nextCycleAfter(cycle);
         const resetCycle = clampCycle(cycle) === 3;
         await advanceWeek();
-
-        const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
-        setHistory(rows.reverse());
-        notifyProfileChange();
+        // Skip history refresh & notifyProfileChange here — advanceWeek
+        // already called persistLiftProgress which notifies, and we
+        // navigate away immediately so no UI needs the updated history.
 
         alert(
           resetCycle

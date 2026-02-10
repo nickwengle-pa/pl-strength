@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildDefaultAttendanceSessions,
   TEAM_DEFINITIONS,
   formatTeamLabel,
   getStoredTeamSelection,
@@ -9,10 +10,12 @@ import {
   reviewAttendanceCheckin,
   saveAttendanceSheet,
   setAttendanceDateLocked,
+  setAttendanceSessionLocked,
   updateAttendanceCheckinStatus,
   fetchAthleteSessions,
   listRoster,
   type AttendanceCheckin,
+  type AttendanceSession,
   type AttendanceSheet,
   type Team,
 } from "../lib/db";
@@ -30,6 +33,8 @@ const createEmptySheet = (team: Team): AttendanceSheet => ({
   dates: [],
   athletes: [],
   records: {},
+  sessionsByDate: {},
+  sessionLocks: {},
   lockedDates: {},
   updatedAt: undefined,
 });
@@ -47,15 +52,65 @@ const normalizeRuntimeSheet = (
     sheet.records && typeof sheet.records === "object" && !Array.isArray(sheet.records)
       ? sheet.records
       : {};
+  const sessionsSource =
+    sheet.sessionsByDate &&
+    typeof sheet.sessionsByDate === "object" &&
+    !Array.isArray(sheet.sessionsByDate)
+      ? sheet.sessionsByDate
+      : {};
+  const sessionLocksSource =
+    sheet.sessionLocks &&
+    typeof sheet.sessionLocks === "object" &&
+    !Array.isArray(sheet.sessionLocks)
+      ? sheet.sessionLocks
+      : {};
   const lockedSource =
     sheet.lockedDates &&
     typeof sheet.lockedDates === "object" &&
     !Array.isArray(sheet.lockedDates)
       ? sheet.lockedDates
       : {};
+  const sessionsByDate: AttendanceSheet["sessionsByDate"] = {};
+  const sessionLocks: AttendanceSheet["sessionLocks"] = {};
   const lockedDates: Record<string, boolean> = {};
   dates.forEach((date) => {
-    lockedDates[date] = lockedSource[date] === true;
+    const sessionsRaw = Array.isArray(sessionsSource[date]) ? sessionsSource[date] : [];
+    const normalizedSessions: AttendanceSession[] = [];
+    const seenKeys = new Set<string>();
+    sessionsRaw.forEach((entry, index) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return;
+      const rawKey =
+        typeof (entry as any).key === "string" && (entry as any).key.trim()
+          ? (entry as any).key.trim()
+          : `session-${index + 1}`;
+      const key = rawKey.replace(/[^a-zA-Z0-9_-]/g, "-");
+      const label =
+        typeof (entry as any).label === "string" && (entry as any).label.trim()
+          ? (entry as any).label.trim().slice(0, 60)
+          : `Session ${index + 1}`;
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      normalizedSessions.push({ key, label });
+    });
+
+    const sessions =
+      normalizedSessions.length > 0
+        ? normalizedSessions
+        : [{ key: "session-1", label: "After School" }];
+    const lockRowSource =
+      sessionLocksSource[date] &&
+      typeof sessionLocksSource[date] === "object" &&
+      !Array.isArray(sessionLocksSource[date])
+        ? (sessionLocksSource[date] as Record<string, unknown>)
+        : {};
+    const lockAll = lockedSource[date] === true;
+    const lockRow: Record<string, boolean> = {};
+    sessions.forEach((session) => {
+      lockRow[session.key] = lockAll || lockRowSource[session.key] === true;
+    });
+    sessionsByDate[date] = sessions;
+    sessionLocks[date] = lockRow;
+    lockedDates[date] = lockAll || sessions.every((session) => lockRow[session.key] === true);
   });
   return {
     ...createEmptySheet(team),
@@ -64,6 +119,8 @@ const normalizeRuntimeSheet = (
     dates,
     athletes,
     records,
+    sessionsByDate,
+    sessionLocks,
     lockedDates,
   };
 };
@@ -122,6 +179,8 @@ type AttendanceReportRow = {
   tier: AttendanceTier;
   weekly: Record<string, WeeklySummary>;
 };
+
+type ReviewStatusModalType = "approved" | "rejected" | null;
 
 const HIGH_ATTENDANCE_THRESHOLD = 85;
 const LOW_ATTENDANCE_THRESHOLD = 70;
@@ -467,6 +526,25 @@ const nextAvailableDate = (existing: string[]): string => {
   return formatDateInput(today);
 };
 
+const cloneDefaultDateSessions = (): AttendanceSession[] =>
+  buildDefaultAttendanceSessions().map((session) => ({ ...session }));
+
+const sanitizeSessionLabel = (value: string, fallback: string): string => {
+  const trimmed = value.trim().slice(0, 60);
+  return trimmed || fallback;
+};
+
+const nextDateSessionKey = (sessions: AttendanceSession[]): string => {
+  let index = sessions.length + 1;
+  while (sessions.some((session) => session.key === `session-${index}`)) {
+    index += 1;
+  }
+  return `session-${index}`;
+};
+
+const dateHasAnyLockedSession = (sheet: AttendanceSheet, date: string): boolean =>
+  Object.values(sheet.sessionLocks?.[date] ?? {}).some((value) => value === true);
+
 const formatLastWorkout = (timestamp?: number): { text: string; isRecent: boolean } => {
   if (!timestamp) return { text: "—", isRecent: false };
   
@@ -558,6 +636,7 @@ export default function Attendance() {
   const [reportRangePreset, setReportRangePreset] = useState<ReportRangePreset>("all_dates");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
+  const [showDesktopTableOnMobile, setShowDesktopTableOnMobile] = useState(false);
   const [isAddAthleteCollapsed, setIsAddAthleteCollapsed] = useState<boolean>(() =>
     isMobileDevice()
   );
@@ -565,10 +644,12 @@ export default function Attendance() {
     isMobileDevice()
   );
   const [reviewDate, setReviewDate] = useState("");
+  const [reviewStatusModal, setReviewStatusModal] = useState<ReviewStatusModalType>(null);
   const [reviewCheckins, setReviewCheckins] = useState<AttendanceCheckin[]>([]);
   const [loadingReviewCheckins, setLoadingReviewCheckins] = useState(false);
   const [reviewingCheckinId, setReviewingCheckinId] = useState<string | null>(null);
   const [lockingDate, setLockingDate] = useState<string | null>(null);
+  const [lockingSessionKey, setLockingSessionKey] = useState<string | null>(null);
   const sheetsRef = useRef<TeamMap<AttendanceSheet>>(sheets);
   const saveInFlightRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
   const saveQueuedRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
@@ -741,11 +822,24 @@ export default function Attendance() {
   const selectedError = teamErrors[selectedTeam];
   const selectedDirty = dirty[selectedTeam];
   const selectedSaving = saving[selectedTeam];
+  const isMobileCoachBrowser = isMobileDevice();
+  const useCompactMobileAthleteLayout = isMobileCoachBrowser && !showDesktopTableOnMobile;
   const reportSourceDates = useMemo(
     () => [...selectedSheet.dates].sort((a, b) => a.localeCompare(b)),
     [selectedSheet.dates]
   );
+  const mobileAthleteDate =
+    reviewDate || reportSourceDates[reportSourceDates.length - 1] || "";
+  const mobileAthleteDateLocked = Boolean(
+    mobileAthleteDate && selectedSheet.lockedDates?.[mobileAthleteDate]
+  );
   const reviewDateLocked = Boolean(selectedSheet.lockedDates?.[reviewDate]);
+  const reviewDateSessions = reviewDate
+    ? selectedSheet.sessionsByDate?.[reviewDate] ?? []
+    : [];
+  const reviewDateSessionLocks = reviewDate
+    ? selectedSheet.sessionLocks?.[reviewDate] ?? {}
+    : {};
   const pendingReviewCheckins = useMemo(
     () => reviewCheckins.filter((row) => row.status === "pending"),
     [reviewCheckins]
@@ -758,6 +852,13 @@ export default function Attendance() {
     () => reviewCheckins.filter((row) => row.status === "rejected").length,
     [reviewCheckins]
   );
+  const reviewStatusModalRows = useMemo(() => {
+    if (!reviewStatusModal) return [];
+    return reviewCheckins
+      .filter((row) => row.status === reviewStatusModal)
+      .slice()
+      .sort((a, b) => (b.reviewedAt ?? b.submittedAt ?? 0) - (a.reviewedAt ?? a.submittedAt ?? 0));
+  }, [reviewCheckins, reviewStatusModal]);
 
   useEffect(() => {
     if (reportSourceDates.length === 0) {
@@ -770,6 +871,10 @@ export default function Attendance() {
       return reportSourceDates[reportSourceDates.length - 1];
     });
   }, [selectedTeam, reportSourceDates]);
+
+  useEffect(() => {
+    setReviewStatusModal(null);
+  }, [selectedTeam, reviewDate]);
 
   useEffect(() => {
     if (authLoading || !isCoach || !reviewDate) {
@@ -794,6 +899,8 @@ export default function Attendance() {
             return {
               uid: row.uid,
               desiredStatus,
+              sessionKey: row.sessionKey,
+              sessionLabel: row.sessionLabel,
             };
           })
           .filter(
@@ -802,6 +909,8 @@ export default function Attendance() {
             ): value is {
               uid: string;
               desiredStatus: "approved" | "rejected";
+              sessionKey?: string;
+              sessionLabel?: string;
             } => value !== null
           );
 
@@ -818,6 +927,8 @@ export default function Attendance() {
                 uid: row.uid,
                 status: row.desiredStatus,
                 reviewedByName: coachDisplayName,
+                sessionKey: row.sessionKey,
+                sessionLabel: row.sessionLabel,
               })
             )
           );
@@ -1162,7 +1273,18 @@ export default function Attendance() {
       }
       const nextDates = [...current.dates, newDate];
       const nextRecords = { ...current.records };
+      const nextSessionsByDate = { ...current.sessionsByDate };
+      const nextSessionLocks = { ...current.sessionLocks };
       const nextLockedDates = { ...current.lockedDates, [newDate]: false };
+      const defaultSessions = cloneDefaultDateSessions();
+      nextSessionsByDate[newDate] = defaultSessions;
+      nextSessionLocks[newDate] = defaultSessions.reduce<Record<string, boolean>>(
+        (acc, session) => {
+          acc[session.key] = false;
+          return acc;
+        },
+        {}
+      );
       current.athletes.forEach((athlete) => {
         const row = { ...(nextRecords[athlete.id] ?? {}) };
         row[newDate] = row[newDate] ?? false;
@@ -1172,6 +1294,8 @@ export default function Attendance() {
         ...current,
         dates: nextDates,
         records: nextRecords,
+        sessionsByDate: nextSessionsByDate,
+        sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
       };
     });
@@ -1183,6 +1307,10 @@ export default function Attendance() {
       if (!current.dates.includes(date)) return current;
       const nextDates = current.dates.filter((d) => d !== date);
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextSessionsByDate = { ...current.sessionsByDate };
+      delete nextSessionsByDate[date];
+      const nextSessionLocks = { ...current.sessionLocks };
+      delete nextSessionLocks[date];
       const nextLockedDates = { ...current.lockedDates };
       delete nextLockedDates[date];
       Object.entries(current.records).forEach(([athleteId, row]) => {
@@ -1197,6 +1325,8 @@ export default function Attendance() {
         ...current,
         dates: nextDates,
         records: nextRecords,
+        sessionsByDate: nextSessionsByDate,
+        sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
       };
     });
@@ -1212,8 +1342,8 @@ export default function Attendance() {
       handleRemoveDate(team, currentDate);
       return;
     }
-    if (teamSheet.lockedDates?.[currentDate]) {
-      handleSetError(team, "Unlock This Date Before Renaming It.");
+    if (dateHasAnyLockedSession(teamSheet, currentDate)) {
+      handleSetError(team, "Unlock Sessions For This Date Before Renaming It.");
       return;
     }
     if (teamSheet.dates.some((date, idx) => date === next && idx !== index)) {
@@ -1224,6 +1354,14 @@ export default function Attendance() {
       const nextDates = [...current.dates];
       nextDates[index] = next;
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextSessionsByDate = { ...current.sessionsByDate };
+      const sessionsForDate = nextSessionsByDate[currentDate] ?? [];
+      delete nextSessionsByDate[currentDate];
+      nextSessionsByDate[next] = sessionsForDate;
+      const nextSessionLocks = { ...current.sessionLocks };
+      const sessionLocksForDate = nextSessionLocks[currentDate] ?? {};
+      delete nextSessionLocks[currentDate];
+      nextSessionLocks[next] = sessionLocksForDate;
       const nextLockedDates = { ...current.lockedDates };
       const wasLocked = nextLockedDates[currentDate] === true;
       delete nextLockedDates[currentDate];
@@ -1243,10 +1381,139 @@ export default function Attendance() {
         ...current,
         dates: nextDates,
         records: nextRecords,
+        sessionsByDate: nextSessionsByDate,
+        sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
       };
     });
     handleSetError(team, null);
+  };
+
+  const handleSessionLabelChange = (
+    team: Team,
+    date: string,
+    sessionKey: string,
+    value: string
+  ) => {
+    updateSheet(team, (current) => {
+      const sessions = current.sessionsByDate?.[date] ?? [];
+      const nextSessions = sessions.map((session, index) =>
+        session.key === sessionKey
+          ? {
+              ...session,
+              label: sanitizeSessionLabel(value, `Session ${index + 1}`),
+            }
+          : session
+      );
+      return {
+        ...current,
+        sessionsByDate: {
+          ...current.sessionsByDate,
+          [date]: nextSessions,
+        },
+      };
+    });
+    queueToggleAutosave(team);
+  };
+
+  const handleAddSessionToDate = (team: Team, date: string) => {
+    updateSheet(team, (current) => {
+      const sessions = current.sessionsByDate?.[date] ?? [];
+      const nextKey = nextDateSessionKey(sessions);
+      const nextSessions = [
+        ...sessions,
+        {
+          key: nextKey,
+          label: `Session ${sessions.length + 1}`,
+        },
+      ];
+      const nextSessionLocks = {
+        ...(current.sessionLocks?.[date] ?? {}),
+        [nextKey]: false,
+      };
+      return {
+        ...current,
+        sessionsByDate: {
+          ...current.sessionsByDate,
+          [date]: nextSessions,
+        },
+        sessionLocks: {
+          ...current.sessionLocks,
+          [date]: nextSessionLocks,
+        },
+        lockedDates: {
+          ...current.lockedDates,
+          [date]: false,
+        },
+      };
+    });
+    queueToggleAutosave(team);
+    handleSetError(team, null);
+  };
+
+  const handleRemoveSessionFromDate = (team: Team, date: string, sessionKey: string) => {
+    updateSheet(team, (current) => {
+      const sessions = current.sessionsByDate?.[date] ?? [];
+      if (sessions.length <= 1) {
+        return current;
+      }
+      const nextSessions = sessions.filter((session) => session.key !== sessionKey);
+      const nextLocksRow = { ...(current.sessionLocks?.[date] ?? {}) };
+      delete nextLocksRow[sessionKey];
+      const allLocked =
+        nextSessions.length > 0 &&
+        nextSessions.every((session) => nextLocksRow[session.key] === true);
+      return {
+        ...current,
+        sessionsByDate: {
+          ...current.sessionsByDate,
+          [date]: nextSessions,
+        },
+        sessionLocks: {
+          ...current.sessionLocks,
+          [date]: nextLocksRow,
+        },
+        lockedDates: {
+          ...current.lockedDates,
+          [date]: allLocked,
+        },
+      };
+    });
+    queueToggleAutosave(team);
+    handleSetError(team, null);
+  };
+
+  const handleToggleSessionLock = async (
+    team: Team,
+    date: string,
+    sessionKey: string,
+    lockNext: boolean
+  ) => {
+    if (!date || !sessionKey) return;
+    if (dirty[team]) {
+      setFlash("Save Attendance Before Locking Sessions.");
+      return;
+    }
+    const token = `${date}__${sessionKey}`;
+    setLockingSessionKey(token);
+    try {
+      await setAttendanceSessionLocked(team, date, sessionKey, lockNext);
+      await refreshTeamAfterReview(team);
+      setFlash(lockNext ? "Session Locked." : "Session Unlocked.");
+    } catch (err: any) {
+      const code = err?.message ?? "";
+      if (code === "attendance/pending-checkins") {
+        setFlash("Review Pending Check-Ins For This Session Before Locking.");
+      } else if (code === "attendance/session-not-found") {
+        setFlash("That Session No Longer Exists.");
+      } else if (code === "attendance/date-not-found") {
+        setFlash("That Date Was Not Found On This Sheet.");
+      } else {
+        setFlash(err?.message ?? "Could Not Update Session Lock.");
+      }
+    } finally {
+      setLockingSessionKey(null);
+    }
   };
 
   const handleToggle = (team: Team, athleteId: string, date: string) => {
@@ -1271,6 +1538,16 @@ export default function Attendance() {
         typeof window !== "undefined"
           ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
           : undefined;
+      const existingCheckin = reviewCheckins.find(
+        (row) => row.uid === athlete.uid && row.date === date
+      );
+      const sessionsForDate = sheet.sessionsByDate?.[date] ?? [];
+      const fallbackSession = existingCheckin?.sessionKey
+        ? sessionsForDate.find((session) => session.key === existingCheckin.sessionKey) ??
+          sessionsForDate[0]
+        : sessionsForDate[0];
+      const sessionKey = existingCheckin?.sessionKey ?? fallbackSession?.key;
+      const sessionLabel = existingCheckin?.sessionLabel ?? fallbackSession?.label;
       const nextStatus = nextValue ? "approved" : "rejected";
       void updateAttendanceCheckinStatus({
         team,
@@ -1281,6 +1558,8 @@ export default function Attendance() {
         athleteId: athlete.id,
         firstName: athlete.firstName,
         lastName: athlete.lastName,
+        sessionKey,
+        sessionLabel,
       })
         .then((updated) => {
           if (!updated) return;
@@ -1295,6 +1574,8 @@ export default function Attendance() {
                     ? {
                         ...row,
                         status: nextStatus,
+                        sessionKey: row.sessionKey ?? sessionKey,
+                        sessionLabel: row.sessionLabel ?? sessionLabel,
                         reviewedByName: coachDisplayName,
                         reviewedAt: Date.now(),
                       }
@@ -1312,6 +1593,8 @@ export default function Attendance() {
                   athleteId: athlete.id,
                   firstName: athlete.firstName,
                   lastName: athlete.lastName,
+                  ...(sessionKey ? { sessionKey } : {}),
+                  ...(sessionLabel ? { sessionLabel } : {}),
                   status: nextStatus,
                   reviewedAt: Date.now(),
                   reviewedByName: coachDisplayName,
@@ -2108,18 +2391,33 @@ export default function Attendance() {
     }
     setLockingDate(date);
     try {
-      await setAttendanceDateLocked(team, date, lockNext);
-      await refreshTeamAfterReview(team);
-      setFlash(
-        lockNext
-          ? `Locked ${formatDateLabel(date)}.`
-          : `Unlocked ${formatDateLabel(date)}.`
+      const coachDisplayName =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
+          : undefined;
+      const result = await setAttendanceDateLocked(
+        team,
+        date,
+        lockNext,
+        coachDisplayName
       );
+      await refreshTeamAfterReview(team);
+      if (lockNext && result.autoApprovedPending > 0) {
+        setFlash(
+          `Locked ${formatDateLabel(
+            date
+          )}. All pending requests have been approved.`
+        );
+      } else {
+        setFlash(
+          lockNext
+            ? `Locked ${formatDateLabel(date)}.`
+            : `Unlocked ${formatDateLabel(date)}.`
+        );
+      }
     } catch (err: any) {
       const code = err?.message ?? "";
-      if (code === "attendance/pending-checkins") {
-        setFlash("Review All Pending Check-Ins Before Locking This Date.");
-      } else if (code === "attendance/date-not-found") {
+      if (code === "attendance/date-not-found") {
         setFlash("That Date Was Not Found On This Sheet.");
       } else {
         setFlash(err?.message ?? "Could Not Update Date Lock.");
@@ -2157,22 +2455,22 @@ export default function Attendance() {
 
   return (
     <div className="container py-6 space-y-6">
-      <div className="card space-y-3">
-        <div className="flex flex-wrap items-center gap-3 justify-between">
+      <div className="card space-y-2 p-3 sm:space-y-3 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Attendance</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">Attendance</h1>
+            <p className="hidden text-sm text-gray-600 sm:block">
               Track Lift Day Attendance Separately For Each Football Team.
             </p>
           </div>
-          <div className="flex w-full gap-1 overflow-x-auto pb-1 sm:w-auto sm:gap-2 sm:overflow-visible sm:pb-0">
+          <div className="flex w-full gap-0.5 overflow-x-auto pb-0.5 sm:w-auto sm:gap-2 sm:overflow-visible sm:pb-0">
             {visibleTeams.map((team) => (
               <button
                 key={team}
                 type="button"
                 onClick={() => setSelectedTeam(team)}
                 className={[
-                  "whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
+                  "whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
                   selectedTeam === team
                     ? "bg-brand-600 text-white shadow-sm"
                     : "border border-gray-200 bg-white text-gray-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
@@ -2201,12 +2499,152 @@ export default function Attendance() {
         )}
       </div>
 
+      <div className="rounded-2xl border border-slate-200 bg-white/95 shadow-sm">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+          onClick={() => setIsAddAthleteCollapsed((prev) => !prev)}
+          aria-expanded={!isAddAthleteCollapsed}
+        >
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+              +
+            </span>
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+                Quick Add Athlete
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Name Is Required. Everything Else Is Optional.
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+            {isAddAthleteCollapsed ? "Show" : "Hide"}
+          </span>
+        </button>
+
+        {!isAddAthleteCollapsed && (
+          <form
+            className="border-t border-slate-200 p-3 space-y-3"
+            onSubmit={handleAddAthlete}
+          >
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.2fr_.8fr_.8fr_1fr_auto]">
+              <label className="sr-only" htmlFor="attendance-first-name">First Name</label>
+              <input
+                id="attendance-first-name"
+                className="field h-10 bg-slate-50"
+                value={formDraft.firstName}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
+                }
+                placeholder="First Name"
+              />
+
+              <label className="sr-only" htmlFor="attendance-last-name">Last Name</label>
+              <input
+                id="attendance-last-name"
+                className="field h-10 bg-slate-50"
+                value={formDraft.lastName}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
+                }
+                placeholder="Last Name"
+              />
+
+              <label className="sr-only" htmlFor="attendance-jersey">Jersey Number</label>
+              <input
+                id="attendance-jersey"
+                className="field h-10 bg-slate-50"
+                value={formDraft.number}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, number: event.target.value }))
+                }
+                placeholder="Jersey #"
+              />
+
+              <label className="sr-only" htmlFor="attendance-grade">Grade</label>
+              <input
+                id="attendance-grade"
+                className="field h-10 bg-slate-50"
+                value={formDraft.grade}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
+                }
+                placeholder="Grade"
+              />
+
+              <label className="sr-only" htmlFor="attendance-level">Level</label>
+              <select
+                id="attendance-level"
+                className="field h-10 bg-slate-50"
+                value={formDraft.level}
+                onChange={(event) =>
+                  setFormDraft((prev) => ({
+                    ...prev,
+                    level: event.target.value as Team,
+                  }))
+                }
+              >
+                {visibleTeams.map((team) => (
+                  <option key={team} value={team}>
+                    {formatTeamLabel(team)}
+                  </option>
+                ))}
+              </select>
+
+              <button type="submit" className="btn btn-primary h-10 whitespace-nowrap">
+                Add Athlete
+              </button>
+            </div>
+
+            <details className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Optional Details
+              </summary>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <label className="sr-only" htmlFor="attendance-height">Height</label>
+                <input
+                  id="attendance-height"
+                  className="field h-10 bg-white"
+                  value={formDraft.height}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, height: event.target.value }))
+                  }
+                  placeholder={`Height (6'1")`}
+                />
+
+                <label className="sr-only" htmlFor="attendance-weight">Weight</label>
+                <input
+                  id="attendance-weight"
+                  className="field h-10 bg-white"
+                  value={formDraft.weight}
+                  onChange={(event) =>
+                    setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
+                  }
+                  placeholder="Weight (185)"
+                />
+              </div>
+            </details>
+          </form>
+        )}
+      </div>
+
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">
             {formatTeamLabel(selectedTeam)} Attendance Sheet
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {isMobileCoachBrowser && (
+              <button
+                type="button"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                onClick={() => setShowDesktopTableOnMobile((prev) => !prev)}
+              >
+                {showDesktopTableOnMobile ? "Mobile Athlete View" : "Desktop Table View"}
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-secondary"
@@ -2245,138 +2683,196 @@ export default function Attendance() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200 bg-white/95 shadow-sm">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
-            onClick={() => setIsAddAthleteCollapsed((prev) => !prev)}
-            aria-expanded={!isAddAthleteCollapsed}
-          >
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
-                +
-              </span>
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
-                  Quick Add Athlete
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Name Is Required. Everything Else Is Optional.
-                </p>
-              </div>
-            </div>
-            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
-              {isAddAthleteCollapsed ? "Show" : "Hide"}
-            </span>
-          </button>
-
-          {!isAddAthleteCollapsed && (
-            <form
-              className="border-t border-slate-200 p-3 space-y-3"
-              onSubmit={handleAddAthlete}
+        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              Session Date
+            </label>
+            <select
+              className="field min-w-44 bg-white text-sm"
+              value={reviewDate}
+              onChange={(event) => setReviewDate(event.target.value)}
+              disabled={reportSourceDates.length === 0}
             >
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.2fr_.8fr_.8fr_1fr_auto]">
-                <label className="sr-only" htmlFor="attendance-first-name">First Name</label>
-                <input
-                  id="attendance-first-name"
-                  className="field h-10 bg-slate-50"
-                  value={formDraft.firstName}
-                  onChange={(event) =>
-                    setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
-                  }
-                  placeholder="First Name"
-                />
+              {reportSourceDates.length === 0 ? (
+                <option value="">No Dates</option>
+              ) : (
+                reportSourceDates.map((date) => (
+                  <option key={`session-setup-date-${date}`} value={date}>
+                    {formatDateLabel(date)}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
 
-                <label className="sr-only" htmlFor="attendance-last-name">Last Name</label>
-                <input
-                  id="attendance-last-name"
-                  className="field h-10 bg-slate-50"
-                  value={formDraft.lastName}
-                  onChange={(event) =>
-                    setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
-                  }
-                  placeholder="Last Name"
-                />
-
-                <label className="sr-only" htmlFor="attendance-jersey">Jersey Number</label>
-                <input
-                  id="attendance-jersey"
-                  className="field h-10 bg-slate-50"
-                  value={formDraft.number}
-                  onChange={(event) =>
-                    setFormDraft((prev) => ({ ...prev, number: event.target.value }))
-                  }
-                  placeholder="Jersey #"
-                />
-
-                <label className="sr-only" htmlFor="attendance-grade">Grade</label>
-                <input
-                  id="attendance-grade"
-                  className="field h-10 bg-slate-50"
-                  value={formDraft.grade}
-                  onChange={(event) =>
-                    setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
-                  }
-                  placeholder="Grade"
-                />
-
-                <label className="sr-only" htmlFor="attendance-level">Level</label>
-                <select
-                  id="attendance-level"
-                  className="field h-10 bg-slate-50"
-                  value={formDraft.level}
-                  onChange={(event) =>
-                    setFormDraft((prev) => ({
-                      ...prev,
-                      level: event.target.value as Team,
-                    }))
-                  }
+          {reviewDate ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Sessions For {formatMonthDay(reviewDate)}
+                </h4>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-900"
+                  onClick={() => handleAddSessionToDate(selectedTeam, reviewDate)}
+                  disabled={selectedSaving}
                 >
-                  {visibleTeams.map((team) => (
-                    <option key={team} value={team}>
-                      {formatTeamLabel(team)}
-                    </option>
-                  ))}
-                </select>
-
-                <button type="submit" className="btn btn-primary h-10 whitespace-nowrap">
-                  Add Athlete
+                  Add Session
                 </button>
               </div>
-
-              <details className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
-                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Optional Details
-                </summary>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <label className="sr-only" htmlFor="attendance-height">Height</label>
-                  <input
-                    id="attendance-height"
-                    className="field h-10 bg-white"
-                    value={formDraft.height}
-                    onChange={(event) =>
-                      setFormDraft((prev) => ({ ...prev, height: event.target.value }))
-                    }
-                    placeholder={`Height (6'1")`}
-                  />
-
-                  <label className="sr-only" htmlFor="attendance-weight">Weight</label>
-                  <input
-                    id="attendance-weight"
-                    className="field h-10 bg-white"
-                    value={formDraft.weight}
-                    onChange={(event) =>
-                      setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
-                    }
-                    placeholder="Weight (185)"
-                  />
-                </div>
-              </details>
-            </form>
+              <div className="space-y-2">
+                {reviewDateSessions.map((session, index) => {
+                  const locked = reviewDateSessionLocks[session.key] === true;
+                  const lockToken = `${reviewDate}__${session.key}`;
+                  return (
+                    <div
+                      key={`${reviewDate}-${session.key}`}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
+                    >
+                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                        {index + 1}
+                      </span>
+                      <input
+                        className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                        value={session.label}
+                        onChange={(event) =>
+                          handleSessionLabelChange(
+                            selectedTeam,
+                            reviewDate,
+                            session.key,
+                            event.target.value
+                          )
+                        }
+                        placeholder={`Session ${index + 1}`}
+                      />
+                      <button
+                        type="button"
+                        className={[
+                          "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                          locked
+                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+                        ].join(" ")}
+                        onClick={() =>
+                          handleToggleSessionLock(
+                            selectedTeam,
+                            reviewDate,
+                            session.key,
+                            !locked
+                          )
+                        }
+                        disabled={selectedSaving || lockingSessionKey === lockToken}
+                      >
+                        {lockingSessionKey === lockToken
+                          ? "Saving..."
+                          : locked
+                          ? "Unlock"
+                          : "Lock"}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                        onClick={() =>
+                          handleRemoveSessionFromDate(selectedTeam, reviewDate, session.key)
+                        }
+                        disabled={reviewDateSessions.length <= 1 || selectedSaving}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Athletes Are Auto-Assigned To The First Unlocked Session. One Check-In Per Date.
+              </p>
+            </>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              Add An Attendance Date To Start Session Setup.
+            </div>
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        {useCompactMobileAthleteLayout ? (
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                Athlete Attendance
+              </h3>
+              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Date
+                <select
+                  className="field min-w-40 bg-white text-xs"
+                  value={mobileAthleteDate}
+                  onChange={(event) => setReviewDate(event.target.value)}
+                  disabled={reportSourceDates.length === 0}
+                >
+                  {reportSourceDates.length === 0 ? (
+                    <option value="">No Dates</option>
+                  ) : (
+                    reportSourceDates.map((date) => (
+                      <option key={`mobile-athlete-date-${date}`} value={date}>
+                        {formatDateLabel(date)}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </div>
+
+            {visibleAthletes.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
+                No Athletes Added Yet. Use The Form Above To Add Someone.
+              </div>
+            ) : !mobileAthleteDate ? (
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
+                Add Or Select An Attendance Date To Mark Athletes.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {visibleAthletes.map((athlete) => {
+                  const athleteName = [athlete.firstName, athlete.lastName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim();
+                  return (
+                    <div
+                      key={`mobile-athlete-${athlete.id}`}
+                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        checked={Boolean(selectedSheet.records[athlete.id]?.[mobileAthleteDate])}
+                        onChange={() => handleToggle(selectedTeam, athlete.id, mobileAthleteDate)}
+                        disabled={selectedSaving || mobileAthleteDateLocked}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-slate-800">
+                          {athleteName || "Unknown Athlete"}
+                        </div>
+                        <div className="truncate text-[11px] text-slate-500">
+                          Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50"
+                        onClick={() => handleRemoveAthlete(selectedTeam, athlete.id)}
+                        disabled={selectedSaving}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-max table-auto divide-y divide-gray-200 text-sm">
             <thead>
               <tr className="bg-gray-50">
@@ -2447,13 +2943,16 @@ export default function Attendance() {
                           Open
                         </span>
                       )}
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        {(selectedSheet.sessionsByDate?.[date]?.length ?? 0) || 1} Sessions
+                      </span>
                       <input
                         type="date"
                         value={date}
                         onChange={(event) =>
                           handleDateChange(selectedTeam, index, event.target.value)
                         }
-                        disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
+                        disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                         className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs"
                       />
                       <button
@@ -2483,7 +2982,7 @@ export default function Attendance() {
                         type="button"
                         className="text-xs text-rose-500 hover:text-rose-600"
                         onClick={() => handleRemoveDate(selectedTeam, date)}
-                        disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
+                        disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                       >
                         Remove
                       </button>
@@ -2555,6 +3054,7 @@ export default function Attendance() {
             </tbody>
           </table>
         </div>
+        )}
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2603,8 +3103,8 @@ export default function Attendance() {
                   {lockingDate === reviewDate
                     ? "Saving..."
                     : reviewDateLocked
-                    ? "Unlock Date"
-                    : "Lock Date"}
+                    ? "Unlock All"
+                    : "Lock All"}
                 </button>
               )}
             </div>
@@ -2615,12 +3115,20 @@ export default function Attendance() {
               <span className="inline-flex items-center rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-700">
                 Pending {pendingReviewCheckins.length}
               </span>
-              <span className="inline-flex items-center rounded-lg bg-emerald-100 px-2 py-1 font-medium text-emerald-700">
+              <button
+                type="button"
+                className="inline-flex items-center rounded-lg bg-emerald-100 px-2 py-1 font-medium text-emerald-700 transition hover:bg-emerald-200"
+                onClick={() => setReviewStatusModal("approved")}
+              >
                 Approved {approvedReviewCount}
-              </span>
-              <span className="inline-flex items-center rounded-lg bg-rose-100 px-2 py-1 font-medium text-rose-700">
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center rounded-lg bg-rose-100 px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-200"
+                onClick={() => setReviewStatusModal("rejected")}
+              >
                 Rejected {rejectedReviewCount}
-              </span>
+              </button>
               <span
                 className={[
                   "inline-flex items-center rounded-lg px-2 py-1 font-medium",
@@ -2656,28 +3164,33 @@ export default function Attendance() {
                       .join(" ")
                       .trim();
                     const submittedLabel = checkin.submittedAt
-                      ? new Date(checkin.submittedAt).toLocaleString()
-                      : "Recently Submitted";
+                      ? new Date(checkin.submittedAt).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "Just Now";
                     const disabledAction =
                       reviewingCheckinId === checkin.id || reviewDateLocked;
                     return (
                       <div
                         key={checkin.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
                       >
-                        <div className="space-y-1">
-                          <div className="text-sm font-semibold text-slate-800">
+                        <div className="min-w-0 flex items-center gap-2 text-xs text-slate-600">
+                          <span className="truncate text-sm font-semibold text-slate-800">
                             {athleteName || "Unknown Athlete"}
-                          </div>
-                          <div className="text-xs text-slate-600">
-                            UID <code className="rounded bg-slate-100 px-1 py-[1px]">{checkin.uid}</code>
-                          </div>
-                          <div className="text-[11px] text-slate-500">{submittedLabel}</div>
+                          </span>
+                          <span className="hidden text-slate-300 sm:inline">•</span>
+                          <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            {checkin.sessionLabel || "Session"}
+                          </span>
+                          <span className="hidden text-slate-300 sm:inline">•</span>
+                          <span className="shrink-0 text-[11px] text-slate-500">{submittedLabel}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           <button
                             type="button"
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "approved")}
                             disabled={disabledAction}
                           >
@@ -2685,7 +3198,7 @@ export default function Attendance() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "rejected")}
                             disabled={disabledAction}
                           >
@@ -2700,6 +3213,71 @@ export default function Attendance() {
             </>
           )}
         </div>
+
+        {reviewStatusModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+            onClick={() => setReviewStatusModal(null)}
+          >
+            <div
+              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div>
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                    {reviewStatusModal === "approved"
+                      ? "Approved Check-Ins"
+                      : "Rejected Check-Ins"}
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    {reviewDate ? formatDateLabel(reviewDate) : "Selected Date"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                  onClick={() => setReviewStatusModal(null)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="max-h-[62vh] overflow-y-auto p-3">
+                {reviewStatusModalRows.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                    No check-ins in this status.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {reviewStatusModalRows.map((row) => {
+                      const athleteName = [row.firstName, row.lastName]
+                        .filter(Boolean)
+                        .join(" ")
+                        .trim();
+                      const timestamp = row.reviewedAt ?? row.submittedAt;
+                      const timeLabel = timestamp
+                        ? new Date(timestamp).toLocaleString()
+                        : "No timestamp";
+                      return (
+                        <div
+                          key={`status-modal-${row.id}`}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                        >
+                          <div className="text-sm font-semibold text-slate-800">
+                            {athleteName || "Unknown Athlete"}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {(row.sessionLabel || "Session") + " - " + timeLabel}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Attendance Report Section */}
         <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 p-5 space-y-4">

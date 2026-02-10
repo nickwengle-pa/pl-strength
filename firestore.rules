@@ -176,6 +176,8 @@ service cloud.firestore {
             "team",
             "date",
             "dayKey",
+            "sessionKey",
+            "sessionLabel",
             "uid",
             "firstName",
             "lastName",
