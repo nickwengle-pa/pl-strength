@@ -86,46 +86,54 @@ syncLocalSessionsToFirebase().then((count) => {
 // Register SW only in production; purge in dev to prevent CSS/JS from being served stale.
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
+    // Set up BroadcastChannel listener early, before SW registration
+    const broadcast = new BroadcastChannel('sw-updates');
+    broadcast.addEventListener('message', (event) => {
+      if (event.data?.type === 'SW_UPDATED') {
+        console.log('Service worker updated via broadcast');
+        showUpdatePrompt();
+      }
+    });
+
     // Check for version changes first
     checkAndClearCacheOnVersionChange().then((reloaded) => {
       if (reloaded) return; // Page is reloading, don't register SW yet
-      
+
       window.addEventListener('load', async () => {
         try {
           const registration = await navigator.serviceWorker.register('/sw.js');
-          
+
+          // Check if there's already a waiting service worker
+          if (registration.waiting) {
+            console.log('Service worker already waiting');
+            showUpdatePrompt();
+          }
+
           // Check for updates periodically (every 60 seconds)
           setInterval(() => {
             registration.update();
           }, 60000);
-          
+
           // Listen for new service worker
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (!newWorker) return;
-            
+
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 // New content is available, show update prompt
+                console.log('New service worker installed');
                 showUpdatePrompt();
               }
             });
           });
-          
-          // Listen for broadcast messages from service worker
-          const broadcast = new BroadcastChannel('sw-updates');
-          broadcast.addEventListener('message', (event) => {
-            if (event.data?.type === 'SW_UPDATED') {
-              showUpdatePrompt();
-            }
-          });
-          
+
           // Also handle controllerchange - when new SW takes over
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             // Don't reload automatically, but could show a subtle notification
             console.log('New service worker activated');
           });
-          
+
         } catch (e) {
           console.warn('SW registration failed', e);
         }

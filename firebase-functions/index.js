@@ -7,15 +7,16 @@ const functions = require("firebase-functions");
 
 // Initialize the Admin SDK once per process.
 initializeApp();
+const AUTH_DELETE_QUEUE_COLLECTION = "authDeleteQueue";
 
 /**
  * Background worker that reacts to documents written into the
- * __deleteAuthUser__ collection. The roster UI writes the UID there whenever
+ * authDeleteQueue collection. The roster UI writes the UID there whenever
  * a coach should be fully removed. We delete the corresponding Firebase Auth
  * account and clean up the queue entry.
  */
 exports.handleDeleteAuthUserQueue = functions.firestore
-  .document("__deleteAuthUser__/{uid}")
+  .document(`${AUTH_DELETE_QUEUE_COLLECTION}/{uid}`)
   .onWrite(async (change, context) => {
     const snap = change.after;
     if (!snap.exists) {

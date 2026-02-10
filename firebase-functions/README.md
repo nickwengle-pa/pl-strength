@@ -2,7 +2,7 @@
 
 This directory contains a single Firebase Cloud Function that mirrors the roster deletion queue used in the web app.
 
-When an admin removes a coach from the roster UI we write a document to `__deleteAuthUser__/{uid}` in Firestore. Deploying this function ensures the corresponding Firebase Auth account is deleted automatically.
+When an admin removes a coach from the roster UI we write a document to `authDeleteQueue/{uid}` in Firestore. Deploying this function ensures the corresponding Firebase Auth account is deleted automatically.
 
 ## Deploy steps
 
@@ -25,7 +25,7 @@ When an admin removes a coach from the roster UI we write a document to `__delet
 
 ## Behaviour
 
-- Trigger: Firestore document writes at `__deleteAuthUser__/{uid}`.
+- Trigger: Firestore document writes at `authDeleteQueue/{uid}`.
 - Action: Calls the Admin SDK `deleteUser(uid)` API.
 - Success: The queue document is deleted after the Auth user is removed.
 - If the user is already missing in Firebase Auth (`auth/user-not-found`), the queue document is also deleted.

@@ -173,7 +173,7 @@ service cloud.firestore {
     }
 
     // Trigger user deletion via Cloud Function
-    match /__deleteAuthUser__/{uid} {
+    match /authDeleteQueue/{uid} {
       allow create, update, delete: if isAdmin();
     }
 

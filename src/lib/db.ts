@@ -32,6 +32,7 @@ import { getSecondaryAuth, tryInitFirebase, type FirebaseHandles } from "./fireb
 import { saveProfile as saveProfileLocal } from "./storage";
 
 const LOCAL_UID = "local";
+const AUTH_DELETE_QUEUE_COLLECTION = "authDeleteQueue";
 
 type FirebaseExports = {
   readonly app?: FirebaseHandles["app"];
@@ -2714,7 +2715,7 @@ export async function deleteAthlete(uid: string): Promise<DeleteAthleteResult> {
   }
 
   try {
-    const queueRef = doc(collection(database, "__deleteAuthUser__"), uid);
+    const queueRef = doc(collection(database, AUTH_DELETE_QUEUE_COLLECTION), uid);
     await setDoc(
       queueRef,
       {
