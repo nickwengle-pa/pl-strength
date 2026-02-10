@@ -495,18 +495,22 @@ export default function Attendance() {
 
           const id = createId();
           if (!athletesByLevel[level]) athletesByLevel[level] = [];
-          athletesByLevel[level].push({
+
+          // Build athlete object, only including optional fields that have values
+          const athlete: AthleteImport = {
             id,
             firstName,
             lastName,
             level,
-            number: number || undefined,
-            grade: grade || undefined,
-            height: height || undefined,
-            weight: weight || undefined,
-            position: position || undefined,
-            letter: letter || undefined,
-          });
+          };
+          if (number) athlete.number = number;
+          if (grade) athlete.grade = grade;
+          if (height) athlete.height = height;
+          if (weight) athlete.weight = weight;
+          if (position) athlete.position = position;
+          if (letter) athlete.letter = letter;
+
+          athletesByLevel[level].push(athlete);
         }
         
         const totalCount = Object.values(athletesByLevel).reduce((sum, arr) => sum + arr.length, 0);
