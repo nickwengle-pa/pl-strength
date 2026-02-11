@@ -963,17 +963,11 @@ export default function Session() {
             <div className="w-full max-w-sm rounded-3xl bg-gray-950 p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 border border-gray-800">
               <div className="text-center space-y-1">
                 {Object.values(allPrFlags).some(Boolean) ? (
-                  <>
-                    <div className="text-5xl pr-trophy-bounce">🏆</div>
-                    <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-300 pr-shimmer">
-                      NEW PR!
-                    </h3>
-                  </>
+                  <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-300 pr-shimmer">
+                    New Personal Record
+                  </h3>
                 ) : (
-                  <>
-                    <div className="text-4xl">💪</div>
-                    <h3 className="text-xl font-bold text-white">Session Complete!</h3>
-                  </>
+                  <h3 className="text-xl font-bold text-white">Session Complete</h3>
                 )}
                 <p className="text-sm text-gray-400">Estimated Max Overview</p>
               </div>
@@ -1006,13 +1000,15 @@ export default function Session() {
                           </div>
                         </div>
                         {isPr && (
-                          <div className="pr-trophy-bounce text-3xl">🏆</div>
+                          <span className="inline-flex items-center rounded-full border border-yellow-400/40 bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-yellow-200">
+                            PR
+                          </span>
                         )}
                       </div>
                       {isPr && (
                         <div className="mt-1">
                           <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/20 border border-yellow-400/40 px-2.5 py-0.5 text-xs font-bold text-yellow-300 uppercase tracking-wide">
-                            ★ New Personal Record ★
+                            New Personal Record
                           </span>
                         </div>
                       )}
@@ -1089,17 +1085,11 @@ export default function Session() {
             {/* Header */}
             <div className="text-center space-y-1">
               {Object.values(allPrFlags).some(Boolean) ? (
-                <>
-                  <div className="text-5xl pr-trophy-bounce">🏆</div>
-                  <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-300 pr-shimmer">
-                    NEW PR!
-                  </h3>
-                </>
+                <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-300 pr-shimmer">
+                  New Personal Record
+                </h3>
               ) : (
-                <>
-                  <div className="text-4xl">💪</div>
-                  <h3 className="text-xl font-bold text-white">Session Complete!</h3>
-                </>
+                <h3 className="text-xl font-bold text-white">Session Complete</h3>
               )}
               <p className="text-sm text-gray-400">Estimated Max Overview</p>
             </div>
@@ -1134,15 +1124,15 @@ export default function Session() {
                         </div>
                       </div>
                       {isPr && (
-                        <div className="pr-trophy-bounce text-3xl">
-                          🏆
-                        </div>
+                        <span className="inline-flex items-center rounded-full border border-yellow-400/40 bg-yellow-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-yellow-200">
+                          PR
+                        </span>
                       )}
                     </div>
                     {isPr && (
                       <div className="mt-1">
                         <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/20 border border-yellow-400/40 px-2.5 py-0.5 text-xs font-bold text-yellow-300 uppercase tracking-wide">
-                          ★ New Personal Record ★
+                          New Personal Record
                         </span>
                       </div>
                     )}
