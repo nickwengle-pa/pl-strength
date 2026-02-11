@@ -1879,6 +1879,10 @@ export type AttendanceSession = {
 
 export type AttendanceSessionsByDate = Record<string, AttendanceSession[]>;
 export type AttendanceSessionLocksByDate = Record<string, Record<string, boolean>>;
+export type AttendanceSessionSelectionsByAthleteDate = Record<
+  string,
+  Record<string, string>
+>;
 
 export const ATTENDANCE_DEFAULT_SESSION_LABELS = [
   "After School",
@@ -1897,6 +1901,7 @@ export type AttendanceSheet = {
   dates: string[];
   athletes: AttendanceAthlete[];
   records: Record<string, Record<string, boolean>>;
+  sessionSelections: AttendanceSessionSelectionsByAthleteDate;
   sessionsByDate: AttendanceSessionsByDate;
   sessionLocks: AttendanceSessionLocksByDate;
   lockedDates: Record<string, boolean>;
@@ -1944,6 +1949,7 @@ const defaultAttendanceSheet = (team: Team): AttendanceSheet => ({
   dates: [],
   athletes: [],
   records: {},
+  sessionSelections: {},
   sessionsByDate: {},
   sessionLocks: {},
   lockedDates: {},
@@ -2268,6 +2274,135 @@ const sanitizeAttendanceDetail = (
   return normalized.length > 0 ? normalized : undefined;
 };
 
+const ATTENDANCE_FIRST_NAME_ALIAS_GROUPS = [
+  ["matthew", "matt", "mat"],
+  ["michael", "mike", "mikey"],
+  ["christopher", "chris"],
+  ["nicholas", "nick"],
+  ["jonathan", "jon", "johnny"],
+  ["anthony", "tony"],
+  ["benjamin", "ben"],
+  ["andrew", "andy", "drew"],
+  ["daniel", "dan", "danny"],
+  ["joseph", "joe", "joey"],
+] as const;
+
+const ATTENDANCE_FIRST_NAME_ALIAS_LOOKUP: Record<string, string> =
+  ATTENDANCE_FIRST_NAME_ALIAS_GROUPS.reduce<Record<string, string>>((acc, group) => {
+    const canonical = group[0];
+    group.forEach((value) => {
+      acc[value] = canonical;
+    });
+    return acc;
+  }, {});
+
+const normalizeAttendanceNameToken = (value: unknown): string => {
+  const normalized = sanitizeName(value).toLowerCase().replace(/[^a-z]/g, "");
+  return normalized;
+};
+
+const normalizeAttendanceFirstNameAliasKey = (value: unknown): string => {
+  const token = normalizeAttendanceNameToken(value);
+  if (!token) return "";
+  return ATTENDANCE_FIRST_NAME_ALIAS_LOOKUP[token] ?? token;
+};
+
+const areAttendanceNamesEquivalent = (
+  firstA: unknown,
+  lastA: unknown,
+  firstB: unknown,
+  lastB: unknown
+): boolean => {
+  const normalizedLastA = normalizeAttendanceNameToken(lastA);
+  const normalizedLastB = normalizeAttendanceNameToken(lastB);
+  if (!normalizedLastA || !normalizedLastB || normalizedLastA !== normalizedLastB) {
+    return false;
+  }
+  const normalizedFirstA = normalizeAttendanceFirstNameAliasKey(firstA);
+  const normalizedFirstB = normalizeAttendanceFirstNameAliasKey(firstB);
+  return Boolean(normalizedFirstA && normalizedFirstA === normalizedFirstB);
+};
+
+const isGeneratedAttendanceAthleteId = (id: string): boolean => id.startsWith("uid-");
+
+const attendanceAthleteMergeScore = (athlete: AttendanceAthlete): number => {
+  let score = 0;
+  if (!isGeneratedAttendanceAthleteId(athlete.id)) score += 25;
+  if (athlete.uid) score += 10;
+  if (athlete.number) score += 2;
+  if (athlete.grade) score += 2;
+  if (athlete.height) score += 1;
+  if (athlete.weight) score += 1;
+  if (athlete.position) score += 1;
+  if (athlete.letter) score += 1;
+  if (athlete.firstName) score += 1;
+  if (athlete.lastName) score += 1;
+  return score;
+};
+
+const shouldMergeAttendanceAthletes = (
+  primary: AttendanceAthlete,
+  candidate: AttendanceAthlete
+): boolean => {
+  if (primary.id === candidate.id) return true;
+  if (primary.level !== candidate.level) return false;
+  if (primary.uid && candidate.uid) {
+    return primary.uid === candidate.uid;
+  }
+  if (!primary.uid && !candidate.uid) return false;
+  if (
+    primary.number &&
+    candidate.number &&
+    primary.number.trim() &&
+    candidate.number.trim() &&
+    primary.number.trim() !== candidate.number.trim()
+  ) {
+    return false;
+  }
+  if (
+    primary.grade &&
+    candidate.grade &&
+    primary.grade.trim() &&
+    candidate.grade.trim() &&
+    primary.grade.trim() !== candidate.grade.trim()
+  ) {
+    return false;
+  }
+  return areAttendanceNamesEquivalent(
+    primary.firstName,
+    primary.lastName,
+    candidate.firstName,
+    candidate.lastName
+  );
+};
+
+const choosePreferredName = (primary: string, candidate: string): string => {
+  const a = sanitizeName(primary);
+  const b = sanitizeName(candidate);
+  if (!a) return b;
+  if (!b) return a;
+  if (normalizeAttendanceFirstNameAliasKey(a) === normalizeAttendanceFirstNameAliasKey(b)) {
+    return b.length > a.length ? b : a;
+  }
+  return a;
+};
+
+const mergeAttendanceAthleteProfile = (
+  primary: AttendanceAthlete,
+  candidate: AttendanceAthlete
+): AttendanceAthlete => ({
+  ...primary,
+  uid: primary.uid ?? candidate.uid,
+  firstName: choosePreferredName(primary.firstName, candidate.firstName),
+  lastName: sanitizeName(primary.lastName || candidate.lastName),
+  number: primary.number ?? candidate.number,
+  grade: primary.grade ?? candidate.grade,
+  height: primary.height ?? candidate.height,
+  weight: primary.weight ?? candidate.weight,
+  position: primary.position ?? candidate.position,
+  letter: primary.letter ?? candidate.letter,
+});
+
 const normalizeAttendanceRecords = (
   athletes: AttendanceAthlete[],
   dates: string[],
@@ -2301,6 +2436,134 @@ const normalizeAttendanceRecords = (
     records[athlete.id] = row;
   });
   return records;
+};
+
+const normalizeAttendanceSessionSelections = (
+  athletes: AttendanceAthlete[],
+  dates: string[],
+  sessionsByDate: AttendanceSessionsByDate,
+  records: Record<string, Record<string, boolean>>,
+  raw: unknown
+): AttendanceSessionSelectionsByAthleteDate => {
+  const source =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const selections: AttendanceSessionSelectionsByAthleteDate = {};
+
+  athletes.forEach((athlete) => {
+    const athleteSource = source[athlete.id];
+    const sourceRow =
+      athleteSource &&
+      typeof athleteSource === "object" &&
+      !Array.isArray(athleteSource)
+        ? (athleteSource as Record<string, unknown>)
+        : {};
+    const row: Record<string, string> = {};
+
+    dates.forEach((date) => {
+      if (records[athlete.id]?.[date] !== true) return;
+      const sessionsForDate = sessionsByDate[date] ?? [];
+      if (sessionsForDate.length === 0) return;
+
+      const explicitSessionKey = sanitizeAttendanceSessionKey(sourceRow[date]);
+      if (
+        explicitSessionKey &&
+        sessionsForDate.some((session) => session.key === explicitSessionKey)
+      ) {
+        row[date] = explicitSessionKey;
+        return;
+      }
+
+      row[date] = sessionsForDate[0].key;
+    });
+
+    selections[athlete.id] = row;
+  });
+
+  return selections;
+};
+
+const dedupeAttendanceAthletesAndRecords = (
+  athletes: AttendanceAthlete[],
+  dates: string[],
+  records: Record<string, Record<string, boolean>>,
+  rawSessionSelections: AttendanceSessionSelectionsByAthleteDate,
+  sessionsByDate: AttendanceSessionsByDate
+): {
+  athletes: AttendanceAthlete[];
+  records: Record<string, Record<string, boolean>>;
+  sessionSelections: AttendanceSessionSelectionsByAthleteDate;
+} => {
+  if (athletes.length <= 1) {
+    const normalizedRecords = normalizeAttendanceRecords(athletes, dates, records);
+    const normalizedSelections = normalizeAttendanceSessionSelections(
+      athletes,
+      dates,
+      sessionsByDate,
+      normalizedRecords,
+      rawSessionSelections
+    );
+    return {
+      athletes,
+      records: normalizedRecords,
+      sessionSelections: normalizedSelections,
+    };
+  }
+
+  const sorted = [...athletes].sort(
+    (a, b) => attendanceAthleteMergeScore(b) - attendanceAthleteMergeScore(a)
+  );
+  const nextAthletes: AttendanceAthlete[] = [];
+  const nextRecords: Record<string, Record<string, boolean>> = {};
+  const nextRawSelections: AttendanceSessionSelectionsByAthleteDate = {};
+
+  sorted.forEach((athlete) => {
+    const existingIndex = nextAthletes.findIndex((row) =>
+      shouldMergeAttendanceAthletes(row, athlete)
+    );
+    const athleteRecord = records[athlete.id] ?? {};
+    const athleteSelections = rawSessionSelections[athlete.id] ?? {};
+
+    if (existingIndex < 0) {
+      nextAthletes.push(athlete);
+      nextRecords[athlete.id] = { ...athleteRecord };
+      nextRawSelections[athlete.id] = { ...athleteSelections };
+      return;
+    }
+
+    const primary = nextAthletes[existingIndex];
+    const merged = mergeAttendanceAthleteProfile(primary, athlete);
+    nextAthletes[existingIndex] = merged;
+    const primaryId = primary.id;
+    const mergedRecord = { ...(nextRecords[primaryId] ?? {}) };
+    dates.forEach((date) => {
+      mergedRecord[date] = Boolean(mergedRecord[date] || athleteRecord[date]);
+    });
+    nextRecords[primaryId] = mergedRecord;
+    const mergedSelections = { ...(nextRawSelections[primaryId] ?? {}) };
+    Object.entries(athleteSelections).forEach(([date, sessionKey]) => {
+      if (!mergedSelections[date] && sessionKey) {
+        mergedSelections[date] = sessionKey;
+      }
+    });
+    nextRawSelections[primaryId] = mergedSelections;
+  });
+
+  const normalizedRecords = normalizeAttendanceRecords(nextAthletes, dates, nextRecords);
+  const normalizedSelections = normalizeAttendanceSessionSelections(
+    nextAthletes,
+    dates,
+    sessionsByDate,
+    normalizedRecords,
+    nextRawSelections
+  );
+
+  return {
+    athletes: nextAthletes,
+    records: normalizedRecords,
+    sessionSelections: normalizedSelections,
+  };
 };
 
 const normalizeAttendanceSheet = (
@@ -2375,12 +2638,28 @@ const normalizeAttendanceSheet = (
     input?.sessionLocks,
     input?.lockedDates
   );
+  const records = normalizeAttendanceRecords(athletes, dates, input?.records ?? {});
+  const sessionSelections = normalizeAttendanceSessionSelections(
+    athletes,
+    dates,
+    sessionState.sessionsByDate,
+    records,
+    input?.sessionSelections
+  );
+  const deduped = dedupeAttendanceAthletesAndRecords(
+    athletes,
+    dates,
+    records,
+    sessionSelections,
+    sessionState.sessionsByDate
+  );
 
   return {
     team,
     dates,
-    athletes,
-    records: normalizeAttendanceRecords(athletes, dates, input?.records ?? {}),
+    athletes: deduped.athletes,
+    records: deduped.records,
+    sessionSelections: deduped.sessionSelections,
     sessionsByDate: sessionState.sessionsByDate,
     sessionLocks: sessionState.sessionLocks,
     lockedDates: sessionState.lockedDates,
@@ -2465,11 +2744,19 @@ export async function saveAttendanceSheet(
   const cleanSessionsByDate = sessionState.sessionsByDate;
   const cleanSessionLocks = sessionState.sessionLocks;
   const cleanLockedDates = sessionState.lockedDates;
+  const cleanSessionSelections = normalizeAttendanceSessionSelections(
+    cleanAthletes,
+    cleanDates,
+    cleanSessionsByDate,
+    cleanRecords,
+    sheet.sessionSelections
+  );
 
   const payload = {
     dates: cleanDates,
     athletes: cleanAthletes,
     records: cleanRecords,
+    sessionSelections: cleanSessionSelections,
     sessionsByDate: cleanSessionsByDate,
     sessionLocks: cleanSessionLocks,
     lockedDates: cleanLockedDates,
@@ -2498,6 +2785,7 @@ export async function saveAttendanceSheet(
     dates: cleanDates,
     athletes: cleanAthletes,
     records: cleanRecords,
+    sessionSelections: cleanSessionSelections,
     sessionsByDate: cleanSessionsByDate,
     sessionLocks: cleanSessionLocks,
     lockedDates: cleanLockedDates,
@@ -2530,12 +2818,24 @@ const findAttendanceAthleteForCheckin = (
   const first = sanitizeName(checkin.firstName ?? "").toLowerCase();
   const last = sanitizeName(checkin.lastName ?? "").toLowerCase();
   if (!first && !last) return null;
+  const exactByName = sheet.athletes.find(
+    (athlete) =>
+      athlete.level === team &&
+      sanitizeName(athlete.firstName).toLowerCase() === first &&
+      sanitizeName(athlete.lastName).toLowerCase() === last
+  );
+  if (exactByName) return exactByName;
+
   return (
     sheet.athletes.find(
       (athlete) =>
         athlete.level === team &&
-        sanitizeName(athlete.firstName).toLowerCase() === first &&
-        sanitizeName(athlete.lastName).toLowerCase() === last
+        areAttendanceNamesEquivalent(
+          athlete.firstName,
+          athlete.lastName,
+          checkin.firstName ?? "",
+          checkin.lastName ?? ""
+        )
     ) ?? null
   );
 };
@@ -2894,19 +3194,17 @@ export async function reviewAttendanceCheckin(options: {
     const nextSessionLocks = nextSessionState.sessionLocks;
     const nextLockedDates = nextSessionState.lockedDates;
 
-    let nextCheckinSessionKey = checkin.sessionKey;
-    let nextCheckinSessionLabel = checkin.sessionLabel;
     const checkinSessionsForDate = nextSessionsByDate[date] ?? [];
-    if (!nextCheckinSessionKey && checkinSessionsForDate.length > 0) {
-      nextCheckinSessionKey = checkinSessionsForDate[0].key;
-    }
-    if (!nextCheckinSessionLabel && nextCheckinSessionKey) {
-      nextCheckinSessionLabel = checkinSessionsForDate.find(
-        (session) => session.key === nextCheckinSessionKey
-      )?.label;
-    }
-    if (!nextCheckinSessionLabel && checkinSessionsForDate.length > 0) {
-      nextCheckinSessionLabel = checkinSessionsForDate[0].label;
+    let nextCheckinSessionKey =
+      checkin.sessionKey &&
+      checkinSessionsForDate.some((session) => session.key === checkin.sessionKey)
+        ? checkin.sessionKey
+        : checkinSessionsForDate[0]?.key;
+    let nextCheckinSessionLabel = nextCheckinSessionKey
+      ? checkinSessionsForDate.find((session) => session.key === nextCheckinSessionKey)?.label
+      : undefined;
+    if (!nextCheckinSessionLabel && checkin.sessionLabel) {
+      nextCheckinSessionLabel = checkin.sessionLabel;
     }
 
     const nextAthletes = [...baseSheet.athletes];
@@ -2952,12 +3250,34 @@ export async function reviewAttendanceCheckin(options: {
       nextRecords[matchedAthlete.id] = row;
     }
 
+    const nextSessionSelections = normalizeAttendanceSessionSelections(
+      nextAthletes,
+      nextDates,
+      nextSessionsByDate,
+      nextRecords,
+      baseSheet.sessionSelections
+    );
+    if (matchedAthlete) {
+      const selectionRow = { ...(nextSessionSelections[matchedAthlete.id] ?? {}) };
+      if (status === "approved" && nextCheckinSessionKey) {
+        selectionRow[date] = nextCheckinSessionKey;
+      } else {
+        delete selectionRow[date];
+      }
+      if (Object.keys(selectionRow).length > 0) {
+        nextSessionSelections[matchedAthlete.id] = selectionRow;
+      } else {
+        delete nextSessionSelections[matchedAthlete.id];
+      }
+    }
+
     tx.set(
       attendanceRef,
       {
         dates: nextDates,
         athletes: nextAthletes,
         records: nextRecords,
+        sessionSelections: nextSessionSelections,
         sessionsByDate: nextSessionsByDate,
         sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
@@ -3066,8 +3386,13 @@ export async function setAttendanceDateLocked(
       sessionLocks,
       { ...sessionState.lockedDates, [targetDate]: locked }
     );
+    const sessionsForTargetDate = sessionsByDate[targetDate] ?? [];
     const nextAthletes = [...baseSheet.athletes];
     let nextRecords = ensureAttendanceRowsForDates(baseSheet.records, nextAthletes, dates);
+    const autoApprovedSessionAssignments: Array<{
+      athleteId: string;
+      sessionKey?: string;
+    }> = [];
 
     if (locked && pendingToApprove.length > 0) {
       pendingToApprove.forEach((checkin) => {
@@ -3115,6 +3440,15 @@ export async function setAttendanceDateLocked(
           });
           row[targetDate] = true;
           nextRecords[matchedAthlete.id] = row;
+          const resolvedSessionKey =
+            checkin.sessionKey &&
+            sessionsForTargetDate.some((session) => session.key === checkin.sessionKey)
+              ? checkin.sessionKey
+              : sessionsForTargetDate[0]?.key;
+          autoApprovedSessionAssignments.push({
+            athleteId: matchedAthlete.id,
+            sessionKey: resolvedSessionKey,
+          });
         }
 
         const checkinRef = attendanceCheckinDocRef(database, team, targetDate, checkin.uid);
@@ -3132,12 +3466,34 @@ export async function setAttendanceDateLocked(
       });
     }
 
+    const nextSessionSelections = normalizeAttendanceSessionSelections(
+      nextAthletes,
+      dates,
+      sessionsByDate,
+      nextRecords,
+      baseSheet.sessionSelections
+    );
+    autoApprovedSessionAssignments.forEach(({ athleteId, sessionKey }) => {
+      const row = { ...(nextSessionSelections[athleteId] ?? {}) };
+      if (sessionKey) {
+        row[targetDate] = sessionKey;
+      } else {
+        delete row[targetDate];
+      }
+      if (Object.keys(row).length > 0) {
+        nextSessionSelections[athleteId] = row;
+      } else {
+        delete nextSessionSelections[athleteId];
+      }
+    });
+
     tx.set(
       attendanceRef,
       {
         dates,
         athletes: nextAthletes,
         records: nextRecords,
+        sessionSelections: nextSessionSelections,
         sessionsByDate,
         sessionLocks,
         lockedDates,

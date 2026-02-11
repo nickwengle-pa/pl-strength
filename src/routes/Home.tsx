@@ -368,7 +368,7 @@ export default function Home() {
       return;
     }
     if (checkinState.locked) {
-      setCheckinError("All Sessions Are Locked For Today.");
+      setCheckinError("No Sessions Available Right Now.");
       return;
     }
     if (checkinState.checkin) {
@@ -406,7 +406,7 @@ export default function Home() {
       if (code === "attendance/checkin-closed") {
         setCheckinError("Check-In Is Closed For Today.");
       } else if (code === "attendance/date-locked") {
-        setCheckinError("All Sessions Are Locked For This Date.");
+        setCheckinError("No Sessions Available Right Now.");
       } else {
         setCheckinError(err?.message ?? "Could Not Submit Attendance Check-In.");
       }
@@ -649,7 +649,7 @@ export default function Home() {
                   </div>
                 ) : checkinState?.scheduled && checkinState.locked ? (
                   <p className="mt-3 text-sm font-semibold text-amber-300">
-                    All Sessions Are Locked For Today. Check-In Is Closed.
+                    No Sessions Available Right Now.
                   </p>
                 ) : null}
               </div>

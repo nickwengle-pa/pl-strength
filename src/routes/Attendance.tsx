@@ -32,6 +32,7 @@ const createEmptySheet = (team: Team): AttendanceSheet => ({
   dates: [],
   athletes: [],
   records: {},
+  sessionSelections: {},
   sessionsByDate: {},
   sessionLocks: {},
   lockedDates: {},
@@ -50,6 +51,12 @@ const normalizeRuntimeSheet = (
   const records =
     sheet.records && typeof sheet.records === "object" && !Array.isArray(sheet.records)
       ? sheet.records
+      : {};
+  const sessionSelectionsSource =
+    sheet.sessionSelections &&
+    typeof sheet.sessionSelections === "object" &&
+    !Array.isArray(sheet.sessionSelections)
+      ? sheet.sessionSelections
       : {};
   const sessionsSource =
     sheet.sessionsByDate &&
@@ -71,6 +78,7 @@ const normalizeRuntimeSheet = (
       : {};
   const sessionsByDate: AttendanceSheet["sessionsByDate"] = {};
   const sessionLocks: AttendanceSheet["sessionLocks"] = {};
+  const sessionSelections: AttendanceSheet["sessionSelections"] = {};
   const lockedDates: Record<string, boolean> = {};
   dates.forEach((date) => {
     const sessionsRaw = Array.isArray(sessionsSource[date]) ? sessionsSource[date] : [];
@@ -111,6 +119,30 @@ const normalizeRuntimeSheet = (
     sessionLocks[date] = lockRow;
     lockedDates[date] = lockAll || sessions.every((session) => lockRow[session.key] === true);
   });
+  athletes.forEach((athlete) => {
+    const sourceRow =
+      sessionSelectionsSource[athlete.id] &&
+      typeof sessionSelectionsSource[athlete.id] === "object" &&
+      !Array.isArray(sessionSelectionsSource[athlete.id])
+        ? (sessionSelectionsSource[athlete.id] as Record<string, unknown>)
+        : {};
+    const row: Record<string, string> = {};
+    dates.forEach((date) => {
+      if (records[athlete.id]?.[date] !== true) return;
+      const sessionsForDate = sessionsByDate[date] ?? [];
+      if (sessionsForDate.length === 0) return;
+      const rawKey =
+        typeof sourceRow[date] === "string" && sourceRow[date]
+          ? sourceRow[date].trim().replace(/[^a-zA-Z0-9_-]/g, "-")
+          : "";
+      if (rawKey && sessionsForDate.some((session) => session.key === rawKey)) {
+        row[date] = rawKey;
+        return;
+      }
+      row[date] = sessionsForDate[0].key;
+    });
+    sessionSelections[athlete.id] = row;
+  });
   return {
     ...createEmptySheet(team),
     ...sheet,
@@ -118,6 +150,7 @@ const normalizeRuntimeSheet = (
     dates,
     athletes,
     records,
+    sessionSelections,
     sessionsByDate,
     sessionLocks,
     lockedDates,
@@ -175,11 +208,17 @@ type AttendanceReportRow = {
   pct: number;
   lastSixPct: number;
   missedStreak: number;
+  sessionMix: string;
+  sessionCountsByLabel: Record<string, number>;
   tier: AttendanceTier;
   weekly: Record<string, WeeklySummary>;
 };
 
 type ReviewStatusModalType = "approved" | "rejected" | null;
+type AddDateSessionDraft = {
+  id: string;
+  label: string;
+};
 
 const HIGH_ATTENDANCE_THRESHOLD = 85;
 const LOW_ATTENDANCE_THRESHOLD = 70;
@@ -334,6 +373,53 @@ const formatDateLabel = (value: string): string => {
   });
 };
 
+const ATTENDANCE_FIRST_NAME_ALIAS_GROUPS = [
+  ["matthew", "matt", "mat"],
+  ["michael", "mike", "mikey"],
+  ["christopher", "chris"],
+  ["nicholas", "nick"],
+  ["jonathan", "jon", "johnny"],
+  ["anthony", "tony"],
+  ["benjamin", "ben"],
+  ["andrew", "andy", "drew"],
+  ["daniel", "dan", "danny"],
+  ["joseph", "joe", "joey"],
+] as const;
+
+const ATTENDANCE_FIRST_NAME_ALIAS_LOOKUP: Record<string, string> =
+  ATTENDANCE_FIRST_NAME_ALIAS_GROUPS.reduce<Record<string, string>>((acc, group) => {
+    const canonical = group[0];
+    group.forEach((value) => {
+      acc[value] = canonical;
+    });
+    return acc;
+  }, {});
+
+const normalizeAttendanceNameToken = (value: string): string =>
+  value.trim().toLowerCase().replace(/[^a-z]/g, "");
+
+const normalizeAttendanceFirstNameAliasKey = (value: string): string => {
+  const token = normalizeAttendanceNameToken(value);
+  if (!token) return "";
+  return ATTENDANCE_FIRST_NAME_ALIAS_LOOKUP[token] ?? token;
+};
+
+const areAttendanceNamesEquivalent = (
+  firstA: string,
+  lastA: string,
+  firstB: string,
+  lastB: string
+): boolean => {
+  const normalizedLastA = normalizeAttendanceNameToken(lastA);
+  const normalizedLastB = normalizeAttendanceNameToken(lastB);
+  if (!normalizedLastA || !normalizedLastB || normalizedLastA !== normalizedLastB) {
+    return false;
+  }
+  const normalizedFirstA = normalizeAttendanceFirstNameAliasKey(firstA);
+  const normalizedFirstB = normalizeAttendanceFirstNameAliasKey(firstB);
+  return Boolean(normalizedFirstA && normalizedFirstA === normalizedFirstB);
+};
+
 const findSheetAthleteIdForCheckin = (
   sheet: AttendanceSheet,
   team: Team,
@@ -359,7 +445,18 @@ const findSheetAthleteIdForCheckin = (
       athlete.firstName.trim().toLowerCase() === first &&
       athlete.lastName.trim().toLowerCase() === last
   );
-  return byName?.id ?? null;
+  if (byName) return byName.id;
+  const byAlias = sheet.athletes.find(
+    (athlete) =>
+      athlete.level === team &&
+      areAttendanceNamesEquivalent(
+        athlete.firstName,
+        athlete.lastName,
+        checkin.firstName ?? "",
+        checkin.lastName ?? ""
+      )
+  );
+  return byAlias?.id ?? null;
 };
 
 const applyPendingCheckinsToSheet = (
@@ -371,6 +468,7 @@ const applyPendingCheckinsToSheet = (
   if (pendingRows.length === 0) return sheet;
 
   const nextRecords = { ...sheet.records };
+  const nextSessionSelections = { ...sheet.sessionSelections };
   let changed = false;
   pendingRows.forEach((checkin) => {
     const athleteId = findSheetAthleteIdForCheckin(sheet, team, checkin);
@@ -381,13 +479,87 @@ const applyPendingCheckinsToSheet = (
       nextRecords[athleteId] = row;
       changed = true;
     }
+    const sessionsForDate = sheet.sessionsByDate?.[checkin.date] ?? [];
+    if (sessionsForDate.length === 0) return;
+    const selectedSessionKey =
+      checkin.sessionKey && sessionsForDate.some((session) => session.key === checkin.sessionKey)
+        ? checkin.sessionKey
+        : sessionsForDate[0].key;
+    const selectionRow = { ...(nextSessionSelections[athleteId] ?? {}) };
+    if (selectionRow[checkin.date] !== selectedSessionKey) {
+      selectionRow[checkin.date] = selectedSessionKey;
+      nextSessionSelections[athleteId] = selectionRow;
+      changed = true;
+    }
   });
 
   if (!changed) return sheet;
   return {
     ...sheet,
     records: nextRecords,
+    sessionSelections: nextSessionSelections,
   };
+};
+
+const SESSION_COLOR_STYLES = [
+  {
+    badge: "border-rose-200 bg-rose-100 text-rose-700",
+    active: "border-rose-600 bg-rose-500 text-white",
+    idle: "border-rose-300 bg-white text-rose-700 hover:bg-rose-50",
+  },
+  {
+    badge: "border-blue-200 bg-blue-100 text-blue-700",
+    active: "border-blue-600 bg-blue-500 text-white",
+    idle: "border-blue-300 bg-white text-blue-700 hover:bg-blue-50",
+  },
+  {
+    badge: "border-emerald-200 bg-emerald-100 text-emerald-700",
+    active: "border-emerald-600 bg-emerald-500 text-white",
+    idle: "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50",
+  },
+  {
+    badge: "border-amber-200 bg-amber-100 text-amber-700",
+    active: "border-amber-600 bg-amber-500 text-white",
+    idle: "border-amber-300 bg-white text-amber-700 hover:bg-amber-50",
+  },
+] as const;
+
+const getSessionColorStyle = (index: number) =>
+  SESSION_COLOR_STYLES[index % SESSION_COLOR_STYLES.length];
+
+const resolveAthleteSessionKeyForDate = (
+  sheet: AttendanceSheet,
+  athleteId: string,
+  date: string
+): string | null => {
+  const sessionsForDate = sheet.sessionsByDate?.[date] ?? [];
+  if (sessionsForDate.length === 0) return null;
+  const explicit = sheet.sessionSelections?.[athleteId]?.[date];
+  if (explicit && sessionsForDate.some((session) => session.key === explicit)) {
+    return explicit;
+  }
+  return sheet.records[athleteId]?.[date] ? sessionsForDate[0].key : null;
+};
+
+const resolveSessionLabelForDateKey = (
+  sheet: AttendanceSheet,
+  date: string,
+  sessionKey?: string | null
+): string => {
+  if (!sessionKey) return "Session";
+  return (
+    sheet.sessionsByDate?.[date]?.find((session) => session.key === sessionKey)?.label ??
+    "Session"
+  );
+};
+
+const buildSessionMixLabel = (countsByLabel: Record<string, number>): string => {
+  const entries = Object.entries(countsByLabel).filter(([, count]) => count > 0);
+  if (entries.length === 0) return "None";
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => `${label}: ${count}`)
+    .join(" | ");
 };
 
 const getWeekStartKey = (value: string): string => {
@@ -512,21 +684,15 @@ const loadImageMaybe = async (src: string): Promise<HTMLImageElement | null> => 
   }
 };
 
-const nextAvailableDate = (existing: string[]): string => {
-  const today = new Date();
-  for (let offset = 0; offset < 14; offset += 1) {
-    const probe = new Date(today);
-    probe.setDate(today.getDate() + offset);
-    const candidate = formatDateInput(probe);
-    if (!existing.includes(candidate)) {
-      return candidate;
-    }
-  }
-  return formatDateInput(today);
-};
+const DEFAULT_ATTENDANCE_SESSIONS = buildDefaultAttendanceSessions();
+
+const defaultSessionLabelForIndex = (index: number): string =>
+  DEFAULT_ATTENDANCE_SESSIONS[index]?.label ?? `Session ${index + 1}`;
 
 const cloneDefaultDateSessions = (): AttendanceSession[] =>
-  buildDefaultAttendanceSessions().map((session) => ({ ...session }));
+  DEFAULT_ATTENDANCE_SESSIONS
+    .slice(0, 1)
+    .map((session) => ({ ...session }));
 
 const sanitizeSessionLabel = (value: string, fallback: string): string => {
   const trimmed = value.trim().slice(0, 60);
@@ -633,6 +799,7 @@ export default function Attendance() {
   const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'number' | 'grade' | 'lastWorkout'>('lastName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [reportRangePreset, setReportRangePreset] = useState<ReportRangePreset>("all_dates");
+  const [reportSessionFilter, setReportSessionFilter] = useState<string>("all");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
   const [showDesktopTableOnMobile, setShowDesktopTableOnMobile] = useState(false);
@@ -642,6 +809,14 @@ export default function Attendance() {
   const [isReportSectionCollapsed, setIsReportSectionCollapsed] = useState<boolean>(() =>
     isMobileDevice()
   );
+  const [showAddDateModal, setShowAddDateModal] = useState(false);
+  const [addDateDraftDate, setAddDateDraftDate] = useState(() => formatDateInput(new Date()));
+  const [addDateDraftSessions, setAddDateDraftSessions] = useState<AddDateSessionDraft[]>(() => [
+    {
+      id: createId(),
+      label: defaultSessionLabelForIndex(0),
+    },
+  ]);
   const [reviewDate, setReviewDate] = useState("");
   const [reviewStatusModal, setReviewStatusModal] = useState<ReviewStatusModalType>(null);
   const [reviewCheckins, setReviewCheckins] = useState<AttendanceCheckin[]>([]);
@@ -838,6 +1013,23 @@ export default function Attendance() {
       .slice()
       .sort((a, b) => (b.reviewedAt ?? b.submittedAt ?? 0) - (a.reviewedAt ?? a.submittedAt ?? 0));
   }, [reviewCheckins, reviewStatusModal]);
+  const sessionNameOptions = useMemo(() => {
+    const options = new Set<string>();
+    DEFAULT_ATTENDANCE_SESSIONS.forEach((session) => {
+      if (session.label.trim()) {
+        options.add(session.label.trim());
+      }
+    });
+    Object.values(selectedSheet.sessionsByDate ?? {}).forEach((sessions) => {
+      sessions.forEach((session) => {
+        const label = session.label.trim();
+        if (label) {
+          options.add(label);
+        }
+      });
+    });
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
+  }, [selectedSheet.sessionsByDate]);
 
   useEffect(() => {
     if (reportSourceDates.length === 0) {
@@ -976,6 +1168,22 @@ export default function Attendance() {
       ),
     [reportSourceDates, reportRange]
   );
+  const reportSessionOptions = useMemo(() => {
+    const labels = new Set<string>();
+    reportDates.forEach((date) => {
+      (selectedSheet.sessionsByDate?.[date] ?? []).forEach((session) => {
+        labels.add(session.label || "Session");
+      });
+    });
+    return Array.from(labels.values()).sort((a, b) => a.localeCompare(b));
+  }, [reportDates, selectedSheet.sessionsByDate]);
+
+  useEffect(() => {
+    if (reportSessionFilter === "all") return;
+    if (!reportSessionOptions.includes(reportSessionFilter)) {
+      setReportSessionFilter("all");
+    }
+  }, [reportSessionFilter, reportSessionOptions]);
 
   const reportWeeks = useMemo<AttendanceReportWeek[]>(() => {
     const grouped = new Map<string, string[]>();
@@ -1011,10 +1219,22 @@ export default function Attendance() {
     return reportAthletes
       .map((athlete) => {
         const record = selectedSheet.records[athlete.id] ?? {};
-        const attended = reportDates.reduce(
-          (sum, date) => sum + (record[date] ? 1 : 0),
-          0
-        );
+        const sessionCountsByLabel: Record<string, number> = {};
+        const attended = reportDates.reduce((sum, date) => {
+          if (!record[date]) return sum;
+          const assignedSessionKey = resolveAthleteSessionKeyForDate(
+            selectedSheet,
+            athlete.id,
+            date
+          );
+          const sessionLabel = resolveSessionLabelForDateKey(
+            selectedSheet,
+            date,
+            assignedSessionKey
+          );
+          sessionCountsByLabel[sessionLabel] = (sessionCountsByLabel[sessionLabel] ?? 0) + 1;
+          return sum + 1;
+        }, 0);
         const missed = reportDates.length - attended;
         const pct = percentFromCounts(attended, reportDates.length);
         const lastSixAttended = lastSixDates.reduce(
@@ -1050,17 +1270,32 @@ export default function Attendance() {
           pct,
           lastSixPct,
           missedStreak,
+          sessionMix: buildSessionMixLabel(sessionCountsByLabel),
+          sessionCountsByLabel,
           tier: tierFromPercent(pct),
           weekly,
         };
       })
+      .filter((row) =>
+        reportSessionFilter === "all"
+          ? true
+          : (row.sessionCountsByLabel[reportSessionFilter] ?? 0) > 0
+      )
       .sort((a, b) => {
         if (b.pct !== a.pct) return b.pct - a.pct;
         const last = a.athlete.lastName.localeCompare(b.athlete.lastName);
         if (last !== 0) return last;
         return a.athlete.firstName.localeCompare(b.athlete.firstName);
       });
-  }, [reportAthletes, reportDates, reportWeeks, selectedSheet.records]);
+  }, [
+    reportAthletes,
+    reportDates,
+    reportSessionFilter,
+    reportWeeks,
+    selectedSheet.records,
+    selectedSheet.sessionSelections,
+    selectedSheet.sessionsByDate,
+  ]);
 
   const reportSummary = useMemo(() => {
     const playerCount = reportRows.length;
@@ -1150,6 +1385,38 @@ export default function Attendance() {
     });
   }, [selectedSheet, selectedTeam, sortField, sortDirection, lastWorkoutDates]);
 
+  const sessionCountsByDate = useMemo(() => {
+    const teamAthletes = selectedSheet.athletes.filter(
+      (athlete) => athlete.level === selectedTeam
+    );
+    const counts: Record<string, Record<string, number>> = {};
+    selectedSheet.dates.forEach((date) => {
+      const row: Record<string, number> = {};
+      (selectedSheet.sessionsByDate?.[date] ?? []).forEach((session) => {
+        row[session.key] = 0;
+      });
+      teamAthletes.forEach((athlete) => {
+        const assignedSessionKey = resolveAthleteSessionKeyForDate(
+          selectedSheet,
+          athlete.id,
+          date
+        );
+        if (assignedSessionKey && row[assignedSessionKey] !== undefined) {
+          row[assignedSessionKey] += 1;
+        }
+      });
+      counts[date] = row;
+    });
+    return counts;
+  }, [
+    selectedSheet.athletes,
+    selectedSheet.dates,
+    selectedSheet.records,
+    selectedSheet.sessionSelections,
+    selectedSheet.sessionsByDate,
+    selectedTeam,
+  ]);
+
   const handleSetError = useCallback((team: Team, message: string | null) => {
     setTeamErrors((prev) => ({
       ...prev,
@@ -1238,9 +1505,76 @@ export default function Attendance() {
     }));
   };
 
-  const handleAddDate = (team: Team) => {
+  const resetAddDateDraft = useCallback(() => {
+    setAddDateDraftDate(formatDateInput(new Date()));
+    setAddDateDraftSessions([
+      {
+        id: createId(),
+        label: defaultSessionLabelForIndex(0),
+      },
+    ]);
+  }, []);
+
+  const handleOpenAddDateModal = (team: Team) => {
+    resetAddDateDraft();
+    setShowAddDateModal(true);
+    handleSetError(team, null);
+  };
+
+  const handleCloseAddDateModal = () => {
+    setShowAddDateModal(false);
+  };
+
+  const handleAddDateDraftSession = () => {
+    setAddDateDraftSessions((prev) => [
+      ...prev,
+      {
+        id: createId(),
+        label: defaultSessionLabelForIndex(prev.length),
+      },
+    ]);
+  };
+
+  const handleRemoveDateDraftSession = (sessionId: string) => {
+    setAddDateDraftSessions((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((session) => session.id !== sessionId);
+    });
+  };
+
+  const handleDateDraftSessionLabelChange = (sessionId: string, value: string) => {
+    setAddDateDraftSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              label: value.slice(0, 60),
+            }
+          : session
+      )
+    );
+  };
+
+  const handleSaveDateSetup = (team: Team) => {
+    const newDate = addDateDraftDate.trim();
+    if (!newDate) {
+      handleSetError(team, "Pick A Date Before Saving.");
+      return;
+    }
     const sheet = normalizeRuntimeSheet(sheets[team], team);
-    const newDate = nextAvailableDate(sheet.dates);
+    if (sheet.dates.includes(newDate)) {
+      handleSetError(team, "That Date Already Exists On This Sheet.");
+      return;
+    }
+    const draftSessions =
+      addDateDraftSessions.length > 0
+        ? addDateDraftSessions
+        : [{ id: "default", label: defaultSessionLabelForIndex(0) }];
+    const sessionsForDate: AttendanceSession[] = draftSessions.map((session, index) => ({
+      key: `session-${index + 1}`,
+      label: sanitizeSessionLabel(session.label, defaultSessionLabelForIndex(index)),
+    }));
+    const normalizedSessions = sessionsForDate.length > 0 ? sessionsForDate : cloneDefaultDateSessions();
     updateSheet(team, (current) => {
       if (current.dates.includes(newDate)) {
         return current;
@@ -1250,9 +1584,8 @@ export default function Attendance() {
       const nextSessionsByDate = { ...current.sessionsByDate };
       const nextSessionLocks = { ...current.sessionLocks };
       const nextLockedDates = { ...current.lockedDates, [newDate]: false };
-      const defaultSessions = cloneDefaultDateSessions();
-      nextSessionsByDate[newDate] = defaultSessions;
-      nextSessionLocks[newDate] = defaultSessions.reduce<Record<string, boolean>>(
+      nextSessionsByDate[newDate] = normalizedSessions;
+      nextSessionLocks[newDate] = normalizedSessions.reduce<Record<string, boolean>>(
         (acc, session) => {
           acc[session.key] = false;
           return acc;
@@ -1273,6 +1606,9 @@ export default function Attendance() {
         lockedDates: nextLockedDates,
       };
     });
+    setReviewDate(newDate);
+    setShowAddDateModal(false);
+    resetAddDateDraft();
     handleSetError(team, null);
   };
 
@@ -1281,6 +1617,7 @@ export default function Attendance() {
       if (!current.dates.includes(date)) return current;
       const nextDates = current.dates.filter((d) => d !== date);
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextSessionSelections: AttendanceSheet["sessionSelections"] = {};
       const nextSessionsByDate = { ...current.sessionsByDate };
       delete nextSessionsByDate[date];
       const nextSessionLocks = { ...current.sessionLocks };
@@ -1294,11 +1631,17 @@ export default function Attendance() {
           if (!(d in nextRow)) nextRow[d] = false;
         });
         nextRecords[athleteId] = nextRow;
+        const selectionRow = { ...(current.sessionSelections?.[athleteId] ?? {}) };
+        delete selectionRow[date];
+        if (Object.keys(selectionRow).length > 0) {
+          nextSessionSelections[athleteId] = selectionRow;
+        }
       });
       return {
         ...current,
         dates: nextDates,
         records: nextRecords,
+        sessionSelections: nextSessionSelections,
         sessionsByDate: nextSessionsByDate,
         sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
@@ -1328,6 +1671,7 @@ export default function Attendance() {
       const nextDates = [...current.dates];
       nextDates[index] = next;
       const nextRecords: AttendanceSheet["records"] = {};
+      const nextSessionSelections: AttendanceSheet["sessionSelections"] = {};
       const nextSessionsByDate = { ...current.sessionsByDate };
       const sessionsForDate = nextSessionsByDate[currentDate] ?? [];
       delete nextSessionsByDate[currentDate];
@@ -1350,11 +1694,21 @@ export default function Attendance() {
           existing[next] = false;
         }
         nextRecords[athleteId] = existing;
+        const selectionRow = { ...(current.sessionSelections?.[athleteId] ?? {}) };
+        if (selectionRow[currentDate] !== undefined) {
+          const selectionForDate = selectionRow[currentDate];
+          delete selectionRow[currentDate];
+          selectionRow[next] = selectionForDate;
+        }
+        if (Object.keys(selectionRow).length > 0) {
+          nextSessionSelections[athleteId] = selectionRow;
+        }
       });
       return {
         ...current,
         dates: nextDates,
         records: nextRecords,
+        sessionSelections: nextSessionSelections,
         sessionsByDate: nextSessionsByDate,
         sessionLocks: nextSessionLocks,
         lockedDates: nextLockedDates,
@@ -1437,12 +1791,30 @@ export default function Attendance() {
       const allLocked =
         nextSessions.length > 0 &&
         nextSessions.every((session) => nextLocksRow[session.key] === true);
+      const fallbackSessionKey = nextSessions[0]?.key;
+      const nextSessionSelections = { ...current.sessionSelections };
+      Object.keys(current.records).forEach((athleteId) => {
+        const row = { ...(nextSessionSelections[athleteId] ?? {}) };
+        if (row[date] === sessionKey) {
+          if (current.records[athleteId]?.[date] && fallbackSessionKey) {
+            row[date] = fallbackSessionKey;
+          } else {
+            delete row[date];
+          }
+        }
+        if (Object.keys(row).length > 0) {
+          nextSessionSelections[athleteId] = row;
+        } else {
+          delete nextSessionSelections[athleteId];
+        }
+      });
       return {
         ...current,
         sessionsByDate: {
           ...current.sessionsByDate,
           [date]: nextSessions,
         },
+        sessionSelections: nextSessionSelections,
         sessionLocks: {
           ...current.sessionLocks,
           [date]: nextLocksRow,
@@ -1490,20 +1862,60 @@ export default function Attendance() {
     }
   };
 
-  const handleToggle = (team: Team, athleteId: string, date: string) => {
+  const handleSessionToggle = (
+    team: Team,
+    athleteId: string,
+    date: string,
+    sessionKey: string
+  ) => {
     const sheet = normalizeRuntimeSheet(sheetsRef.current[team], team);
     if (sheet.lockedDates?.[date]) {
       setFlash("This Date Is Locked. Unlock It To Make Changes.");
       return;
     }
+    const sessionLocksForDate = sheet.sessionLocks?.[date] ?? {};
+    if (sessionLocksForDate[sessionKey] === true) {
+      setFlash("This Session Is Locked. Unlock It To Make Changes.");
+      return;
+    }
+    const currentAssignedSessionKey = resolveAthleteSessionKeyForDate(sheet, athleteId, date);
+    if (
+      currentAssignedSessionKey &&
+      sessionLocksForDate[currentAssignedSessionKey] === true
+    ) {
+      setFlash("Unlock This Athlete's Current Session Before Reassigning.");
+      return;
+    }
+    const sessionsForDate = sheet.sessionsByDate?.[date] ?? [];
+    const selectedSession =
+      sessionsForDate.find((session) => session.key === sessionKey) ?? null;
+    if (!selectedSession) return;
     const athlete = sheet.athletes.find((row) => row.id === athleteId);
-    const nextValue = !Boolean(sheet.records[athleteId]?.[date]);
+    const nextAssignedSession =
+      currentAssignedSessionKey === sessionKey ? null : selectedSession;
+    const nextValue = Boolean(nextAssignedSession);
     updateSheet(team, (current) => {
       const nextRecords = { ...current.records };
       const row = { ...(nextRecords[athleteId] ?? {}) };
       row[date] = nextValue;
       nextRecords[athleteId] = row;
-      return { ...current, records: nextRecords };
+      const nextSessionSelections = { ...current.sessionSelections };
+      const selectionRow = { ...(nextSessionSelections[athleteId] ?? {}) };
+      if (nextAssignedSession) {
+        selectionRow[date] = nextAssignedSession.key;
+      } else {
+        delete selectionRow[date];
+      }
+      if (Object.keys(selectionRow).length > 0) {
+        nextSessionSelections[athleteId] = selectionRow;
+      } else {
+        delete nextSessionSelections[athleteId];
+      }
+      return {
+        ...current,
+        records: nextRecords,
+        sessionSelections: nextSessionSelections,
+      };
     });
     queueToggleAutosave(team);
 
@@ -1513,16 +1925,6 @@ export default function Attendance() {
         typeof window !== "undefined"
           ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
           : undefined;
-      const existingCheckin = reviewCheckins.find(
-        (row) => row.uid === athleteUid && row.date === date
-      );
-      const sessionsForDate = sheet.sessionsByDate?.[date] ?? [];
-      const fallbackSession = existingCheckin?.sessionKey
-        ? sessionsForDate.find((session) => session.key === existingCheckin.sessionKey) ??
-          sessionsForDate[0]
-        : sessionsForDate[0];
-      const sessionKey = existingCheckin?.sessionKey ?? fallbackSession?.key;
-      const sessionLabel = existingCheckin?.sessionLabel ?? fallbackSession?.label;
       const nextStatus: "approved" | "rejected" = nextValue ? "approved" : "rejected";
       void updateAttendanceCheckinStatus({
         team,
@@ -1533,8 +1935,8 @@ export default function Attendance() {
         athleteId: athlete.id,
         firstName: athlete.firstName,
         lastName: athlete.lastName,
-        sessionKey,
-        sessionLabel,
+        sessionKey: nextAssignedSession?.key,
+        sessionLabel: nextAssignedSession?.label,
       })
         .then((updated) => {
           if (!updated) return;
@@ -1546,14 +1948,22 @@ export default function Attendance() {
               if (existingIndex >= 0) {
                 return prev.map((row, idx): AttendanceCheckin =>
                   idx === existingIndex
-                    ? {
-                        ...row,
-                        status: nextStatus,
-                        sessionKey: row.sessionKey ?? sessionKey,
-                        sessionLabel: row.sessionLabel ?? sessionLabel,
-                        reviewedByName: coachDisplayName,
-                        reviewedAt: Date.now(),
-                      }
+                    ? (() => {
+                        const nextRow: AttendanceCheckin = {
+                          ...row,
+                          status: nextStatus,
+                          reviewedByName: coachDisplayName,
+                          reviewedAt: Date.now(),
+                        };
+                        if (nextAssignedSession) {
+                          nextRow.sessionKey = nextAssignedSession.key;
+                          nextRow.sessionLabel = nextAssignedSession.label;
+                        } else {
+                          delete nextRow.sessionKey;
+                          delete nextRow.sessionLabel;
+                        }
+                        return nextRow;
+                      })()
                     : row
                 );
               }
@@ -1566,8 +1976,12 @@ export default function Attendance() {
                 athleteId: athlete.id,
                 firstName: athlete.firstName,
                 lastName: athlete.lastName,
-                sessionKey,
-                sessionLabel,
+                ...(nextAssignedSession
+                  ? {
+                      sessionKey: nextAssignedSession.key,
+                      sessionLabel: nextAssignedSession.label,
+                    }
+                  : {}),
                 status: nextStatus,
                 reviewedAt: Date.now(),
                 reviewedByName: coachDisplayName,
@@ -1589,7 +2003,14 @@ export default function Attendance() {
       const nextAthletes = current.athletes.filter((a) => a.id !== athleteId);
       const nextRecords = { ...current.records };
       delete nextRecords[athleteId];
-      return { ...current, athletes: nextAthletes, records: nextRecords };
+      const nextSessionSelections = { ...current.sessionSelections };
+      delete nextSessionSelections[athleteId];
+      return {
+        ...current,
+        athletes: nextAthletes,
+        records: nextRecords,
+        sessionSelections: nextSessionSelections,
+      };
     });
     setFlash("Athlete Removed From Attendance.");
   };
@@ -1629,7 +2050,15 @@ export default function Attendance() {
         row[date] = false;
       });
       nextRecords[id] = row;
-      return { ...current, athletes: nextAthletes, records: nextRecords };
+      return {
+        ...current,
+        athletes: nextAthletes,
+        records: nextRecords,
+        sessionSelections: {
+          ...current.sessionSelections,
+          [id]: {},
+        },
+      };
     });
     setFormDraft({
       firstName: "",
@@ -1755,6 +2184,7 @@ export default function Attendance() {
           updateSheet(level, (current) => {
             const nextAthletes = [...current.athletes];
             const nextRecords = { ...current.records };
+            const nextSessionSelections = { ...current.sessionSelections };
 
             athletes.forEach(importedAthlete => {
               // Check if athlete already exists (match by firstName, lastName, and level)
@@ -1789,11 +2219,17 @@ export default function Attendance() {
                   row[date] = false;
                 });
                 nextRecords[importedAthlete.id] = row;
+                nextSessionSelections[importedAthlete.id] = {};
                 totalNew++;
               }
             });
 
-            return { ...current, athletes: nextAthletes, records: nextRecords };
+            return {
+              ...current,
+              athletes: nextAthletes,
+              records: nextRecords,
+              sessionSelections: nextSessionSelections,
+            };
           });
         });
 
@@ -1832,6 +2268,8 @@ export default function Attendance() {
             reportDates[reportDates.length - 1]
           )}`
         : "No attendance dates in range";
+    const sessionFilterLabel =
+      reportSessionFilter === "all" ? "All Sessions" : reportSessionFilter;
 
     const weekHeaderHtml = reportWeeks
       .map(
@@ -1876,6 +2314,9 @@ export default function Attendance() {
             <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${escapeHtml(
               row.athlete.grade ?? "-"
             )}</td>
+            <td style="border:1px solid #d1d5db;padding:6px;">${escapeHtml(
+              row.sessionMix
+            )}</td>
             <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.attended}</td>
             <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.missed}</td>
             <td style="border:1px solid #d1d5db;padding:6px;text-align:center;">${row.pct.toFixed(1)}%</td>
@@ -1912,6 +2353,7 @@ export default function Attendance() {
     <h1>${escapeHtml(formatTeamLabel(selectedTeam))} Attendance Report</h1>
     <p><strong>Range:</strong> ${escapeHtml(rangeLabel)}</p>
     <p><strong>Preset:</strong> ${escapeHtml(reportPresetLabel)}</p>
+    <p><strong>Session Filter:</strong> ${escapeHtml(sessionFilterLabel)}</p>
     <p><strong>Generated:</strong> ${escapeHtml(generatedAt)}</p>
     <div class="summary">
       <div class="summary-card"><span>Players</span><strong>${reportSummary.playerCount}</strong></div>
@@ -1929,6 +2371,7 @@ export default function Attendance() {
           <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">First Name</th>
           <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">Last Name</th>
           <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Grade</th>
+          <th style="border:1px solid #d1d5db;padding:6px;text-align:left;background:#f8fafc;">Session Mix</th>
           <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Attended</th>
           <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Missed</th>
           <th style="border:1px solid #d1d5db;padding:6px;text-align:center;background:#f8fafc;">Attendance %</th>
@@ -1957,6 +2400,7 @@ export default function Attendance() {
       "First Name",
       "Last Name",
       "Grade",
+      "Session Mix",
       "Attended",
       "Missed",
       "Attendance %",
@@ -1975,6 +2419,7 @@ export default function Attendance() {
         row.athlete.firstName,
         row.athlete.lastName,
         row.athlete.grade ?? "",
+        row.sessionMix,
         row.attended,
         row.missed,
         `${row.pct.toFixed(1)}%`,
@@ -2621,38 +3066,59 @@ export default function Attendance() {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => handleAddDate(selectedTeam)}
+              onClick={() => handleOpenAddDateModal(selectedTeam)}
               disabled={selectedSaving}
             >
               Add Date
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className={[
+                "rounded-xl px-4 py-2 text-sm font-semibold uppercase tracking-wide transition",
+                selectedDirty
+                  ? "bg-rose-600 text-white shadow-lg shadow-rose-300/50 ring-2 ring-rose-300 hover:bg-rose-700"
+                  : "bg-slate-200 text-slate-500",
+              ].join(" ")}
               onClick={() => handleSave(selectedTeam)}
               disabled={!selectedDirty || selectedSaving}
             >
-              {selectedSaving ? "Saving…" : "Save Attendance"}
+              {selectedSaving ? "Saving..." : selectedDirty ? "Save Now" : "Saved"}
             </button>
           </div>
         </div>
 
         {/* Unsaved changes reminder */}
         {selectedDirty && !selectedSaving && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-amber-600 text-lg">⚠️</span>
-              <span className="text-sm font-medium text-amber-800">
-                You Have Unsaved Changes. Don't Forget To Click "Save Attendance" Before Leaving!
-              </span>
-            </div>
+          <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-rose-800">
+              Unsaved Changes. Save Attendance Before You Leave This Page.
+            </p>
             <button
               type="button"
-              className="btn btn-primary text-sm px-3 py-1"
+              className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
               onClick={() => handleSave(selectedTeam)}
             >
-              Save Now
+              Save Attendance Now
             </button>
+          </div>
+        )}
+
+        {selectedDirty && !selectedSaving && (
+          <div className="fixed inset-x-3 bottom-3 z-40">
+            <div className="rounded-2xl border border-rose-300 bg-white/95 shadow-2xl backdrop-blur">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-800">
+                  You Have Unsaved Attendance Changes
+                </p>
+                <button
+                  type="button"
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                  onClick={() => handleSave(selectedTeam)}
+                >
+                  Save Now
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -2805,42 +3271,89 @@ export default function Attendance() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                {visibleAthletes.map((athlete) => {
-                  const athleteName = [athlete.firstName, athlete.lastName]
-                    .filter(Boolean)
-                    .join(" ")
-                    .trim();
-                  return (
-                    <div
-                      key={`mobile-athlete-${athlete.id}`}
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2"
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                        checked={Boolean(selectedSheet.records[athlete.id]?.[mobileAthleteDate])}
-                        onChange={() => handleToggle(selectedTeam, athlete.id, mobileAthleteDate)}
-                        disabled={selectedSaving || mobileAthleteDateLocked}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-slate-800">
-                          {athleteName || "Unknown Athlete"}
+                {(() => {
+                  const sessionsForMobileDate =
+                    selectedSheet.sessionsByDate?.[mobileAthleteDate] ?? [];
+                  const sessionLocksForMobileDate =
+                    selectedSheet.sessionLocks?.[mobileAthleteDate] ?? {};
+                  return visibleAthletes.map((athlete) => {
+                    const athleteName = [athlete.firstName, athlete.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const assignedSessionKey = resolveAthleteSessionKeyForDate(
+                      selectedSheet,
+                      athlete.id,
+                      mobileAthleteDate
+                    );
+                    const assignedSessionLocked =
+                      assignedSessionKey
+                        ? sessionLocksForMobileDate[assignedSessionKey] === true
+                        : false;
+                    const disableAll =
+                      selectedSaving || mobileAthleteDateLocked || assignedSessionLocked;
+                    return (
+                      <div
+                        key={`mobile-athlete-${athlete.id}`}
+                        className={`rounded-lg border border-slate-200 bg-white px-2.5 py-2 ${
+                          mobileAthleteDateLocked ? "grayscale opacity-60" : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-slate-800">
+                              {athleteName || "Unknown Athlete"}
+                            </div>
+                            <div className="truncate text-[11px] text-slate-500">
+                              Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50"
+                            onClick={() => handleRemoveAthlete(selectedTeam, athlete.id)}
+                            disabled={selectedSaving}
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <div className="truncate text-[11px] text-slate-500">
-                          Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {sessionsForMobileDate.map((session, sessionIndex) => {
+                            const tone = getSessionColorStyle(sessionIndex);
+                            const selected = assignedSessionKey === session.key;
+                            const sessionLocked = sessionLocksForMobileDate[session.key] === true;
+                            return (
+                              <button
+                                key={`${mobileAthleteDate}-${athlete.id}-${session.key}`}
+                                type="button"
+                                className={[
+                                  "rounded-md border px-2 py-1 text-[10px] font-semibold transition",
+                                  selected ? tone.active : tone.idle,
+                                  sessionLocked ? "opacity-65" : "",
+                                  disableAll || sessionLocked
+                                    ? "cursor-not-allowed"
+                                    : "hover:scale-[1.02]",
+                                ].join(" ")}
+                                onClick={() =>
+                                  handleSessionToggle(
+                                    selectedTeam,
+                                    athlete.id,
+                                    mobileAthleteDate,
+                                    session.key
+                                  )
+                                }
+                                disabled={disableAll || sessionLocked}
+                                title={`${session.label}${sessionLocked ? " (Locked)" : ""}`}
+                              >
+                                {session.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50"
-                        onClick={() => handleRemoveAthlete(selectedTeam, athlete.id)}
-                        disabled={selectedSaving}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -2904,7 +3417,10 @@ export default function Attendance() {
                     )}
                   </div>
                 </th>
-                {selectedSheet.dates.map((date, index) => (
+                {selectedSheet.dates.map((date, index) => {
+                  const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
+                  const sessionCountsForDate = sessionCountsByDate[date] ?? {};
+                  return (
                   <th key={date} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">
                     <div className="flex flex-col items-center gap-1">
                       {selectedSheet.lockedDates?.[date] ? (
@@ -2917,8 +3433,29 @@ export default function Attendance() {
                         </span>
                       )}
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        {(selectedSheet.sessionsByDate?.[date]?.length ?? 0) || 1} Sessions
+                        {sessionsForDate.length || 1} Sessions
                       </span>
+                      {sessionsForDate.length > 0 && (
+                        <div
+                          className={`flex max-w-36 flex-wrap items-center justify-center gap-1 ${
+                            selectedSheet.lockedDates?.[date] ? "grayscale opacity-60" : ""
+                          }`}
+                        >
+                          {sessionsForDate.map((session, sessionIndex) => {
+                            const tone = getSessionColorStyle(sessionIndex);
+                            return (
+                              <span
+                                key={`${date}-session-chip-${session.key}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${tone.badge}`}
+                                title={session.label}
+                              >
+                                {sessionIndex + 1}
+                                <span className="text-[10px]">{sessionCountsForDate[session.key] ?? 0}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                       <input
                         type="date"
                         value={date}
@@ -2961,7 +3498,8 @@ export default function Attendance() {
                       </button>
                     </div>
                   </th>
-                ))}
+                );
+                })}
                 <th className="px-3 py-2 whitespace-nowrap text-center text-gray-500 text-xs font-medium">Actions</th>
               </tr>
             </thead>
@@ -3000,17 +3538,66 @@ export default function Attendance() {
                         );
                       })()}
                     </td>
-                    {selectedSheet.dates.map((date) => (
-                      <td key={date} className="px-2 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                          checked={Boolean(selectedSheet.records[athlete.id]?.[date])}
-                          onChange={() => handleToggle(selectedTeam, athlete.id, date)}
-                          disabled={selectedSaving || Boolean(selectedSheet.lockedDates?.[date])}
-                        />
-                      </td>
-                    ))}
+                    {selectedSheet.dates.map((date) => {
+                      const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
+                      const sessionLocksForDate = selectedSheet.sessionLocks?.[date] ?? {};
+                      const dateLocked = Boolean(selectedSheet.lockedDates?.[date]);
+                      const assignedSessionKey = resolveAthleteSessionKeyForDate(
+                        selectedSheet,
+                        athlete.id,
+                        date
+                      );
+                      const assignedSessionLocked =
+                        assignedSessionKey
+                          ? sessionLocksForDate[assignedSessionKey] === true
+                          : false;
+                      const disableAll = selectedSaving || dateLocked || assignedSessionLocked;
+                      return (
+                        <td key={date} className="px-2 py-2 text-center">
+                          {sessionsForDate.length > 0 ? (
+                            <div
+                              className={`flex flex-wrap items-center justify-center gap-1 ${
+                                dateLocked ? "grayscale opacity-55" : ""
+                              }`}
+                            >
+                              {sessionsForDate.map((session, sessionIndex) => {
+                                const tone = getSessionColorStyle(sessionIndex);
+                                const selected = assignedSessionKey === session.key;
+                                const sessionLocked = sessionLocksForDate[session.key] === true;
+                                return (
+                                  <button
+                                    key={`${date}-${athlete.id}-${session.key}`}
+                                    type="button"
+                                    className={[
+                                      "h-6 min-w-8 rounded-md border px-1 text-[10px] font-bold shadow-sm transition",
+                                      selected ? tone.active : tone.idle,
+                                      sessionLocked ? "opacity-65" : "",
+                                      disableAll || sessionLocked
+                                        ? "cursor-not-allowed"
+                                        : "hover:scale-[1.03]",
+                                    ].join(" ")}
+                                    onClick={() =>
+                                      handleSessionToggle(
+                                        selectedTeam,
+                                        athlete.id,
+                                        date,
+                                        session.key
+                                      )
+                                    }
+                                    disabled={disableAll || sessionLocked}
+                                    title={`${session.label}${sessionLocked ? " (Locked)" : ""}`}
+                                  >
+                                    {sessionIndex + 1}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">-</span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td className="px-3 py-2 text-center">
                       <button
                         type="button"
@@ -3187,6 +3774,118 @@ export default function Attendance() {
           )}
         </div>
 
+        {showAddDateModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+            onClick={handleCloseAddDateModal}
+          >
+            <div
+              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div>
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                    Add Attendance Date
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Default Date Is Today. Update It Before Save If Needed.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                  onClick={handleCloseAddDateModal}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="space-y-4 p-4">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  Date
+                  <input
+                    type="date"
+                    className="field h-10 bg-white"
+                    value={addDateDraftDate}
+                    onChange={(event) => setAddDateDraftDate(event.target.value)}
+                  />
+                </label>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Sessions
+                    </h5>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-900"
+                      onClick={handleAddDateDraftSession}
+                    >
+                      Add Session
+                    </button>
+                  </div>
+                  <datalist id="attendance-session-name-options">
+                    {sessionNameOptions.map((label) => (
+                      <option key={`attendance-session-option-${label}`} value={label} />
+                    ))}
+                  </datalist>
+                  <div className="space-y-2">
+                    {addDateDraftSessions.map((session, index) => (
+                      <div
+                        key={session.id}
+                        className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
+                      >
+                        <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                          {index + 1}
+                        </span>
+                        <input
+                          className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                          value={session.label}
+                          list="attendance-session-name-options"
+                          onChange={(event) =>
+                            handleDateDraftSessionLabelChange(session.id, event.target.value)
+                          }
+                          placeholder={defaultSessionLabelForIndex(index)}
+                        />
+                        <button
+                          type="button"
+                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                          onClick={() => handleRemoveDateDraftSession(session.id)}
+                          disabled={addDateDraftSessions.length <= 1}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {selectedError && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    {selectedError}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
+                  onClick={handleCloseAddDateModal}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => handleSaveDateSetup(selectedTeam)}
+                  disabled={selectedSaving}
+                >
+                  Save Date
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {reviewStatusModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
@@ -3297,6 +3996,21 @@ export default function Attendance() {
                       {REPORT_RANGE_PRESET_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Session
+                    <select
+                      className="field bg-white min-w-44"
+                      value={reportSessionFilter}
+                      onChange={(event) => setReportSessionFilter(event.target.value)}
+                    >
+                      <option value="all">All Sessions</option>
+                      {reportSessionOptions.map((label) => (
+                        <option key={`report-session-${label}`} value={label}>
+                          {label}
                         </option>
                       ))}
                     </select>
@@ -3461,6 +4175,7 @@ export default function Attendance() {
                       <th className="px-3 py-2 text-left font-semibold text-slate-600">First</th>
                       <th className="px-3 py-2 text-left font-semibold text-slate-600">Last</th>
                       <th className="px-3 py-2 text-center font-semibold text-slate-600">Grade</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Session Mix</th>
                       <th className="px-3 py-2 text-center font-semibold text-slate-600">Att</th>
                       <th className="px-3 py-2 text-center font-semibold text-slate-600">Miss</th>
                       <th className="px-3 py-2 text-center font-semibold text-slate-600">Att %</th>
@@ -3483,6 +4198,7 @@ export default function Attendance() {
                         <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.firstName || "-"}</td>
                         <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.lastName || "-"}</td>
                         <td className="px-3 py-2 text-center text-slate-700">{row.athlete.grade || "-"}</td>
+                        <td className="px-3 py-2 text-[11px] text-slate-700">{row.sessionMix}</td>
                         <td className="px-3 py-2 text-center text-slate-700">{row.attended}</td>
                         <td className="px-3 py-2 text-center text-slate-700">{row.missed}</td>
                         <td className="px-3 py-2 text-center font-semibold text-slate-800">{row.pct.toFixed(1)}%</td>
@@ -3557,3 +4273,4 @@ Number,FirstName,LastName,Grade,Team,Height,Weight,Position,Letter
     </div>
   );
 }
+
