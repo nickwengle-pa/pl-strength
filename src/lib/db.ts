@@ -522,6 +522,8 @@ export type Profile = {
   lastName: string;
   unit: Unit;
   createdAt?: number;
+  updatedAt?: number;
+  updatedBy?: string | null;
   height?: number;
   weight?: number;
   graduationYear?: number;
@@ -1103,6 +1105,7 @@ function normalizeProfileData(data: Record<string, any>, targetUid: string): Pro
   );
   const activeState = activeTeam ? teamData[activeTeam] : undefined;
   const createdAt = toMillis(data.createdAt);
+  const updatedAt = toMillis(data.updatedAt);
   const legacyTm = normalizeLiftMap(data.tm);
   const legacyOneRm = normalizeLiftMap(data.oneRm);
   const legacyLiftWeeks = normalizeLiftWeekMap(data.liftWeeks);
@@ -1125,6 +1128,8 @@ function normalizeProfileData(data: Record<string, any>, targetUid: string): Pro
     lastName: data.lastName || "",
     unit: (data.unit || "lb") as Unit,
     createdAt: createdAt || undefined,
+    updatedAt: updatedAt || undefined,
+    updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : null,
     height,
     weight,
     graduationYear,
@@ -1160,6 +1165,7 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
 export async function saveProfile(p: Profile, options?: { skipLocal?: boolean }) {
   const handles = resolveHandles();
   const database = handles?.db;
+  const actorUid = handles?.auth?.currentUser?.uid ?? null;
   const normalizedEquipment = normalizeEquipment(p.equipment);
   const normalizedHeight = normalizeHeight(p.height);
   const normalizedWeight = normalizeWeight(p.weight);
@@ -1226,6 +1232,8 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     oneRm: normalizedProfile.oneRm || {},
     accessCode: normalizedProfile.accessCode ?? null,
     equipment: normalizedEquipment,
+    updatedAt: serverTimestamp(),
+    updatedBy: actorUid ?? normalizedProfile.uid ?? null,
   };
   if (normalizedProfile.teamAnchor) {
     payload.teamAnchor = normalizedProfile.teamAnchor;
@@ -1698,6 +1706,8 @@ export type RosterEntry = {
   lastName?: string;
   unit?: Unit;
   createdAt?: number;
+  updatedAt?: number;
+  updatedBy?: string | null;
   team?: Team;
   teamScopes?: Team[];
   teamAnchor?: Team;
@@ -1749,6 +1759,8 @@ export async function listRoster(): Promise<RosterEntry[]> {
         lastName: data.lastName,
         unit: data.unit as Unit,
         createdAt: toMillis(data.createdAt) || undefined,
+        updatedAt: toMillis(data.updatedAt) || undefined,
+        updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : null,
         team: teamAnchor ?? team,
         teamAnchor: teamAnchor ?? team,
         teamScopes,
@@ -4040,6 +4052,45 @@ export async function fetchLastWorkoutDates(
     return result;
   } catch (err) {
     console.warn("fetchLastWorkoutDates failed", err);
+    return {};
+  }
+}
+
+/**
+ * Fetch the most recent attendance check-in/review timestamp per athlete for a team.
+ * Returns a map of athleteUid -> timestamp (ms).
+ */
+export async function fetchLastAttendanceCheckinDates(
+  team?: Team
+): Promise<Record<string, number>> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return {};
+
+  const teamFilter = team ? normalizeTeam(team) : undefined;
+  if (!teamFilter) return {};
+
+  try {
+    const col = collection(database, ATTENDANCE_CHECKINS_COLLECTION);
+    const snap = await getDocs(query(col, where("team", "==", teamFilter)));
+    const result: Record<string, number> = {};
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      const uid = typeof data?.uid === "string" ? data.uid : "";
+      if (!uid) return;
+
+      const ts = toMillis(data?.submittedAt);
+      if (!ts) return;
+
+      if (!result[uid] || ts > result[uid]) {
+        result[uid] = ts;
+      }
+    });
+
+    return result;
+  } catch (err) {
+    console.warn("fetchLastAttendanceCheckinDates failed", err);
     return {};
   }
 }

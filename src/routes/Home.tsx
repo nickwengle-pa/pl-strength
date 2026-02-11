@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import {
   fetchAthleteSessions,
+  fetchLastAttendanceCheckinDates,
   listRoster,
   loadProfileRemote,
   ensureAnon,
@@ -63,6 +64,9 @@ type AthleteActivity = {
   name: string;
   recentSessions: SessionRecord[];
   lastWorkout?: number;
+  lastCheckin?: number;
+  lastProfileUpdate?: number;
+  lastActivity?: number;
   weekCount: number;
   prCount: number;
 };
@@ -221,6 +225,30 @@ export default function Home() {
         // Get coach's team to filter athletes
         const coachTeam = teamSelection;
         const coachTeamDef = coachTeam ? TEAM_DEFINITIONS.find(def => def.id === coachTeam) : null;
+        const relatedTeams = coachTeamDef
+          ? TEAM_DEFINITIONS
+              .filter(
+                (definition) =>
+                  definition.sport === coachTeamDef.sport &&
+                  definition.program === coachTeamDef.program
+              )
+              .map((definition) => definition.id as Team)
+          : coachTeam
+          ? [coachTeam]
+          : [];
+        const attendanceActivity: Record<string, number> = {};
+        if (relatedTeams.length > 0) {
+          const checkinMaps = await Promise.all(
+            relatedTeams.map((teamId) => fetchLastAttendanceCheckinDates(teamId))
+          );
+          checkinMaps.forEach((map) => {
+            Object.entries(map).forEach(([uid, timestamp]) => {
+              if (!attendanceActivity[uid] || timestamp > attendanceActivity[uid]) {
+                attendanceActivity[uid] = timestamp;
+              }
+            });
+          });
+        }
         
         const activities = await Promise.all(
           roster
@@ -252,21 +280,39 @@ export default function Home() {
                 const recentSessions = sessions.filter(s => (s.createdAt || 0) >= oneWeekAgo);
                 const prCount = sessions.filter(s => s.pr).length;
                 const lastWorkout = sessions.length > 0 ? Math.max(...sessions.map(s => s.createdAt || 0)) : undefined;
+                const lastCheckin = attendanceActivity[athlete.uid];
+                const lastProfileUpdate =
+                  athlete.updatedBy && athlete.updatedBy !== athlete.uid
+                    ? undefined
+                    : athlete.updatedAt;
+                const lastActivity =
+                  Math.max(lastWorkout ?? 0, lastCheckin ?? 0, lastProfileUpdate ?? 0) || undefined;
                 
                 return {
                   uid: athlete.uid,
                   name: [athlete.firstName, athlete.lastName].filter(Boolean).join(' ') || athlete.uid,
                   recentSessions,
                   lastWorkout,
+                  lastCheckin,
+                  lastProfileUpdate,
+                  lastActivity,
                   weekCount: recentSessions.length,
                   prCount,
                 };
               } catch (err) {
                 console.debug('Could not load sessions for', athlete.uid);
+                const lastCheckin = attendanceActivity[athlete.uid];
+                const lastProfileUpdate =
+                  athlete.updatedBy && athlete.updatedBy !== athlete.uid
+                    ? undefined
+                    : athlete.updatedAt;
                 return {
                   uid: athlete.uid,
                   name: [athlete.firstName, athlete.lastName].filter(Boolean).join(' ') || athlete.uid,
                   recentSessions: [],
+                  lastCheckin,
+                  lastProfileUpdate,
+                  lastActivity: Math.max(lastCheckin ?? 0, lastProfileUpdate ?? 0) || undefined,
                   weekCount: 0,
                   prCount: 0,
                 };
@@ -283,7 +329,8 @@ export default function Home() {
     })();
   }, [isCoach, teamSelection]);
 
-  const activeAthletes = athleteActivity.filter(a => a.weekCount > 0).length;
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const activeAthletes = athleteActivity.filter(a => (a.lastActivity || 0) >= oneWeekAgo).length;
   const totalWorkouts = athleteActivity.reduce((sum, a) => sum + a.weekCount, 0);
   const recentPRs = athleteActivity.flatMap(a => 
     a.recentSessions.filter(s => s.pr).map(s => ({ athlete: a.name, session: s }))
@@ -444,7 +491,7 @@ export default function Home() {
                 {/* Recent PRs */}
                 {recentPRs.length > 0 && (
                   <div className="card bg-white/80 mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-3">🏆 Recent PRs</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">ðŸ† Recent PRs</h3>
                     <div className="space-y-2">
                       {recentPRs.map((pr, idx) => (
                         <div
@@ -454,7 +501,7 @@ export default function Home() {
                           <div>
                             <div className="font-semibold text-gray-900">{pr.athlete}</div>
                             <div className="text-sm text-gray-800">
-                              {pr.session.lift} • Week {pr.session.week} • {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
+                              {pr.session.lift} â€¢ Week {pr.session.week} â€¢ {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
                             </div>
                           </div>
                           <div className="text-sm font-semibold text-green-700">
@@ -471,7 +518,7 @@ export default function Home() {
                   <h3 className="text-lg font-bold text-gray-900 mb-3">
                     Athlete Activity
                     <span className="ml-2 text-xs font-normal text-gray-500">
-                      (🟢 = Active In Last 2 Hours)
+                      (ðŸŸ¢ = Active In Last 2 Hours)
                     </span>
                   </h3>
                   <div className="overflow-x-auto">
@@ -480,16 +527,16 @@ export default function Home() {
                         <tr className="text-left">
                           <th className="pb-2">Athlete</th>
                           <th className="pb-2">Workouts</th>
-                          <th className="pb-2">Last Session</th>
+                          <th className="pb-2">Last Activity</th>
                           <th className="pb-2">Total PRs</th>
                         </tr>
                       </thead>
                       <tbody>
                         {athleteActivity
-                          .sort((a, b) => (b.lastWorkout || 0) - (a.lastWorkout || 0))
+                          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
                           .slice(0, 10)
                           .map((athlete) => {
-                            const isActive = athlete.lastWorkout && (Date.now() - athlete.lastWorkout) < 2 * 60 * 60 * 1000;
+                            const isActive = athlete.lastActivity && (Date.now() - athlete.lastActivity) < 2 * 60 * 60 * 1000;
                             return (
                             <tr key={athlete.uid} className="border-b last:border-0">
                               <td className="py-2 font-medium">
@@ -511,16 +558,16 @@ export default function Home() {
                                 </span>
                               </td>
                               <td className="py-2 text-gray-600">
-                                {athlete.lastWorkout 
-                                  ? new Date(athlete.lastWorkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                  : '—'
+                                {athlete.lastActivity 
+                                  ? new Date(athlete.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                  : 'â€”'
                                 }
                               </td>
                               <td className="py-2">
                                 {athlete.prCount > 0 ? (
                                   <span className="text-purple-600 font-semibold">{athlete.prCount} PRs</span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-400">â€”</span>
                                 )}
                               </td>
                             </tr>
@@ -663,7 +710,7 @@ export default function Home() {
                       <div className="text-lg font-black uppercase tracking-wider">{liftName}</div>
                       {hasTm ? (
                         <div className={`text-xs uppercase tracking-wide ${accentColor}`}>
-                          Week {week} • TM: <span className="font-bold">{tmValue}</span> {profile.unit}
+                          Week {week} â€¢ TM: <span className="font-bold">{tmValue}</span> {profile.unit}
                         </div>
                       ) : (
                         <div className="text-xs text-yellow-500 uppercase tracking-wide">Set Up TM</div>
