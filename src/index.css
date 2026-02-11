@@ -102,3 +102,25 @@ html.theme-dark { color-scheme: dark; }
   border-color: rgba(51, 65, 85, 0.8);
   background-image: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
 }
+
+/* PR celebration animations */
+@keyframes prGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(250, 204, 21, 0.4), 0 0 24px rgba(250, 204, 21, 0.15); }
+  50% { box-shadow: 0 0 16px rgba(250, 204, 21, 0.6), 0 0 40px rgba(250, 204, 21, 0.25); }
+}
+@keyframes prTrophyBounce {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.15) rotate(-8deg); }
+  50% { transform: scale(1.05) rotate(4deg); }
+  75% { transform: scale(1.1) rotate(-4deg); }
+}
+@keyframes prShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.pr-glow { animation: prGlow 2s ease-in-out infinite; }
+.pr-trophy-bounce { display: inline-block; animation: prTrophyBounce 1.5s ease-in-out infinite; }
+.pr-shimmer {
+  background-size: 200% auto;
+  animation: prShimmer 3s linear infinite;
+}

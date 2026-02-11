@@ -141,6 +141,10 @@ export default function Session() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [liftConfirmed, setLiftConfirmed] = useState(false);
   const [showWeekAdvancePrompt, setShowWeekAdvancePrompt] = useState(false);
+  const [showPrPopup, setShowPrPopup] = useState(false);
+  const [allEstMaxes, setAllEstMaxes] = useState<Record<Lift, number>>({ squat: 0, bench: 0, deadlift: 0 });
+  const [allPrFlags, setAllPrFlags] = useState<Record<Lift, boolean>>({ squat: false, bench: false, deadlift: false });
+  const [pendingPostSave, setPendingPostSave] = useState<(() => void) | null>(null);
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const autoAdvanceRef = useRef(false);
@@ -458,38 +462,47 @@ export default function Session() {
       setPrFlag(pr);
       setEst(est1rm);
 
+      // Fetch best est1rm for all 3 lifts to display in popup
+      const allLifts: Lift[] = ["squat", "bench", "deadlift"];
+      const otherLifts = allLifts.filter((l) => l !== lift);
+      const [other1, other2] = await Promise.all(
+        otherLifts.map((l) => bestEst1RM(l, 20, targetUid, sessionTeam))
+      );
+      const maxes: Record<Lift, number> = { squat: 0, bench: 0, deadlift: 0 };
+      maxes[lift] = est1rm;
+      maxes[otherLifts[0]] = other1;
+      maxes[otherLifts[1]] = other2;
+      const prFlags: Record<Lift, boolean> = { squat: false, bench: false, deadlift: false };
+      prFlags[lift] = pr;
+      setAllEstMaxes(maxes);
+      setAllPrFlags(prFlags);
+
       if (week === 3) {
-        // Advance BEFORE refreshing history to prevent the
-        // maybeAutoAdvanceWeek3 useEffect from firing a second advance.
-        autoAdvanceRef.current = true;
-        const nextCycle = nextCycleAfter(cycle);
-        const resetCycle = clampCycle(cycle) === 3;
-        await advanceWeek();
-        // Skip history refresh & notifyProfileChange here — advanceWeek
-        // already called persistLiftProgress which notifies, and we
-        // navigate away immediately so no UI needs the updated history.
-
-        alert(
-          resetCycle
-            ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
-            : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCycle}. Training max updated.`
-        );
-        // Navigate to home after week 3 completion
-        navigate("/");
-        return;
-      }
-
-      const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
-      setHistory(rows.reverse());
-      notifyProfileChange();
-
-      // For Simple mode, navigate to home after save
-      // For Full mode, show week advance prompt
-      if (sessionMode === "simple") {
-        navigate("/");
+        // Defer week advance until popup is closed
+        setPendingPostSave(() => async () => {
+          autoAdvanceRef.current = true;
+          const nextCyc = nextCycleAfter(cycle);
+          const resetCycle = clampCycle(cycle) === 3;
+          await advanceWeek();
+          alert(
+            resetCycle
+              ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
+              : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCyc}. Training max updated.`
+          );
+          navigate("/");
+        });
       } else {
-        setShowWeekAdvancePrompt(true);
+        const rows = await recentSessions(lift, 12, targetUid, sessionTeam);
+        setHistory(rows.reverse());
+        notifyProfileChange();
+
+        if (sessionMode === "simple") {
+          setPendingPostSave(() => () => navigate("/"));
+        } else {
+          setPendingPostSave(() => () => setShowWeekAdvancePrompt(true));
+        }
       }
+      setShowPrPopup(true);
     } catch (err) {
       console.warn("Failed to save session", err);
       alert("Unable to save session right now. Please try again.");
@@ -986,6 +999,92 @@ export default function Session() {
                 Yes, Advance →
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PR / Estimated Max Popup */}
+      {showPrPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-gray-950 p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 border border-gray-800">
+            {/* Header */}
+            <div className="text-center space-y-1">
+              {Object.values(allPrFlags).some(Boolean) ? (
+                <>
+                  <div className="text-5xl pr-trophy-bounce">🏆</div>
+                  <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-300 pr-shimmer">
+                    NEW PR!
+                  </h3>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl">💪</div>
+                  <h3 className="text-xl font-bold text-white">Session Complete!</h3>
+                </>
+              )}
+              <p className="text-sm text-gray-400">Estimated Max Overview</p>
+            </div>
+
+            {/* 3 Lift Cards */}
+            <div className="space-y-3">
+              {(["squat", "bench", "deadlift"] as Lift[]).map((l) => {
+                const isPr = allPrFlags[l];
+                const value = allEstMaxes[l];
+                const liftColors: Record<Lift, { bg: string; border: string; text: string; accent: string }> = {
+                  squat: { bg: "bg-red-950/60", border: "border-red-700/50", text: "text-red-300", accent: "text-red-100" },
+                  bench: { bg: "bg-blue-950/60", border: "border-blue-700/50", text: "text-blue-300", accent: "text-blue-100" },
+                  deadlift: { bg: "bg-purple-950/60", border: "border-purple-700/50", text: "text-purple-300", accent: "text-purple-100" },
+                };
+                const colors = liftColors[l];
+                return (
+                  <div
+                    key={l}
+                    className={`relative rounded-2xl border p-4 transition-all ${
+                      isPr
+                        ? "pr-glow border-yellow-400/80 bg-gradient-to-r from-yellow-950/50 via-amber-950/40 to-yellow-950/50"
+                        : `${colors.bg} ${colors.border}`
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className={`text-xs font-semibold uppercase tracking-wider ${isPr ? "text-yellow-400" : colors.text}`}>
+                          {LIFT_LABELS[l]}
+                        </div>
+                        <div className={`text-3xl font-black ${isPr ? "text-yellow-100" : colors.accent}`}>
+                          {value > 0 ? `${value} ${unit}` : "—"}
+                        </div>
+                      </div>
+                      {isPr && (
+                        <div className="pr-trophy-bounce text-3xl">
+                          🏆
+                        </div>
+                      )}
+                    </div>
+                    {isPr && (
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/20 border border-yellow-400/40 px-2.5 py-0.5 text-xs font-bold text-yellow-300 uppercase tracking-wide">
+                          ★ New Personal Record ★
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowPrPopup(false);
+                if (pendingPostSave) {
+                  pendingPostSave();
+                  setPendingPostSave(null);
+                }
+              }}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold text-lg shadow-lg transition-all"
+            >
+              Back to Home
+            </button>
           </div>
         </div>
       )}
