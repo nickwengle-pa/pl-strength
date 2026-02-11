@@ -501,7 +501,7 @@ export default function Home() {
                           <div>
                             <div className="font-semibold text-gray-900">{pr.athlete}</div>
                             <div className="text-sm text-gray-800">
-                              {pr.session.lift} â€¢ Week {pr.session.week} â€¢ {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
+                              {pr.session.lift} • Week {pr.session.week} • {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
                             </div>
                           </div>
                           <div className="text-sm font-semibold text-green-700">
@@ -518,7 +518,7 @@ export default function Home() {
                   <h3 className="text-lg font-bold text-gray-900 mb-3">
                     Athlete Activity
                     <span className="ml-2 text-xs font-normal text-gray-500">
-                      (ðŸŸ¢ = Active In Last 2 Hours)
+                      (🟢 = Active In Last 2 Hours)
                     </span>
                   </h3>
                   <div className="overflow-x-auto">
@@ -560,14 +560,14 @@ export default function Home() {
                               <td className="py-2 text-gray-600">
                                 {athlete.lastActivity 
                                   ? new Date(athlete.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                  : 'â€”'
+                                  : '—'
                                 }
                               </td>
                               <td className="py-2">
                                 {athlete.prCount > 0 ? (
                                   <span className="text-purple-600 font-semibold">{athlete.prCount} PRs</span>
                                 ) : (
-                                  <span className="text-gray-400">â€”</span>
+                                  <span className="text-gray-400">—</span>
                                 )}
                               </td>
                             </tr>
@@ -710,7 +710,7 @@ export default function Home() {
                       <div className="text-lg font-black uppercase tracking-wider">{liftName}</div>
                       {hasTm ? (
                         <div className={`text-xs uppercase tracking-wide ${accentColor}`}>
-                          Week {week} â€¢ TM: <span className="font-bold">{tmValue}</span> {profile.unit}
+                          Week {week} • TM: <span className="font-bold">{tmValue}</span> {profile.unit}
                         </div>
                       ) : (
                         <div className="text-xs text-yellow-500 uppercase tracking-wide">Set Up TM</div>
