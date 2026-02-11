@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildDefaultAttendanceSessions,
   TEAM_DEFINITIONS,
@@ -12,8 +12,7 @@ import {
   setAttendanceDateLocked,
   setAttendanceSessionLocked,
   updateAttendanceCheckinStatus,
-  fetchAthleteSessions,
-  listRoster,
+  fetchLastWorkoutDates,
   type AttendanceCheckin,
   type AttendanceSession,
   type AttendanceSheet,
@@ -725,6 +724,7 @@ export default function Attendance() {
       setLoading(false);
       return;
     }
+    let active = true;
     setLoading(true);
     setLoadError(null);
     (async () => {
@@ -736,6 +736,7 @@ export default function Attendance() {
             return [team, sheet] as const;
           })
         );
+        if (!active) return;
         setSheets((prev) => {
           const next = { ...prev };
           entries.forEach(([team, sheet]) => {
@@ -758,52 +759,30 @@ export default function Attendance() {
           return next;
         });
       } catch (err: any) {
+        if (!active) return;
         const message = err?.message ?? "Could Not Load Attendance Sheets.";
         setLoadError(message);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     })();
+    return () => { active = false; };
   }, [authLoading, isCoach, visibleTeams]);
 
-  // Load last workout dates for all athletes
+  // Load last workout dates for all athletes (single batch query)
   useEffect(() => {
     if (authLoading || !isCoach) return;
-    
+    let active = true;
     (async () => {
       try {
-        const roster = await listRoster();
-        const workoutDates: Record<string, number> = {};
-        
-        // Fetch last session for each athlete
-        await Promise.all(
-          roster.map(async (athlete) => {
-            try {
-              const sessions = await fetchAthleteSessions(
-                athlete.uid,
-                12,
-                selectedTeam
-              );
-              if (sessions.length > 0) {
-                // Get most recent session date
-                const lastSession = sessions.reduce((latest, session) => 
-                  (session.createdAt || 0) > (latest.createdAt || 0) ? session : latest
-                );
-                workoutDates[athlete.uid] = lastSession.createdAt || 0;
-              }
-            } catch (err) {
-              // Silently skip athletes we can't load
-              console.debug(`Could Not Load Sessions For ${athlete.uid}`);
-            }
-          })
-        );
-        
-        setLastWorkoutDates(workoutDates);
+        const dates = await fetchLastWorkoutDates(selectedTeam);
+        if (active) setLastWorkoutDates(dates);
       } catch (err) {
-        console.debug('Could Not Load Workout Dates', err);
+        console.debug("Could Not Load Workout Dates", err);
       }
     })();
-  }, [authLoading, isCoach, visibleTeams, selectedTeam]);
+    return () => { active = false; };
+  }, [authLoading, isCoach, selectedTeam]);
 
   useEffect(() => {
     setFormDraft((prev) => ({
@@ -888,31 +867,26 @@ export default function Attendance() {
       try {
         let rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
         const currentSheet = normalizeRuntimeSheet(sheetsRef.current[selectedTeam], selectedTeam);
-        const reviewRowsToSync = rows
-          .map((row) => {
-            if (row.status === "pending") return null;
-            const athleteId = findSheetAthleteIdForCheckin(currentSheet, selectedTeam, row);
-            if (!athleteId) return null;
-            const markedPresent = Boolean(currentSheet.records[athleteId]?.[row.date]);
-            const desiredStatus = markedPresent ? "approved" : "rejected";
-            if (row.status === desiredStatus) return null;
-            return {
-              uid: row.uid,
-              desiredStatus,
-              sessionKey: row.sessionKey,
-              sessionLabel: row.sessionLabel,
-            };
-          })
-          .filter(
-            (
-              value
-            ): value is {
-              uid: string;
-              desiredStatus: "approved" | "rejected";
-              sessionKey?: string;
-              sessionLabel?: string;
-            } => value !== null
-          );
+        const reviewRowsToSync: Array<{
+          uid: string;
+          desiredStatus: "approved" | "rejected";
+          sessionKey?: string;
+          sessionLabel?: string;
+        }> = [];
+        for (const row of rows) {
+          if (row.status === "pending") continue;
+          const athleteId = findSheetAthleteIdForCheckin(currentSheet, selectedTeam, row);
+          if (!athleteId) continue;
+          const markedPresent = Boolean(currentSheet.records[athleteId]?.[row.date]);
+          const desiredStatus: "approved" | "rejected" = markedPresent ? "approved" : "rejected";
+          if (row.status === desiredStatus) continue;
+          reviewRowsToSync.push({
+            uid: row.uid,
+            desiredStatus,
+            sessionKey: row.sessionKey,
+            sessionLabel: row.sessionLabel,
+          });
+        }
 
         if (reviewRowsToSync.length > 0) {
           const coachDisplayName =
@@ -1130,14 +1104,14 @@ export default function Attendance() {
         )}`
       : "No Dates";
 
-  const handleSort = (field: typeof sortField) => {
+  const handleSort = useCallback((field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
     }
-  };
+  }, [sortField, sortDirection]);
 
   const visibleAthletes = useMemo(() => {
     const filtered = selectedSheet.athletes.filter((athlete) => athlete.level === selectedTeam);
@@ -1176,20 +1150,20 @@ export default function Attendance() {
     });
   }, [selectedSheet, selectedTeam, sortField, sortDirection, lastWorkoutDates]);
 
-  const handleSetError = (team: Team, message: string | null) => {
+  const handleSetError = useCallback((team: Team, message: string | null) => {
     setTeamErrors((prev) => ({
       ...prev,
       [team]: message,
     }));
-  };
+  }, []);
 
-  const clearToggleSaveTimer = (team: Team) => {
+  const clearToggleSaveTimer = useCallback((team: Team) => {
     const timer = toggleSaveTimerRef.current[team];
     if (typeof timer === "number") {
       window.clearTimeout(timer);
       delete toggleSaveTimerRef.current[team];
     }
-  };
+  }, []);
 
   const persistTeamSheet = async (
     team: Team,
@@ -1534,12 +1508,13 @@ export default function Attendance() {
     queueToggleAutosave(team);
 
     if (athlete?.uid) {
+      const athleteUid = athlete.uid;
       const coachDisplayName =
         typeof window !== "undefined"
           ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
           : undefined;
       const existingCheckin = reviewCheckins.find(
-        (row) => row.uid === athlete.uid && row.date === date
+        (row) => row.uid === athleteUid && row.date === date
       );
       const sessionsForDate = sheet.sessionsByDate?.[date] ?? [];
       const fallbackSession = existingCheckin?.sessionKey
@@ -1548,11 +1523,11 @@ export default function Attendance() {
         : sessionsForDate[0];
       const sessionKey = existingCheckin?.sessionKey ?? fallbackSession?.key;
       const sessionLabel = existingCheckin?.sessionLabel ?? fallbackSession?.label;
-      const nextStatus = nextValue ? "approved" : "rejected";
+      const nextStatus: "approved" | "rejected" = nextValue ? "approved" : "rejected";
       void updateAttendanceCheckinStatus({
         team,
         date,
-        uid: athlete.uid,
+        uid: athleteUid,
         status: nextStatus,
         reviewedByName: coachDisplayName,
         athleteId: athlete.id,
@@ -1566,10 +1541,10 @@ export default function Attendance() {
           if (team === selectedTeam && reviewDate === date) {
             setReviewCheckins((prev) => {
               const existingIndex = prev.findIndex(
-                (row) => row.uid === athlete.uid && row.date === date
+                (row) => row.uid === athleteUid && row.date === date
               );
               if (existingIndex >= 0) {
-                return prev.map((row, idx) =>
+                return prev.map((row, idx): AttendanceCheckin =>
                   idx === existingIndex
                     ? {
                         ...row,
@@ -1582,24 +1557,22 @@ export default function Attendance() {
                     : row
                 );
               }
-              return [
-                ...prev,
-                {
-                  id: `${team}__${date}__${athlete.uid}`,
-                  team,
-                  date,
-                  dayKey: `${team}__${date}`,
-                  uid: athlete.uid,
-                  athleteId: athlete.id,
-                  firstName: athlete.firstName,
-                  lastName: athlete.lastName,
-                  ...(sessionKey ? { sessionKey } : {}),
-                  ...(sessionLabel ? { sessionLabel } : {}),
-                  status: nextStatus,
-                  reviewedAt: Date.now(),
-                  reviewedByName: coachDisplayName,
-                },
-              ];
+              const newCheckin: AttendanceCheckin = {
+                id: `${team}__${date}__${athleteUid}`,
+                team,
+                date,
+                dayKey: `${team}__${date}`,
+                uid: athleteUid,
+                athleteId: athlete.id,
+                firstName: athlete.firstName,
+                lastName: athlete.lastName,
+                sessionKey,
+                sessionLabel,
+                status: nextStatus,
+                reviewedAt: Date.now(),
+                reviewedByName: coachDisplayName,
+              };
+              return [...prev, newCheckin];
             });
           }
         })

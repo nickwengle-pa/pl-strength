@@ -1082,15 +1082,7 @@ export async function getUid(): Promise<string | null> {
   return uid;
 }
 
-export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
-  const targetUid = uid ?? await getUid();
-  if (!targetUid) return null;
-  const handles = resolveHandles();
-  const database = handles?.db;
-  if (!database) return null;
-  const snap = await getDoc(profRef(database, targetUid));
-  if (!snap.exists()) return null;
-  const data = snap.data() || {};
+function normalizeProfileData(data: Record<string, any>, targetUid: string): Profile {
   const team = normalizeTeam(data.team);
   const teamAnchor = normalizeTeam(data.teamAnchor ?? data.team);
   const teamData = normalizeTeamTrainingMap(data.teamData);
@@ -1152,6 +1144,17 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
     currentWeek: activeState?.currentWeek ?? normalizeWeek(data.currentWeek),
     currentCycle: activeState?.currentCycle ?? normalizeCycle(data.currentCycle),
   };
+}
+
+export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
+  const targetUid = uid ?? await getUid();
+  if (!targetUid) return null;
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return null;
+  const snap = await getDoc(profRef(database, targetUid));
+  if (!snap.exists()) return null;
+  return normalizeProfileData(snap.data() || {}, targetUid);
 }
 
 export async function saveProfile(p: Profile, options?: { skipLocal?: boolean }) {
@@ -3142,6 +3145,8 @@ export async function setAttendanceDateLocked(
       { merge: true }
     );
   });
+
+  return { autoApprovedPending: pendingToApprove.length };
 }
 
 export async function setAttendanceSessionLocked(
@@ -3258,10 +3263,6 @@ export async function setAttendanceSessionLocked(
       { merge: true }
     );
   });
-
-  return {
-    autoApprovedPending: pendingToApprove.length,
-  };
 }
 
 export type AccessHistory = {
@@ -3443,7 +3444,7 @@ export async function ensureAdminRole(): Promise<void> {
   applyRoleCache(combined);
 }
 
-type Lift = "bench" | "squat" | "deadlift";
+export type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
 
 export type SessionSet = {
@@ -4006,6 +4007,43 @@ export async function fetchAthleteSessions(
   }
 }
 
+/**
+ * Batch-fetch the most recent session timestamp for every athlete in a single
+ * collectionGroup query instead of one query per athlete (N+1).
+ * Returns a map of athleteUid → createdAt (ms).
+ */
+export async function fetchLastWorkoutDates(
+  team?: Team
+): Promise<Record<string, number>> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return {};
+
+  const teamFilter = team ? normalizeTeam(team) : undefined;
+
+  try {
+    const cg = collectionGroup(database, "sessions");
+    const q = teamFilter
+      ? query(cg, where("team", "==", teamFilter), orderBy("createdAt", "desc"))
+      : query(cg, orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+
+    const result: Record<string, number> = {};
+    for (const docSnap of snap.docs) {
+      // Path: athletes/{uid}/sessions/{sessionId}
+      const parts = docSnap.ref.path.split("/");
+      const uid = parts[1] ?? "";
+      if (!uid || result[uid]) continue; // Keep only the most recent per athlete
+      const ts = toMillis(docSnap.data()?.createdAt);
+      if (ts) result[uid] = ts;
+    }
+    return result;
+  } catch (err) {
+    console.warn("fetchLastWorkoutDates failed", err);
+    return {};
+  }
+}
+
 export async function updateSession(
   uid: string,
   sessionId: string,
@@ -4167,7 +4205,7 @@ export function subscribeToProfile(
         listener(null);
         return;
       }
-      const profile = normalizeProfile(snapshot.data(), uid);
+      const profile = normalizeProfileData(snapshot.data(), uid);
       listener(profile);
     },
     (error) => {

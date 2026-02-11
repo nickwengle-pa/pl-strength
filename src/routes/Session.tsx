@@ -793,14 +793,8 @@ export default function Session() {
                   {Math.round(currentSet.pct * 100)}% of TM
                 </div>
                 {isAMRAPSet && (
-                  <div className={`mt-4 mx-4 px-4 py-2 rounded-xl border-2 ${
-                    currentSet.phase === 'warm'
-                      ? 'bg-yellow-400/20 border-yellow-300'
-                      : 'bg-cyan-500/20 border-cyan-400'
-                  }`}>
-                    <div className={`text-xl font-bold ${
-                      currentSet.phase === 'warm' ? 'text-yellow-200' : 'text-cyan-300'
-                    }`} style={currentSet.phase === 'work' ? { textShadow: '0 0 15px rgba(34, 211, 238, 0.8)' } : undefined}>AMRAP SET!</div>
+                  <div className="mt-4 mx-4 px-4 py-2 rounded-xl border-2 bg-cyan-500/20 border-cyan-400">
+                    <div className="text-xl font-bold text-cyan-300" style={{ textShadow: '0 0 15px rgba(34, 211, 238, 0.8)' }}>AMRAP SET!</div>
                     <div className="text-xs mt-1">Leave 1-2 Reps In The Tank</div>
                   </div>
                 )}
