@@ -879,7 +879,24 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
           </div>
         </header>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
+        <div className="flex justify-center gap-2">
+          {[
+            { label: "Turf", target: "section-turf" },
+            { label: "Mobility Video", target: "section-mobility" },
+            { label: "Lifts & Accessory", target: "section-lifts" },
+          ].map((btn) => (
+            <button
+              key={btn.target}
+              type="button"
+              onClick={() => document.getElementById(btn.target)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="px-3 py-1.5 text-xs font-semibold rounded-full border border-gray-300 bg-gray-50 text-gray-700 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 transition-colors"
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
+        <div id="section-turf" className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-800">Warmup, Mobility, And Plyometrics</h3>
             <p className="text-sm text-gray-600">
@@ -895,7 +912,19 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
             onItemsChange={updateStringList("turfWarmup")}
           />
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-3">
+          <Section
+            title="Plyometrics (Turf)"
+            items={data.plyometrics}
+            footerLabel="Weekly Emphasis"
+            footerItems={data.plyoDays}
+            editable={editable}
+            options={library.plyometrics}
+            footerOptions={library.plyoDays}
+            onItemsChange={updateStringList("plyometrics")}
+            onFooterItemsChange={updateStringList("plyoDays")}
+          />
+
+          <div id="section-mobility" className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700 space-y-3">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-800">Hip Mobility Series (Turf)</h3>
               {editable ? (
@@ -910,15 +939,17 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
               )}
             </div>
             {hipMobilityEmbed && (
-              <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
-                <iframe
-                  className="absolute inset-0 h-full w-full"
-                  src={hipMobilityEmbed}
-                  title="Hip mobility series"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  loading="lazy"
-                />
+              <div className="max-w-sm">
+                <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
+                  <iframe
+                    className="absolute inset-0 h-full w-full"
+                    src={hipMobilityEmbed}
+                    title="Hip mobility series"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    loading="lazy"
+                  />
+                </div>
               </div>
             )}
             {editable ? (
@@ -956,28 +987,9 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
             )}
           </div>
 
-          <Section
-            title="Plyometrics (Turf)"
-            items={data.plyometrics}
-            footerLabel="Weekly Emphasis"
-            footerItems={data.plyoDays}
-            editable={editable}
-            options={library.plyometrics}
-            footerOptions={library.plyoDays}
-            onItemsChange={updateStringList("plyometrics")}
-            onFooterItemsChange={updateStringList("plyoDays")}
-          />
-
-          <Section
-            title="Warmup (All Core Lifts)"
-            items={data.coreWarmup}
-            editable={editable}
-            options={library.coreWarmup}
-            onItemsChange={updateStringList("coreWarmup")}
-          />
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
+        <div id="section-lifts" className="rounded-2xl border border-gray-200 bg-white p-4 space-y-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-800">Main And Accessory Lifts</h3>
             <p className="text-sm text-gray-600">
@@ -990,6 +1002,22 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
               <h4 className="text-lg font-semibold text-gray-800">Lift (Weightroom)</h4>
               <p className="text-sm text-gray-600">
                 Align These Training Days With The 5/3/1 Percentages For The Current Week.
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                <span className="font-semibold text-gray-600">Warmup:</span>{" "}
+                {editable ? (
+                  <input
+                    className="field inline-block w-auto text-sm py-1 px-2"
+                    value={data.coreWarmup.join(", ")}
+                    onChange={(event) => {
+                      const items = event.target.value.split(",").map((s) => s.trim());
+                      onUpdate({ coreWarmup: items });
+                    }}
+                    placeholder="e.g. 1 x 5 @ 40%, 1 x 5 @ 60%, 1 x 3 @ 80%"
+                  />
+                ) : (
+                  data.coreWarmup.filter((s) => s.trim()).join("  /  ")
+                )}
               </p>
             </div>
             {editable ? (
