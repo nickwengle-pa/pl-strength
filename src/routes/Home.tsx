@@ -396,8 +396,13 @@ export default function Home() {
             }
           : prev
       );
+      const isJuniorHighSelfApprove = checkinState.team === "football-junior-high";
       setCheckinNotice(
-        created.status === "approved"
+        isJuniorHighSelfApprove
+          ? created.sessionLabel
+            ? `Checked In For ${created.sessionLabel}.`
+            : "Checked In."
+          : created.status === "approved"
           ? created.sessionLabel
             ? `Checked In For ${created.sessionLabel}.`
             : "Checked In."
@@ -619,7 +624,9 @@ export default function Home() {
                 ) : checkinState?.checkin ? (
                   <div className="mt-3 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2">
                     <p className="text-sm font-semibold text-zinc-100">
-                      {checkinStatus === "approved"
+                      {checkinState?.team === "football-junior-high" && checkinStatus !== "rejected"
+                        ? "You're Checked In."
+                        : checkinStatus === "approved"
                         ? "Coach Marked You Present."
                         : checkinStatus === "rejected"
                         ? "Coach Marked This Check-In As Not Present."
