@@ -4022,8 +4022,6 @@ export default function Attendance() {
                       type="date"
                       className="field bg-white min-w-36"
                       value={reportStartDate}
-                      min={reportSourceDates[0] ?? undefined}
-                      max={reportSourceDates[reportSourceDates.length - 1] ?? undefined}
                       onChange={(event) => {
                         setReportRangePreset("custom");
                         setReportStartDate(event.target.value);
@@ -4036,8 +4034,6 @@ export default function Attendance() {
                       type="date"
                       className="field bg-white min-w-36"
                       value={reportEndDate}
-                      min={reportSourceDates[0] ?? undefined}
-                      max={reportSourceDates[reportSourceDates.length - 1] ?? undefined}
                       onChange={(event) => {
                         setReportRangePreset("custom");
                         setReportEndDate(event.target.value);
