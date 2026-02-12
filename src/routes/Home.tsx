@@ -397,7 +397,11 @@ export default function Home() {
           : prev
       );
       setCheckinNotice(
-        created.sessionLabel
+        created.status === "approved"
+          ? created.sessionLabel
+            ? `Checked In For ${created.sessionLabel}.`
+            : "Checked In."
+          : created.sessionLabel
           ? `Check-In Submitted For ${created.sessionLabel}. Coach Verification Is Pending.`
           : "Check-In Submitted. Coach Verification Is Pending."
       );

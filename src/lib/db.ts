@@ -3010,9 +3010,11 @@ export async function submitAthleteAttendanceCheckin(options: {
   if (!date) {
     throw new Error("Missing attendance check-in date.");
   }
+  const autoApproveCheckin = team === "football-junior-high";
 
   const checkin = await runTransaction(database, async (tx) => {
     const statusRef = attendanceStatusDocRef(database, team);
+    const attendanceRef = attendanceDocRef(database, team);
     const checkinRef = attendanceCheckinDocRef(database, team, date, uid);
     const statusSnap = await tx.get(statusRef);
     const status = normalizeAttendanceTeamStatus(statusSnap.data(), team);
@@ -3048,9 +3050,131 @@ export async function submitAthleteAttendanceCheckin(options: {
       uid,
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
-      status: "pending",
+      status: autoApproveCheckin ? "approved" : "pending",
       submittedAt: now,
+      ...(autoApproveCheckin ? { reviewedAt: now } : {}),
     };
+
+    if (autoApproveCheckin) {
+      const attendanceSnap = await tx.get(attendanceRef);
+      const baseSheet = attendanceSnap.exists()
+        ? normalizeAttendanceSheet(attendanceSnap.data(), team)
+        : defaultAttendanceSheet(team);
+      const nextDates = baseSheet.dates.includes(date)
+        ? [...baseSheet.dates]
+        : [...baseSheet.dates, date].sort((a, b) => a.localeCompare(b));
+      const seedDates = baseSheet.dates.length > 0 ? baseSheet.dates : status.dates;
+      const sourceSessionsByDate =
+        seedDates.length > 0 ? baseSheet.sessionsByDate : status.sessionsByDate;
+      const sourceSessionLocks = seedDates.length > 0 ? baseSheet.sessionLocks : status.sessionLocks;
+      const sourceLockedDates = seedDates.length > 0 ? baseSheet.lockedDates : status.lockedDates;
+      const nextSessionState = normalizeAttendanceSessionState(
+        nextDates,
+        sourceSessionsByDate,
+        sourceSessionLocks,
+        sourceLockedDates
+      );
+      const nextSessionsForDate = nextSessionState.sessionsByDate[date] ?? [];
+      const assignedSession =
+        nextSessionsForDate.find((session) => session.key === targetSession.key) ??
+        nextSessionsForDate[0] ??
+        targetSession;
+
+      let nextAthletes = [...baseSheet.athletes];
+      let nextRecords = ensureAttendanceRowsForDates(baseSheet.records, nextAthletes, nextDates);
+      let matchedAthlete = findAttendanceAthleteForCheckin(baseSheet, team, {
+        uid,
+        firstName,
+        lastName,
+      });
+      if (!matchedAthlete) {
+        matchedAthlete = {
+          id: buildAttendanceAthleteIdForUid(uid),
+          uid,
+          firstName: firstName || "Athlete",
+          lastName,
+          level: team,
+        };
+        nextAthletes.push(matchedAthlete);
+        nextRecords = ensureAttendanceRowsForDates(nextRecords, nextAthletes, nextDates);
+      }
+
+      const athleteIndex = nextAthletes.findIndex((row) => row.id === matchedAthlete!.id);
+      if (athleteIndex >= 0) {
+        const athleteRow = nextAthletes[athleteIndex];
+        const patchedAthlete = {
+          ...athleteRow,
+          ...(athleteRow.uid ? {} : { uid }),
+          ...(!athleteRow.firstName && firstName ? { firstName } : {}),
+          ...(!athleteRow.lastName && lastName ? { lastName } : {}),
+        };
+        nextAthletes[athleteIndex] = patchedAthlete;
+        matchedAthlete = patchedAthlete;
+      }
+
+      const row = { ...(nextRecords[matchedAthlete.id] ?? {}) };
+      nextDates.forEach((value) => {
+        if (!(value in row)) row[value] = false;
+      });
+      row[date] = true;
+      nextRecords[matchedAthlete.id] = row;
+
+      const nextSessionSelections = normalizeAttendanceSessionSelections(
+        nextAthletes,
+        nextDates,
+        nextSessionState.sessionsByDate,
+        nextRecords,
+        baseSheet.sessionSelections
+      );
+      const selectionRow = { ...(nextSessionSelections[matchedAthlete.id] ?? {}) };
+      selectionRow[date] = assignedSession.key;
+      nextSessionSelections[matchedAthlete.id] = selectionRow;
+
+      tx.set(
+        attendanceRef,
+        {
+          dates: nextDates,
+          athletes: nextAthletes,
+          records: nextRecords,
+          sessionSelections: nextSessionSelections,
+          sessionsByDate: nextSessionState.sessionsByDate,
+          sessionLocks: nextSessionState.sessionLocks,
+          lockedDates: nextSessionState.lockedDates,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      tx.set(
+        statusRef,
+        {
+          dates: nextDates,
+          sessionsByDate: nextSessionState.sessionsByDate,
+          sessionLocks: nextSessionState.sessionLocks,
+          lockedDates: nextSessionState.lockedDates,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      tx.set(checkinRef, {
+        team,
+        date,
+        dayKey: created.dayKey,
+        sessionKey: assignedSession.key,
+        sessionLabel: assignedSession.label,
+        uid,
+        athleteId: matchedAthlete.id,
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
+        status: "approved",
+        submittedAt: serverTimestamp(),
+        reviewedAt: serverTimestamp(),
+      });
+      created.sessionKey = assignedSession.key;
+      created.sessionLabel = assignedSession.label;
+      created.athleteId = matchedAthlete.id;
+      return created;
+    }
+
     tx.set(checkinRef, {
       team,
       date,
