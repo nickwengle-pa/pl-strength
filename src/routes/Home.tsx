@@ -416,6 +416,11 @@ export default function Home() {
         setCheckinError("Check-In Is Closed For Today.");
       } else if (code === "attendance/date-locked") {
         setCheckinError("No Sessions Available Right Now.");
+      } else if (
+        err?.code === "permission-denied" ||
+        /missing or insufficient permissions/i.test(code)
+      ) {
+        setCheckinError("Check-In Permission Failed. Sign Out, Sign Back In, Then Try Again.");
       } else {
         setCheckinError(err?.message ?? "Could Not Submit Attendance Check-In.");
       }
@@ -442,8 +447,20 @@ export default function Home() {
   };
 
   const getLiftStatus = (lift: Lift) => {
-    const week = profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1;
-    const cycle = profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
+    const hasLiftWeekMap = Boolean(
+      profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0
+    );
+    const hasLiftCycleMap = Boolean(
+      profile?.liftCycles && Object.keys(profile.liftCycles).length > 0
+    );
+    const week =
+      profile?.liftWeeks?.[lift] ??
+      (!hasLiftWeekMap ? profile?.currentWeek : undefined) ??
+      1;
+    const cycle =
+      profile?.liftCycles?.[lift] ??
+      (!hasLiftCycleMap ? profile?.currentCycle : undefined) ??
+      1;
     return { week, cycle };
   };
 

@@ -102,8 +102,20 @@ export default function Progress() {
 
   const unit = (profile?.unit || "lb") as Unit;
   const currentTM = profile?.tm?.[selectedLift] || 0;
-  const liftWeek = profile?.liftWeeks?.[selectedLift] ?? profile?.currentWeek ?? 1;
-  const liftCycle = profile?.liftCycles?.[selectedLift] ?? profile?.currentCycle ?? 1;
+  const hasLiftWeekMap = Boolean(
+    profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0
+  );
+  const hasLiftCycleMap = Boolean(
+    profile?.liftCycles && Object.keys(profile.liftCycles).length > 0
+  );
+  const liftWeek =
+    profile?.liftWeeks?.[selectedLift] ??
+    (!hasLiftWeekMap ? profile?.currentWeek : undefined) ??
+    1;
+  const liftCycle =
+    profile?.liftCycles?.[selectedLift] ??
+    (!hasLiftCycleMap ? profile?.currentCycle : undefined) ??
+    1;
 
   // Calculate stats
   const prSessions = sessions.filter(s => s.pr);

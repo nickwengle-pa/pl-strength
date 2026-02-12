@@ -103,23 +103,32 @@ const nextCycleAfter = (value: number): number => {
   return normalized >= 3 ? 1 : normalized + 1;
 };
 
-const resolveLiftWeek = (profile: Profile | null, lift: Lift): Week =>
-  profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1;
+const hasLiftWeekMap = (profile: Profile | null): boolean =>
+  Boolean(profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0);
 
-const resolveLiftCycle = (profile: Profile | null, lift: Lift): number =>
-  clampCycle(profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1);
+const hasLiftCycleMap = (profile: Profile | null): boolean =>
+  Boolean(profile?.liftCycles && Object.keys(profile.liftCycles).length > 0);
 
-const seedLiftWeeks = (value: Week): Record<Lift, Week> => ({
-  bench: value,
-  squat: value,
-  deadlift: value,
-});
+const resolveLiftWeek = (profile: Profile | null, lift: Lift): Week => {
+  const direct = profile?.liftWeeks?.[lift];
+  if (direct === 1 || direct === 2 || direct === 3) return direct;
+  if (!hasLiftWeekMap(profile)) {
+    const fallback = profile?.currentWeek;
+    if (fallback === 1 || fallback === 2 || fallback === 3) return fallback;
+  }
+  return 1;
+};
 
-const seedLiftCycles = (value: number): Record<Lift, number> => ({
-  bench: value,
-  squat: value,
-  deadlift: value,
-});
+const resolveLiftCycle = (profile: Profile | null, lift: Lift): number => {
+  const direct = profile?.liftCycles?.[lift];
+  if (typeof direct === "number" && Number.isFinite(direct)) {
+    return clampCycle(direct);
+  }
+  if (!hasLiftCycleMap(profile)) {
+    return clampCycle(profile?.currentCycle ?? 1);
+  }
+  return 1;
+};
 
 export default function Session() {
   const location = useLocation();
@@ -523,17 +532,9 @@ export default function Session() {
     setCycle(clampedCycle);
     setLiftConfirmed(true);
     if (!profile) return;
-    const baseWeek = profile.currentWeek ?? week;
-    const baseCycle = clampCycle(profile.currentCycle ?? cycle);
-    const nextLiftWeeks =
-      profile.liftWeeks && Object.keys(profile.liftWeeks).length > 0
-        ? { ...seedLiftWeeks(baseWeek), ...profile.liftWeeks }
-        : seedLiftWeeks(baseWeek);
+    const nextLiftWeeks = { ...(profile.liftWeeks ?? {}) };
     nextLiftWeeks[lift] = nextWeek;
-    const nextLiftCycles =
-      profile.liftCycles && Object.keys(profile.liftCycles).length > 0
-        ? { ...seedLiftCycles(baseCycle), ...profile.liftCycles }
-        : seedLiftCycles(baseCycle);
+    const nextLiftCycles = { ...(profile.liftCycles ?? {}) };
     nextLiftCycles[lift] = clampedCycle;
     const updatedProfile: Profile = {
       ...profile,

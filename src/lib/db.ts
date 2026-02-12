@@ -3000,7 +3000,16 @@ export async function submitAthleteAttendanceCheckin(options: {
     throw new Error("Firebase is required for attendance check-in.");
   }
   const team = options.team;
-  const uid = options.uid.trim();
+  const requestedUid = options.uid.trim();
+  const authUid = handles?.auth?.currentUser?.uid?.trim() ?? "";
+  const uid = authUid || requestedUid;
+  if (requestedUid && authUid && requestedUid !== authUid) {
+    console.warn("submitAthleteAttendanceCheckin uid mismatch; using auth uid", {
+      requestedUid,
+      authUid,
+      team,
+    });
+  }
   const firstName = sanitizeName(options.firstName ?? "");
   const lastName = sanitizeName(options.lastName ?? "");
   const date = (options.date ?? formatLocalDateInput(new Date())).trim();

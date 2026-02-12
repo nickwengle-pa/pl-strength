@@ -55,11 +55,35 @@ const emptyLiftCycleDraft = (): Record<LiftKey, number> => ({
   deadlift: 1,
 });
 
-const resolveLiftWeek = (profile: Profile | null, lift: LiftKey): Week =>
-  (profile?.liftWeeks?.[lift] ?? profile?.currentWeek ?? 1) as Week;
+const hasLiftWeekMap = (profile: Profile | null): boolean =>
+  Boolean(profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0);
 
-const resolveLiftCycle = (profile: Profile | null, lift: LiftKey): number =>
-  profile?.liftCycles?.[lift] ?? profile?.currentCycle ?? 1;
+const hasLiftCycleMap = (profile: Profile | null): boolean =>
+  Boolean(profile?.liftCycles && Object.keys(profile.liftCycles).length > 0);
+
+const resolveLiftWeek = (profile: Profile | null, lift: LiftKey): Week => {
+  const direct = profile?.liftWeeks?.[lift];
+  if (direct === 1 || direct === 2 || direct === 3) return direct;
+  if (!hasLiftWeekMap(profile)) {
+    const fallback = profile?.currentWeek;
+    if (fallback === 1 || fallback === 2 || fallback === 3) return fallback;
+  }
+  return 1;
+};
+
+const resolveLiftCycle = (profile: Profile | null, lift: LiftKey): number => {
+  const direct = profile?.liftCycles?.[lift];
+  if (typeof direct === "number" && Number.isFinite(direct) && direct >= 1) {
+    return Math.floor(direct);
+  }
+  if (!hasLiftCycleMap(profile)) {
+    const fallback = profile?.currentCycle;
+    if (typeof fallback === "number" && Number.isFinite(fallback) && fallback >= 1) {
+      return Math.floor(fallback);
+    }
+  }
+  return 1;
+};
 
 const formatWeight = (value: number): string => {
   if (!Number.isFinite(value)) return "-";
@@ -609,18 +633,29 @@ export default function Roster() {
     setLiftWeekDraft(() => {
       const draft = emptyLiftWeekDraft();
       for (const lift of LIFT_KEYS) {
-        draft[lift] = resolveLiftWeek(detailProfile, lift);
+        const latest = detailSessions.find((session) => session.lift === lift);
+        if (latest && (latest.week === 1 || latest.week === 2 || latest.week === 3)) {
+          draft[lift] = latest.week;
+        } else {
+          draft[lift] = resolveLiftWeek(detailProfile, lift);
+        }
       }
       return draft;
     });
     setLiftCycleDraft(() => {
       const draft = emptyLiftCycleDraft();
       for (const lift of LIFT_KEYS) {
-        draft[lift] = resolveLiftCycle(detailProfile, lift);
+        const latest = detailSessions.find((session) => session.lift === lift);
+        const latestCycle = Number(latest?.cycle);
+        if (Number.isFinite(latestCycle) && latestCycle >= 1) {
+          draft[lift] = Math.floor(latestCycle);
+        } else {
+          draft[lift] = resolveLiftCycle(detailProfile, lift);
+        }
       }
       return draft;
     });
-  }, [detailProfile]);
+  }, [detailProfile, detailSessions]);
 
   const handleTmDraftChange = (lift: LiftKey, value: string) => {
     setTmDraft((prev) => ({ ...prev, [lift]: value }));

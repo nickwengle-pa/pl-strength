@@ -165,7 +165,13 @@ service cloud.firestore {
 
     match /attendanceCheckins/{docId} {
       allow read: if isCoach() || isAdmin()
-        || (isSignedIn() && (resource == null || resource.data.uid == request.auth.uid));
+        || (
+          isSignedIn()
+          && (
+            (resource != null && resource.data.uid == request.auth.uid)
+            || docId.matches(".*__" + request.auth.uid + "$")
+          )
+        );
 
       allow create: if (isCoach() || isAdmin())
         || (
