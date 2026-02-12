@@ -4747,25 +4747,70 @@ export async function fetchTeamProfiles(
   const profiles: Profile[] = [];
   snap.forEach((docSnap) => {
     const data = docSnap.data();
+    const uid = data.uid || docSnap.ref.path.split("/")[1];
     const pTeam = normalizeTeam(data.team);
-    if (pTeam === team) {
-       profiles.push({
-         uid: data.uid || docSnap.ref.path.split("/")[1],
-         firstName: data.firstName || "",
-         lastName: data.lastName || "",
-         unit: (data.unit as Unit) || "lb",
-         createdAt: toMillis(data.createdAt) || undefined,
-         team: pTeam,
-         tm: data.tm || {},
-         oneRm: data.oneRm || {},
-         accessCode: data.accessCode,
-         equipment: data.equipment,
-         currentWeek: data.currentWeek,
-         currentCycle: data.currentCycle,
-         liftWeeks: data.liftWeeks,
-         liftCycles: data.liftCycles,
-       } as Profile);
-    }
+    const pTeamAnchor = normalizeTeam(data.teamAnchor ?? data.team);
+    const teamData = normalizeTeamTrainingMap(data.teamData);
+    const teamDataTeams = Object.keys(teamData)
+      .map((entry) => normalizeTeam(entry))
+      .filter((entry): entry is Team => Boolean(entry));
+    const teamScopes = mergeTeamScopes(
+      sanitizeTeamScopeArray(data.teamScopes),
+      pTeamAnchor,
+      pTeam,
+      teamDataTeams
+    );
+    const inRequestedTeam =
+      pTeam === team ||
+      pTeamAnchor === team ||
+      teamScopes.includes(team) ||
+      Boolean(teamData[team]);
+
+    if (!inRequestedTeam) return;
+
+    const activeState = teamData[team];
+    const legacyTm = normalizeLiftMap(data.tm);
+    const legacyOneRm = normalizeLiftMap(data.oneRm);
+    const legacyLiftWeeks = normalizeLiftWeekMap(data.liftWeeks);
+    const legacyLiftCycles = normalizeLiftCycleMap(data.liftCycles);
+    const tm =
+      activeState?.tm && Object.keys(activeState.tm).length
+        ? activeState.tm
+        : legacyTm;
+    const oneRm =
+      activeState?.oneRm && Object.keys(activeState.oneRm).length
+        ? activeState.oneRm
+        : legacyOneRm;
+    const liftWeeks =
+      activeState?.liftWeeks && Object.keys(activeState.liftWeeks).length
+        ? activeState.liftWeeks
+        : legacyLiftWeeks;
+    const liftCycles =
+      activeState?.liftCycles && Object.keys(activeState.liftCycles).length
+        ? activeState.liftCycles
+        : legacyLiftCycles;
+
+    profiles.push({
+      uid,
+      firstName: data.firstName || "",
+      lastName: data.lastName || "",
+      unit: (data.unit as Unit) || "lb",
+      createdAt: toMillis(data.createdAt) || undefined,
+      updatedAt: toMillis(data.updatedAt) || undefined,
+      updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : null,
+      team: pTeamAnchor ?? pTeam ?? team,
+      teamAnchor: pTeamAnchor ?? pTeam ?? team,
+      teamScopes,
+      teamData,
+      tm,
+      oneRm,
+      accessCode: data.accessCode,
+      equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
+      currentWeek: activeState?.currentWeek ?? normalizeWeek(data.currentWeek) ?? 1,
+      currentCycle: activeState?.currentCycle ?? normalizeCycle(data.currentCycle) ?? 1,
+      liftWeeks: Object.keys(liftWeeks).length ? liftWeeks : undefined,
+      liftCycles: Object.keys(liftCycles).length ? liftCycles : undefined,
+    } as Profile);
   });
 
   if (options?.excludeRoles?.length) {
