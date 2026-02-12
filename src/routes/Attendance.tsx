@@ -11,6 +11,7 @@ import {
   saveAttendanceSheet,
   setAttendanceDateLocked,
   setAttendanceSessionLocked,
+  subscribeAttendanceCheckinsForDate,
   updateAttendanceCheckinStatus,
   fetchLastWorkoutDates,
   type AttendanceCheckin,
@@ -1055,9 +1056,11 @@ export default function Attendance() {
     }
     let active = true;
     setLoadingReviewCheckins(true);
-    (async () => {
-      try {
-        let rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
+    const unsubscribe = subscribeAttendanceCheckinsForDate(
+      selectedTeam,
+      reviewDate,
+      (rows) => {
+        if (!active) return;
         const currentSheet = normalizeRuntimeSheet(sheetsRef.current[selectedTeam], selectedTeam);
         const reviewRowsToSync: Array<{
           uid: string;
@@ -1080,28 +1083,6 @@ export default function Attendance() {
           });
         }
 
-        if (reviewRowsToSync.length > 0) {
-          const coachDisplayName =
-            typeof window !== "undefined"
-              ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
-              : undefined;
-          await Promise.allSettled(
-            reviewRowsToSync.map((row) =>
-              updateAttendanceCheckinStatus({
-                team: selectedTeam,
-                date: reviewDate,
-                uid: row.uid,
-                status: row.desiredStatus,
-                reviewedByName: coachDisplayName,
-                sessionKey: row.sessionKey,
-                sessionLabel: row.sessionLabel,
-              })
-            )
-          );
-          rows = await listAttendanceCheckinsForDate(selectedTeam, reviewDate);
-        }
-
-        if (!active) return;
         setReviewCheckins(rows);
         setSheets((prev) => {
           const currentSheet = normalizeRuntimeSheet(prev[selectedTeam], selectedTeam);
@@ -1114,18 +1095,37 @@ export default function Attendance() {
           sheetsRef.current = next;
           return next;
         });
-      } catch (err) {
+        setLoadingReviewCheckins(false);
+
+        if (reviewRowsToSync.length === 0) return;
+        const coachDisplayName =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("pl-strength-display-name")?.trim() || undefined
+            : undefined;
+        void Promise.allSettled(
+          reviewRowsToSync.map((row) =>
+            updateAttendanceCheckinStatus({
+              team: selectedTeam,
+              date: reviewDate,
+              uid: row.uid,
+              status: row.desiredStatus,
+              reviewedByName: coachDisplayName,
+              sessionKey: row.sessionKey,
+              sessionLabel: row.sessionLabel,
+            })
+          )
+        );
+      },
+      (err) => {
         if (!active) return;
-        console.warn("Failed to load attendance check-ins", err);
+        console.warn("Failed to subscribe to attendance check-ins", err);
         setReviewCheckins([]);
-      } finally {
-        if (active) {
-          setLoadingReviewCheckins(false);
-        }
+        setLoadingReviewCheckins(false);
       }
-    })();
+    );
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [authLoading, isCoach, selectedTeam, reviewDate]);
 
@@ -1163,10 +1163,11 @@ export default function Attendance() {
     () =>
       reportSourceDates.filter(
         (date) =>
+          selectedSheet.lockedDates?.[date] === true &&
           (!reportRange.start || date >= reportRange.start) &&
           (!reportRange.end || date <= reportRange.end)
       ),
-    [reportSourceDates, reportRange]
+    [reportSourceDates, reportRange, selectedSheet.lockedDates]
   );
   const reportSessionOptions = useMemo(() => {
     const labels = new Set<string>();

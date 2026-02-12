@@ -491,7 +491,7 @@ export default function Home() {
                 {/* Recent PRs */}
                 {recentPRs.length > 0 && (
                   <div className="card bg-white/80 mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-3">ðŸ† Recent PRs</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-3">Recent PRs</h3>
                     <div className="space-y-2">
                       {recentPRs.map((pr, idx) => (
                         <div

@@ -2938,6 +2938,55 @@ export async function listAttendanceCheckinsForDate(
   }
 }
 
+export function subscribeAttendanceCheckinsForDate(
+  team: Team,
+  date: string,
+  listener: (rows: AttendanceCheckin[]) => void,
+  onError?: (error: unknown) => void
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const cleanDate = date.trim();
+  if (!database || !cleanDate) {
+    listener([]);
+    return () => {};
+  }
+
+  try {
+    const q = query(
+      collection(database, ATTENDANCE_CHECKINS_COLLECTION),
+      where("dayKey", "==", buildAttendanceDayKey(team, cleanDate)),
+      limit(600)
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const rows = snapshot.docs
+          .map((docSnap) => normalizeAttendanceCheckin(docSnap.data(), docSnap.id))
+          .filter((row): row is AttendanceCheckin => row !== null)
+          .sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
+        listener(rows);
+      },
+      (error) => {
+        console.warn(`subscribeAttendanceCheckinsForDate failed for ${team} ${cleanDate}`, error);
+        if (onError) {
+          onError(error);
+        } else {
+          listener([]);
+        }
+      }
+    );
+  } catch (err) {
+    console.warn(`subscribeAttendanceCheckinsForDate setup failed for ${team} ${cleanDate}`, err);
+    if (onError) {
+      onError(err);
+    } else {
+      listener([]);
+    }
+    return () => {};
+  }
+}
+
 export async function submitAthleteAttendanceCheckin(options: {
   team: Team;
   uid: string;
