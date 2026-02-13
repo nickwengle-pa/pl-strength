@@ -7,6 +7,7 @@ import {
   listRoster,
   loadProfileRemote,
   loadAttendanceSheet,
+  subscribeToTeamSessions,
   ensureAnon,
   getStoredTeamSelection,
   TEAM_DEFINITIONS,
@@ -90,6 +91,18 @@ const formatLocalDateInput = (value: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const formatTimeAgo = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { isCoach } = useActiveAthlete();
@@ -105,6 +118,7 @@ export default function Home() {
   const [checkinNotice, setCheckinNotice] = useState<string | null>(null);
   const [attendanceSheets, setAttendanceSheets] = useState<AttendanceSheet[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -366,6 +380,26 @@ export default function Home() {
         if (active) setLoadingAttendance(false);
       });
     return () => { active = false; };
+  }, [isCoach, teamSelection]);
+
+  // Real-time subscription to team sessions for live activity feed
+  useEffect(() => {
+    if (!isCoach) {
+      setLiveSessionFeed([]);
+      return;
+    }
+    const team = teamSelection as Team | undefined;
+    if (!team) return;
+
+    const unsubscribe = subscribeToTeamSessions(
+      team,
+      (sessions) => {
+        setLiveSessionFeed(sessions);
+      },
+      { count: 50 }
+    );
+
+    return unsubscribe;
   }, [isCoach, teamSelection]);
 
   const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -785,89 +819,71 @@ export default function Home() {
                   </details>
                 )}
 
-                {/* Athlete Activity */}
-                <div className="card bg-white/80 mb-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                    Athlete Activity
-                    <span className="ml-2 text-xs font-normal text-gray-500">
-                      (🟢 = Active In Last 2 Hours)
-                    </span>
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b">
-                        <tr className="text-left text-[10px] uppercase tracking-wide text-gray-500">
-                          <th className="pb-2 font-medium">Athlete</th>
-                          <th className="pb-2 font-medium">Workouts</th>
-                          <th className="pb-2 font-medium text-center">Att %</th>
-                          <th className="pb-2 font-medium">Last Activity</th>
-                          <th className="pb-2 font-medium">PRs</th>
+                {/* Live Activity Feed */}
+                <div className="card bg-white/80 mb-4 !py-2 !px-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    {liveSessionFeed.length > 0 && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                      </span>
+                    )}
+                    <h3 className="text-sm font-semibold text-gray-700">Live Activity</h3>
+                    <span className="text-[10px] text-gray-400">{liveSessionFeed.length} recent session{liveSessionFeed.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-white">
+                        <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
+                          <th className="py-1 px-1.5 text-left font-medium">Athlete</th>
+                          <th className="py-1 px-1.5 text-left font-medium">Lift</th>
+                          <th className="py-1 px-1.5 text-center font-medium">Wk</th>
+                          <th className="py-1 px-1.5 text-right font-medium">AMRAP</th>
+                          <th className="py-1 px-1.5 text-right font-medium">Est 1RM</th>
+                          <th className="py-1 px-1.5 text-right font-medium">When</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {athleteActivity
-                          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
-                          .slice(0, 15)
-                          .map((athlete) => {
-                            const isActive = athlete.lastActivity && (Date.now() - athlete.lastActivity) < 2 * 60 * 60 * 1000;
-                            const weekAtt = attendanceStats.athleteWeekAttendance[athlete.uid];
-                            const weekPct = weekAtt && weekAtt.possible > 0
-                              ? Number(((weekAtt.attended / weekAtt.possible) * 100).toFixed(0))
-                              : null;
-                            return (
-                              <tr key={athlete.uid} className="border-b last:border-0">
-                                <td className="py-2 font-medium">
-                                  <span className="flex items-center gap-2">
-                                    {isActive && (
-                                      <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                      </span>
-                                    )}
-                                    {athlete.name}
-                                  </span>
-                                </td>
-                                <td className="py-2">
-                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {athlete.weekCount} This Week
-                                  </span>
-                                </td>
-                                <td className="py-2 text-center">
-                                  {weekPct !== null ? (
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${weekPct >= 85 ? 'bg-green-100 text-green-700'
-                                      : weekPct >= 70 ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-red-100 text-red-700'
-                                      }`}>
-                                      {weekPct}%
-                                    </span>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">—</span>
-                                  )}
-                                </td>
-                                <td className="py-2 text-gray-600 text-xs">
-                                  {athlete.lastActivity
-                                    ? new Date(athlete.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                    : '—'
-                                  }
-                                </td>
-                                <td className="py-2">
-                                  {athlete.prCount > 0 ? (
-                                    <span className="text-purple-600 font-semibold text-xs">{athlete.prCount}</span>
-                                  ) : (
-                                    <span className="text-gray-400 text-xs">—</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                        {liveSessionFeed.slice(0, 20).map((session, idx) => {
+                          const athlete = athleteActivity.find(a => a.uid === session.athleteId);
+                          const name = athlete
+                            ? athlete.name
+                            : session.athleteId.slice(0, 8);
+                          const timeAgo = session.createdAt
+                            ? formatTimeAgo(session.createdAt)
+                            : "";
+                          const liftColor =
+                            session.lift === "squat" ? "bg-red-500"
+                              : session.lift === "bench" ? "bg-blue-500"
+                                : "bg-green-600";
+                          return (
+                            <tr
+                              key={`${session.id}-${idx}`}
+                              className="border-t border-gray-100 hover:bg-gray-50/60 transition-colors"
+                            >
+                              <td className="py-1 px-1.5 font-medium text-gray-700 whitespace-nowrap">
+                                {name}
+                                {session.pr && <span className="ml-1 text-yellow-500 text-[10px]" title="PR">&#9733;</span>}
+                              </td>
+                              <td className="py-1 px-1.5 whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1">
+                                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${liftColor}`}></span>
+                                  <span className="capitalize text-gray-600">{session.lift}</span>
+                                </span>
+                              </td>
+                              <td className="py-1 px-1.5 text-center text-gray-500">{session.week}</td>
+                              <td className="py-1 px-1.5 text-right text-gray-600 tabular-nums whitespace-nowrap">
+                                {session.amrap ? `${session.amrap.weight}×${session.amrap.reps}` : "-"}
+                              </td>
+                              <td className="py-1 px-1.5 text-right font-medium text-gray-700 tabular-nums">
+                                {session.est1rm ? Math.round(session.est1rm) : "-"}
+                              </td>
+                              <td className="py-1 px-1.5 text-right text-gray-400 whitespace-nowrap">{timeAgo}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
-                    {athleteActivity.length === 0 && (
-                      <div className="text-center py-8 text-gray-600">
-                        No Athletes Found. Add Athletes From The Roster To See Activity.
-                      </div>
-                    )}
                   </div>
                 </div>
 
