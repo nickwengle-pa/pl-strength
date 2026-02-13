@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import {
@@ -6,6 +6,7 @@ import {
   fetchLastAttendanceCheckinDates,
   listRoster,
   loadProfileRemote,
+  loadAttendanceSheet,
   ensureAnon,
   getStoredTeamSelection,
   TEAM_DEFINITIONS,
@@ -15,6 +16,7 @@ import {
   normalizeTeam,
   formatTeamLabel,
   type AttendanceCheckin,
+  type AttendanceSheet,
   type SessionRecord,
   type RosterEntry,
   type Profile,
@@ -101,6 +103,8 @@ export default function Home() {
   const [submittingCheckin, setSubmittingCheckin] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [checkinNotice, setCheckinNotice] = useState<string | null>(null);
+  const [attendanceSheets, setAttendanceSheets] = useState<AttendanceSheet[]>([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -127,7 +131,7 @@ export default function Home() {
         const uid = await ensureAnon();
         const p = await loadProfileRemote(uid);
         setProfile(p);
-        
+
         // Show onboarding if athlete has no TM set (first-time user)
         if (!isCoach && p) {
           const hasSkippedOnboarding = localStorage.getItem("pl-onboarding-skipped");
@@ -221,21 +225,21 @@ export default function Home() {
       try {
         const roster = await listRoster();
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        
+
         // Get coach's team to filter athletes
         const coachTeam = teamSelection;
         const coachTeamDef = coachTeam ? TEAM_DEFINITIONS.find(def => def.id === coachTeam) : null;
         const relatedTeams = coachTeamDef
           ? TEAM_DEFINITIONS
-              .filter(
-                (definition) =>
-                  definition.sport === coachTeamDef.sport &&
-                  definition.program === coachTeamDef.program
-              )
-              .map((definition) => definition.id as Team)
+            .filter(
+              (definition) =>
+                definition.sport === coachTeamDef.sport &&
+                definition.program === coachTeamDef.program
+            )
+            .map((definition) => definition.id as Team)
           : coachTeam
-          ? [coachTeam]
-          : [];
+            ? [coachTeam]
+            : [];
         const attendanceActivity: Record<string, number> = {};
         if (relatedTeams.length > 0) {
           const checkinMaps = await Promise.all(
@@ -249,7 +253,7 @@ export default function Home() {
             });
           });
         }
-        
+
         const activities = await Promise.all(
           roster
             // Athletes are users without coach or admin roles
@@ -259,15 +263,15 @@ export default function Home() {
               const rowTeams = r.teamScopes && r.teamScopes.length > 0
                 ? r.teamScopes
                 : r.team
-                ? [r.team]
-                : [];
+                  ? [r.team]
+                  : [];
               if (!coachTeamDef || rowTeams.length === 0) return true; // Show all if no team filter
               return rowTeams.some((teamId) => {
                 const athleteTeamDef = TEAM_DEFINITIONS.find(def => def.id === teamId);
                 if (!athleteTeamDef) return false;
                 // Match sport and program (allows varsity coach to see both varsity and JH in same sport)
                 return athleteTeamDef.sport === coachTeamDef.sport &&
-                       athleteTeamDef.program === coachTeamDef.program;
+                  athleteTeamDef.program === coachTeamDef.program;
               });
             })
             .map(async (athlete: RosterEntry) => {
@@ -287,7 +291,7 @@ export default function Home() {
                     : athlete.updatedAt;
                 const lastActivity =
                   Math.max(lastWorkout ?? 0, lastCheckin ?? 0, lastProfileUpdate ?? 0) || undefined;
-                
+
                 return {
                   uid: athlete.uid,
                   name: [athlete.firstName, athlete.lastName].filter(Boolean).join(' ') || athlete.uid,
@@ -329,13 +333,195 @@ export default function Home() {
     })();
   }, [isCoach, teamSelection]);
 
+  // Load attendance sheets for coach dashboard
+  useEffect(() => {
+    if (!isCoach) return;
+    const coachTeam = teamSelection;
+    const coachTeamDef = coachTeam ? TEAM_DEFINITIONS.find(def => def.id === coachTeam) : null;
+    const relatedTeams = coachTeamDef
+      ? TEAM_DEFINITIONS
+        .filter(
+          (definition) =>
+            definition.sport === coachTeamDef.sport &&
+            definition.program === coachTeamDef.program
+        )
+        .map((definition) => definition.id as Team)
+      : coachTeam
+        ? [coachTeam]
+        : [];
+    if (relatedTeams.length === 0) {
+      setAttendanceSheets([]);
+      return;
+    }
+    let active = true;
+    setLoadingAttendance(true);
+    Promise.all(relatedTeams.map((teamId) => loadAttendanceSheet(teamId)))
+      .then((sheets) => {
+        if (active) setAttendanceSheets(sheets);
+      })
+      .catch((err) => {
+        console.debug("Could not load attendance sheets for dashboard", err);
+      })
+      .finally(() => {
+        if (active) setLoadingAttendance(false);
+      });
+    return () => { active = false; };
+  }, [isCoach, teamSelection]);
+
   const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const activeAthletes = athleteActivity.filter(a => (a.lastActivity || 0) >= oneWeekAgo).length;
   const totalWorkouts = athleteActivity.reduce((sum, a) => sum + a.weekCount, 0);
-  const recentPRs = athleteActivity.flatMap(a => 
+  const recentPRs = athleteActivity.flatMap(a =>
     a.recentSessions.filter(s => s.pr).map(s => ({ athlete: a.name, session: s }))
   ).slice(0, 5);
-  
+
+  // Compute attendance stats from sheets
+  const attendanceStats = useMemo(() => {
+    const now = new Date();
+    const todayStr = formatLocalDateInput(now);
+    // Monday of current week
+    const day = now.getDay();
+    const offsetToMonday = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(monday.getDate() - offsetToMonday);
+    const mondayStr = formatLocalDateInput(monday);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    const sundayStr = formatLocalDateInput(sunday);
+
+    let weekDates: string[] = [];
+    let todayDates: string[] = [];
+    let totalAthletes = 0;
+    let weekAttended = 0;
+    let weekPossible = 0;
+    let todayPresent = 0;
+    let todayTotal = 0;
+    let todaySessions: string[] = [];
+    const athleteWeekAttendance: Record<string, { attended: number; possible: number }> = {};
+    const athleteOverallAttendance: Record<string, { attended: number; possible: number }> = {};
+    const inactiveAthletes: { name: string; daysSince: number }[] = [];
+
+    attendanceSheets.forEach((sheet) => {
+      const sheetWeekDates = sheet.dates.filter(d => d >= mondayStr && d <= sundayStr);
+      const sheetTodayDates = sheet.dates.filter(d => d === todayStr);
+      weekDates = weekDates.concat(sheetWeekDates);
+      todayDates = todayDates.concat(sheetTodayDates);
+      totalAthletes += sheet.athletes.length;
+
+      // Today's session labels
+      sheetTodayDates.forEach(d => {
+        const sessions = sheet.sessionsByDate?.[d] ?? [];
+        sessions.forEach(s => {
+          if (!todaySessions.includes(s.label)) todaySessions.push(s.label);
+        });
+      });
+
+      sheet.athletes.forEach((athlete) => {
+        const records = sheet.records[athlete.id] ?? {};
+
+        // Week attendance
+        let athleteWeekAtt = 0;
+        let athleteWeekPoss = 0;
+        sheetWeekDates.forEach(d => {
+          athleteWeekPoss += 1;
+          if (records[d] === true) {
+            athleteWeekAtt += 1;
+          }
+        });
+        weekAttended += athleteWeekAtt;
+        weekPossible += athleteWeekPoss;
+
+        const key = athlete.uid || athlete.id;
+        if (!athleteWeekAttendance[key]) {
+          athleteWeekAttendance[key] = { attended: 0, possible: 0 };
+        }
+        athleteWeekAttendance[key].attended += athleteWeekAtt;
+        athleteWeekAttendance[key].possible += athleteWeekPoss;
+
+        // Overall attendance (last 30 days for "needs attention")
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoStr = formatLocalDateInput(thirtyDaysAgo);
+        let overallAtt = 0;
+        let overallPoss = 0;
+        sheet.dates.forEach(d => {
+          if (d >= thirtyDaysAgoStr) {
+            overallPoss += 1;
+            if (records[d] === true) overallAtt += 1;
+          }
+        });
+        if (!athleteOverallAttendance[key]) {
+          athleteOverallAttendance[key] = { attended: 0, possible: 0 };
+        }
+        athleteOverallAttendance[key].attended += overallAtt;
+        athleteOverallAttendance[key].possible += overallPoss;
+
+        // Today's present count
+        sheetTodayDates.forEach(d => {
+          todayTotal += 1;
+          if (records[d] === true) todayPresent += 1;
+        });
+
+        // Athletes with no attendance in 14+ days
+        const attendedDates = sheet.dates.filter(d => records[d] === true).sort();
+        const lastAttended = attendedDates.length > 0 ? attendedDates[attendedDates.length - 1] : null;
+        if (lastAttended) {
+          const lastDate = new Date(`${lastAttended}T12:00:00`);
+          const daysSince = Math.floor((now.getTime() - lastDate.getTime()) / (24 * 60 * 60 * 1000));
+          if (daysSince >= 14) {
+            const name = `${athlete.firstName} ${athlete.lastName}`.trim();
+            if (!inactiveAthletes.some(a => a.name === name)) {
+              inactiveAthletes.push({ name, daysSince });
+            }
+          }
+        } else if (sheet.dates.length > 0) {
+          // Never attended
+          const name = `${athlete.firstName} ${athlete.lastName}`.trim();
+          if (!inactiveAthletes.some(a => a.name === name)) {
+            inactiveAthletes.push({ name, daysSince: 999 });
+          }
+        }
+      });
+    });
+
+    const weekAttPct = weekPossible > 0 ? Number(((weekAttended / weekPossible) * 100).toFixed(1)) : 0;
+    const weekSessionCount = weekDates.length;
+    const athletesPresentThisWeek = Object.values(athleteWeekAttendance).filter(a => a.attended > 0).length;
+
+    // Low attendance athletes (below 70% in last 30 days with at least 3 possible sessions)
+    const lowAttendanceAthletes: { name: string; pct: number }[] = [];
+    attendanceSheets.forEach((sheet) => {
+      sheet.athletes.forEach((athlete) => {
+        const key = athlete.uid || athlete.id;
+        const overall = athleteOverallAttendance[key];
+        if (overall && overall.possible >= 3) {
+          const pct = Number(((overall.attended / overall.possible) * 100).toFixed(1));
+          if (pct < 70) {
+            const name = `${athlete.firstName} ${athlete.lastName}`.trim();
+            if (!lowAttendanceAthletes.some(a => a.name === name)) {
+              lowAttendanceAthletes.push({ name, pct });
+            }
+          }
+        }
+      });
+    });
+    lowAttendanceAthletes.sort((a, b) => a.pct - b.pct);
+    inactiveAthletes.sort((a, b) => b.daysSince - a.daysSince);
+
+    return {
+      weekAttPct,
+      weekSessionCount,
+      athletesPresentThisWeek,
+      totalAthletes,
+      todayPresent,
+      todayTotal,
+      todaySessions,
+      todayScheduled: todayDates.length > 0,
+      lowAttendanceAthletes: lowAttendanceAthletes.slice(0, 5),
+      inactiveAthletes: inactiveAthletes.slice(0, 5),
+      athleteWeekAttendance,
+    };
+  }, [attendanceSheets]);
+
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     localStorage.setItem("pl-onboarding-skipped", "true");
@@ -344,10 +530,10 @@ export default function Home() {
   const checkinTeamLabel = checkinState ? formatTeamLabel(checkinState.team) : "";
   const checkinDateLabel = checkinState
     ? new Date(`${checkinState.date}T12:00:00`).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      })
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+    })
     : "";
   const checkinStatus = checkinState?.checkin?.status ?? null;
   const checkinSessionLabel =
@@ -391,9 +577,9 @@ export default function Home() {
       setCheckinState((prev) =>
         prev
           ? {
-              ...prev,
-              checkin: created,
-            }
+            ...prev,
+            checkin: created,
+          }
           : prev
       );
       const isJuniorHighSelfApprove = checkinState.team === "football-junior-high";
@@ -403,12 +589,12 @@ export default function Home() {
             ? `Checked In For ${created.sessionLabel}.`
             : "Checked In."
           : created.status === "approved"
-          ? created.sessionLabel
-            ? `Checked In For ${created.sessionLabel}.`
-            : "Checked In."
-          : created.sessionLabel
-          ? `Check-In Submitted For ${created.sessionLabel}. Coach Verification Is Pending.`
-          : "Check-In Submitted. Coach Verification Is Pending."
+            ? created.sessionLabel
+              ? `Checked In For ${created.sessionLabel}.`
+              : "Checked In."
+            : created.sessionLabel
+              ? `Check-In Submitted For ${created.sessionLabel}. Coach Verification Is Pending.`
+              : "Check-In Submitted. Coach Verification Is Pending."
       );
     } catch (err: any) {
       const code = err?.message ?? "";
@@ -433,9 +619,9 @@ export default function Home() {
         setCheckinState((prev) =>
           prev
             ? {
-                ...prev,
-                checkin: latest,
-              }
+              ...prev,
+              checkin: latest,
+            }
             : prev
         );
       } catch (_) {
@@ -469,7 +655,7 @@ export default function Home() {
       {showOnboarding && profile && (
         <OnboardingWizard onComplete={handleOnboardingComplete} unit={profile.unit} />
       )}
-      
+
       <div className="container mt-8 space-y-8">
         {/* Team Dashboard for Coaches */}
         {isCoach && (
@@ -477,71 +663,131 @@ export default function Home() {
             <div className="flex flex-col gap-1 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-brand-800">Team Dashboard</h2>
-                <p className="text-sm text-brand-600 mt-1">Weekly Activity And Performance</p>
+                <p className="text-sm text-brand-600 mt-1">Weekly Snapshot</p>
               </div>
             </div>
 
-            {loadingActivity ? (
+            {(loadingActivity || loadingAttendance) ? (
               <div className="text-center py-8 text-gray-600">
                 Loading Team Activity...
               </div>
             ) : (
               <>
-                {/* Stats Cards */}
-                <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  <div className="card text-center bg-white/80">
-                    <div className="text-sm text-gray-600 mb-1">Active This Week</div>
-                    <div className="text-4xl font-bold text-green-600">
-                      {activeAthletes}
+                {/* Weekly Snapshot Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                  <div className="card text-center bg-white/80 !p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Week Att %</div>
+                    <div className={`text-3xl font-bold ${attendanceStats.weekAttPct >= 85 ? 'text-green-600' :
+                      attendanceStats.weekAttPct >= 70 ? 'text-amber-600' :
+                        attendanceStats.weekAttPct > 0 ? 'text-red-600' : 'text-gray-400'
+                      }`}>
+                      {attendanceStats.weekAttPct > 0 ? `${attendanceStats.weekAttPct}%` : '—'}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Of {athleteActivity.length} Athletes
-                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">This Week</div>
                   </div>
-                  <div className="card text-center bg-white/80">
-                    <div className="text-sm text-gray-600 mb-1">Total Workouts</div>
-                    <div className="text-4xl font-bold text-blue-600">
+                  <div className="card text-center bg-white/80 !p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Sessions</div>
+                    <div className="text-3xl font-bold text-blue-600">
+                      {attendanceStats.weekSessionCount}
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">This Week</div>
+                  </div>
+                  <div className="card text-center bg-white/80 !p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Present</div>
+                    <div className="text-3xl font-bold text-green-600">
+                      {attendanceStats.athletesPresentThisWeek}
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">Of {attendanceStats.totalAthletes}</div>
+                  </div>
+                  <div className="card text-center bg-white/80 !p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Workouts</div>
+                    <div className="text-3xl font-bold text-blue-600">
                       {totalWorkouts}
                     </div>
-                    <div className="text-xs text-gray-500">Last 7 Days</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">Last 7 Days</div>
                   </div>
-                  <div className="card text-center bg-white/80">
-                    <div className="text-sm text-gray-800 mb-1">Recent PRs</div>
-                    <div className="text-4xl font-bold text-purple-600">
+                  <div className="card text-center bg-white/80 !p-4 col-span-2 md:col-span-1">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">PRs</div>
+                    <div className="text-3xl font-bold text-purple-600">
                       {recentPRs.length}
                     </div>
-                    <div className="text-xs text-gray-500">This Week</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">This Week</div>
                   </div>
                 </div>
 
-                {/* Recent PRs */}
-                {recentPRs.length > 0 && (
-                  <div className="card bg-white/80 mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-3">Recent PRs</h3>
-                    <div className="space-y-2">
-                      {recentPRs.map((pr, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between border rounded-xl px-4 py-2 bg-green-50 border-green-200"
-                        >
-                          <div>
-                            <div className="font-semibold text-gray-900">{pr.athlete}</div>
-                            <div className="text-sm text-gray-800">
-                              {pr.session.lift} • Week {pr.session.week} • {pr.session.amrap?.reps || 0} reps @ {pr.session.amrap?.weight || 0} {pr.session.unit}
-                            </div>
-                          </div>
-                          <div className="text-sm font-semibold text-green-700">
-                            Est 1RM: {roundToPlate(pr.session.est1rm || 0, pr.session.unit, pr.session.unit === "lb" ? 5 : 2.5)} {pr.session.unit}
-                          </div>
-                        </div>
-                      ))}
+                {/* Today's Attendance Quick Look */}
+                <div className="card bg-white/80 mb-4 !py-3 !px-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">Today's Attendance</h3>
+                      {attendanceStats.todayScheduled ? (
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {attendanceStats.todaySessions.length > 0
+                            ? attendanceStats.todaySessions.join(' • ')
+                            : 'Session scheduled'}
+                          {' — '}
+                          <span className="font-semibold text-green-600">{attendanceStats.todayPresent}</span>
+                          {' of '}
+                          <span className="font-semibold">{attendanceStats.todayTotal}</span>
+                          {' checked in'}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500 mt-0.5">No sessions scheduled today.</p>
+                      )}
                     </div>
+                    <button
+                      type="button"
+                      className="btn text-xs"
+                      onClick={() => navigate('/attendance')}
+                    >
+                      Go To Attendance →
+                    </button>
                   </div>
+                </div>
+
+                {/* Needs Attention Alert */}
+                {(attendanceStats.lowAttendanceAthletes.length > 0 || attendanceStats.inactiveAthletes.length > 0) && (
+                  <details className="card bg-white/80 mb-4 !py-3 !px-4 group">
+                    <summary className="flex items-center justify-between gap-2 cursor-pointer list-none">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-500 text-base">⚠</span>
+                        <h3 className="text-sm font-semibold text-gray-800">Needs Attention</h3>
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          {attendanceStats.lowAttendanceAthletes.length + attendanceStats.inactiveAthletes.length}
+                        </span>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {attendanceStats.lowAttendanceAthletes.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Low Attendance (Last 30 Days)</div>
+                          {attendanceStats.lowAttendanceAthletes.map((a) => (
+                            <div key={`low-${a.name}`} className="flex items-center justify-between rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs mb-1">
+                              <span className="font-medium text-gray-800">{a.name}</span>
+                              <span className="font-semibold text-red-600">{a.pct}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {attendanceStats.inactiveAthletes.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Inactive (14+ Days Since Last Attendance)</div>
+                          {attendanceStats.inactiveAthletes.map((a) => (
+                            <div key={`inactive-${a.name}`} className="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs mb-1">
+                              <span className="font-medium text-gray-800">{a.name}</span>
+                              <span className="font-semibold text-amber-600">{a.daysSince >= 999 ? 'Never' : `${a.daysSince}d ago`}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 )}
 
                 {/* Athlete Activity */}
-                <div className="card bg-white/80">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">
+                <div className="card bg-white/80 mb-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
                     Athlete Activity
                     <span className="ml-2 text-xs font-normal text-gray-500">
                       (🟢 = Active In Last 2 Hours)
@@ -550,54 +796,71 @@ export default function Home() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="border-b">
-                        <tr className="text-left">
-                          <th className="pb-2">Athlete</th>
-                          <th className="pb-2">Workouts</th>
-                          <th className="pb-2">Last Activity</th>
-                          <th className="pb-2">Total PRs</th>
+                        <tr className="text-left text-[10px] uppercase tracking-wide text-gray-500">
+                          <th className="pb-2 font-medium">Athlete</th>
+                          <th className="pb-2 font-medium">Workouts</th>
+                          <th className="pb-2 font-medium text-center">Att %</th>
+                          <th className="pb-2 font-medium">Last Activity</th>
+                          <th className="pb-2 font-medium">PRs</th>
                         </tr>
                       </thead>
                       <tbody>
                         {athleteActivity
                           .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
-                          .slice(0, 10)
+                          .slice(0, 15)
                           .map((athlete) => {
                             const isActive = athlete.lastActivity && (Date.now() - athlete.lastActivity) < 2 * 60 * 60 * 1000;
+                            const weekAtt = attendanceStats.athleteWeekAttendance[athlete.uid];
+                            const weekPct = weekAtt && weekAtt.possible > 0
+                              ? Number(((weekAtt.attended / weekAtt.possible) * 100).toFixed(0))
+                              : null;
                             return (
-                            <tr key={athlete.uid} className="border-b last:border-0">
-                              <td className="py-2 font-medium">
-                                <span className="flex items-center gap-2">
-                                  {isActive && (
-                                    <span className="relative flex h-3 w-3">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                              <tr key={athlete.uid} className="border-b last:border-0">
+                                <td className="py-2 font-medium">
+                                  <span className="flex items-center gap-2">
+                                    {isActive && (
+                                      <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                      </span>
+                                    )}
+                                    {athlete.name}
+                                  </span>
+                                </td>
+                                <td className="py-2">
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                    {athlete.weekCount} This Week
+                                  </span>
+                                </td>
+                                <td className="py-2 text-center">
+                                  {weekPct !== null ? (
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${weekPct >= 85 ? 'bg-green-100 text-green-700'
+                                      : weekPct >= 70 ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-red-100 text-red-700'
+                                      }`}>
+                                      {weekPct}%
                                     </span>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">—</span>
                                   )}
-                                  {athlete.name}
-                                </span>
-                              </td>
-                              <td className="py-2">
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                  athlete.weekCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {athlete.weekCount} This Week
-                                </span>
-                              </td>
-                              <td className="py-2 text-gray-600">
-                                {athlete.lastActivity 
-                                  ? new Date(athlete.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                  : '—'
-                                }
-                              </td>
-                              <td className="py-2">
-                                {athlete.prCount > 0 ? (
-                                  <span className="text-purple-600 font-semibold">{athlete.prCount} PRs</span>
-                                ) : (
-                                  <span className="text-gray-400">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );})}
+                                </td>
+                                <td className="py-2 text-gray-600 text-xs">
+                                  {athlete.lastActivity
+                                    ? new Date(athlete.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                    : '—'
+                                  }
+                                </td>
+                                <td className="py-2">
+                                  {athlete.prCount > 0 ? (
+                                    <span className="text-purple-600 font-semibold text-xs">{athlete.prCount}</span>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                     {athleteActivity.length === 0 && (
@@ -607,6 +870,38 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+
+                {/* Recent PRs - Compact Collapsible */}
+                {recentPRs.length > 0 && (
+                  <details className="card bg-white/80 !py-3 !px-4 group" open={typeof window !== 'undefined' && window.innerWidth >= 768}>
+                    <summary className="flex items-center justify-between gap-2 cursor-pointer list-none">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏆</span>
+                        <h3 className="text-sm font-semibold text-gray-800">Recent PRs</h3>
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                          {recentPRs.length}
+                        </span>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </summary>
+                    <div className="mt-3 space-y-1">
+                      {recentPRs.map((pr, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs"
+                        >
+                          <div>
+                            <span className="font-semibold text-gray-800">{pr.athlete}</span>
+                            <span className="text-gray-500 ml-2">{pr.session.lift} • Wk{pr.session.week}</span>
+                          </div>
+                          <div className="font-semibold text-green-700">
+                            {pr.session.amrap?.reps || 0}×{pr.session.amrap?.weight || 0} → {roundToPlate(pr.session.est1rm || 0, pr.session.unit, pr.session.unit === "lb" ? 5 : 2.5)} {pr.session.unit}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </>
             )}
           </div>
@@ -644,10 +939,10 @@ export default function Home() {
                       {checkinState?.team === "football-junior-high" && checkinStatus !== "rejected"
                         ? "You're Checked In."
                         : checkinStatus === "approved"
-                        ? "Coach Marked You Present."
-                        : checkinStatus === "rejected"
-                        ? "Coach Marked This Check-In As Not Present."
-                        : "You're Checked In. Coach Verification Is Pending."}
+                          ? "Coach Marked You Present."
+                          : checkinStatus === "rejected"
+                            ? "Coach Marked This Check-In As Not Present."
+                            : "You're Checked In. Coach Verification Is Pending."}
                     </p>
                     {checkinSessionLabel && (
                       <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-red-300">
@@ -694,7 +989,7 @@ export default function Home() {
             {/* Lift Cards - BIG BUTTONS for mobile */}
             <div className="grid gap-2">
               {/* TURF Button - Before lifts */}
-              <button 
+              <button
                 className="w-full flex items-center justify-between px-5 py-4 border-2 border-green-600 bg-green-950 text-white font-bold transition-all hover:border-green-400 hover:bg-green-900 active:bg-green-800"
                 onClick={() => navigate('/turf')}
               >
@@ -714,17 +1009,17 @@ export default function Home() {
                 const tmValue = profile?.tm?.[lift] ?? 0;
 
                 // Color schemes per lift
-                const colorClass = lift === 'squat' 
+                const colorClass = lift === 'squat'
                   ? 'border-red-600 bg-red-950 hover:border-red-400 hover:bg-red-900 text-red-400'
                   : lift === 'bench'
-                  ? 'border-blue-600 bg-blue-950 hover:border-blue-400 hover:bg-blue-900 text-blue-400'
-                  : 'border-purple-600 bg-purple-950 hover:border-purple-400 hover:bg-purple-900 text-purple-400';
+                    ? 'border-blue-600 bg-blue-950 hover:border-blue-400 hover:bg-blue-900 text-blue-400'
+                    : 'border-purple-600 bg-purple-950 hover:border-purple-400 hover:bg-purple-900 text-purple-400';
 
                 const accentColor = lift === 'squat' ? 'text-red-400' : lift === 'bench' ? 'text-blue-400' : 'text-purple-400';
 
                 return (
-                  <button 
-                    key={lift} 
+                  <button
+                    key={lift}
                     className={`w-full flex items-center justify-between px-5 py-4 border-2 text-white font-bold transition-all active:brightness-75 ${colorClass}`}
                     onClick={() => {
                       if (hasTm) {
@@ -752,7 +1047,7 @@ export default function Home() {
               })}
 
               {/* ACCESSORY Button - After lifts */}
-              <button 
+              <button
                 className="w-full flex items-center justify-between px-5 py-4 border-2 border-amber-600 bg-amber-950 text-white font-bold transition-all hover:border-amber-400 hover:bg-amber-900 active:brightness-75"
                 onClick={() => navigate('/accessory')}
               >
@@ -769,25 +1064,25 @@ export default function Home() {
             {/* Quick Links - only show if TMs are set */}
             {(profile?.tm?.squat || profile?.tm?.bench || profile?.tm?.deadlift) && (
               <div className="flex flex-wrap gap-2 justify-center pt-2">
-                <button 
+                <button
                   onClick={() => navigate('/progress')}
                   className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
                   Progress
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/calculator')}
                   className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
                   Calculator
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/program-outline')}
                   className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
                   Daily Lifts
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/exercises')}
                   className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
                 >
@@ -800,7 +1095,7 @@ export default function Home() {
             <details className="group mt-8">
               <summary className="flex items-center justify-center gap-2 cursor-pointer list-none text-sm text-gray-500 hover:text-gray-300 py-2 uppercase tracking-wide">
                 <span>What do TM, AMRAP, 1RM mean?</span>
-                <svg className="w-4 h-4 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg className="w-4 h-4 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </summary>
               <div className="mt-3 grid gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                 {ABBREVIATIONS.slice(0, 4).map((item) => (
