@@ -98,6 +98,65 @@ html.theme-dark { color-scheme: dark; }
 .theme-dark .hover\:bg-brand-50:hover { background-color: rgba(239, 68, 68, 0.15); }
 .theme-dark .hover\:bg-brand-50\/60:hover { background-color: rgba(239, 68, 68, 0.2); }
 
+/* ── Attendance report section dark overrides ─────────────── */
+
+/* Slate text → visible on dark backgrounds */
+.theme-dark .text-slate-900 { color: #f1f5f9; }
+.theme-dark .text-slate-800 { color: #e2e8f0; }
+.theme-dark .text-slate-700 { color: #cbd5e1; }
+.theme-dark .text-slate-600 { color: #94a3b8; }
+.theme-dark .text-slate-500 { color: #64748b; }
+
+/* Slate backgrounds → dark equivalents */
+.theme-dark .bg-slate-50 { background-color: #1e293b; }
+.theme-dark .bg-slate-100 { background-color: #1e293b; }
+.theme-dark .bg-slate-200 { background-color: #334155; }
+
+/* Slate borders */
+.theme-dark .border-slate-100 { border-color: #1e293b; }
+.theme-dark .border-slate-200 { border-color: #334155; }
+.theme-dark .border-slate-300 { border-color: #475569; }
+
+/* Slate dividers */
+.theme-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+.theme-dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+
+/* Slate hover */
+.theme-dark .hover\:bg-slate-50:hover { background-color: #1e293b; }
+.theme-dark .hover\:bg-slate-900:hover { background-color: #0f172a; }
+
+/* Emerald (high attendance) */
+.theme-dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.theme-dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18); }
+.theme-dark .text-emerald-700 { color: #6ee7b7; }
+.theme-dark .text-emerald-800 { color: #a7f3d0; }
+.theme-dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.35); }
+
+/* Rose (at-risk / low attendance) */
+.theme-dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+.theme-dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.18); }
+.theme-dark .text-rose-700 { color: #fda4af; }
+.theme-dark .text-rose-800 { color: #fecdd3; }
+.theme-dark .border-rose-200 { border-color: rgba(244, 63, 94, 0.35); }
+
+/* Amber (watch / warning) */
+.theme-dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+.theme-dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+.theme-dark .text-amber-700 { color: #fcd34d; }
+.theme-dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.35); }
+
+/* Blue (CSV import section) */
+.theme-dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.12); }
+.theme-dark .text-blue-900 { color: #dbeafe; }
+.theme-dark .text-blue-700 { color: #93c5fd; }
+.theme-dark .text-blue-600 { color: #bfdbfe; }
+.theme-dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.35); }
+
+/* Report section gradient container */
+.theme-dark .from-slate-50 { --tw-gradient-from: #1e293b; }
+.theme-dark .via-white { --tw-gradient-via: #0f172a; }
+.theme-dark .to-emerald-50\/30 { --tw-gradient-to: rgba(16, 185, 129, 0.05); }
+
 .theme-dark .coach-dashboard {
   border-color: rgba(51, 65, 85, 0.8);
   background-image: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
