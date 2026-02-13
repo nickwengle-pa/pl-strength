@@ -174,7 +174,8 @@ html.theme-dark {
 }
 
 .theme-dark .text-gray-400 {
-  @apply text-slate-500;
+  color: #64748b;
+  /* text-slate-500 — direct value to avoid circular @apply */
 }
 
 .theme-dark .border-gray-100 {
