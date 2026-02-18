@@ -1454,7 +1454,9 @@ export default function Attendance() {
     handleSetError(team, null);
 
     try {
-      await saveAttendanceSheet(normalizeRuntimeSheet(sheetsRef.current[team], team));
+      await saveAttendanceSheet(normalizeRuntimeSheet(sheetsRef.current[team], team), {
+        requireRemote: true,
+      });
       const fresh = await loadAttendanceSheet(team);
       setSheets((prev) => {
         const next = {

@@ -60,9 +60,14 @@ export default function ProfilePage() {
 
   const save = async () => {
     if (!p) return;
-    await saveProfile(p);
-    setLastSaved(Date.now());
-    alert("Saved.");
+    try {
+      await saveProfile(p, { requireRemote: true });
+      setLastSaved(Date.now());
+      alert("Saved.");
+    } catch (err) {
+      console.warn("Failed to save profile", err);
+      alert("Could not sync profile right now. Check connection and try again.");
+    }
   };
   
   const handleOnboardingComplete = () => {

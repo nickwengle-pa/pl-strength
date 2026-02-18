@@ -568,7 +568,7 @@ export default function Nav() {
     setEquipmentSaving(true);
     const nextProfile: Profile = { ...equipmentProfile, equipment };
     try {
-      await saveProfile(nextProfile);
+      await saveProfile(nextProfile, { requireRemote: true });
       setEquipmentProfile(nextProfile);
       setEquipmentDirty(false);
     } catch (err) {

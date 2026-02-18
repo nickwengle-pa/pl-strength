@@ -198,7 +198,7 @@ export default function Summary() {
       tm: { ...(profile.tm || {}), [lift]: Number(tm) }
     };
     try {
-      await saveProfile(updated, { skipLocal: Boolean(targetUid) });
+      await saveProfile(updated, { skipLocal: Boolean(targetUid), requireRemote: true });
       setProfile(updated);
       notifyProfileChange();
     } catch (err) {

@@ -163,7 +163,7 @@ export default function Progress() {
         createdAt: Date.now(),
       };
       
-      await saveSession(record, targetUid || uid);
+      await saveSession(record, targetUid || uid, { requireRemote: true });
       
       // Refresh sessions
       const data = await recentSessions(

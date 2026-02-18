@@ -369,7 +369,7 @@ export default function Calculator() {
       const nextEquipment = { ...equipment, activeBarId: { ...equipment.activeBarId, [unit]: id } };
       const nextProfile = { ...profile, equipment: nextEquipment };
       try {
-        await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
+        await saveProfile(nextProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
       } catch (err) {
         console.warn("Failed to persist bar selection", err);
       }
@@ -402,7 +402,7 @@ export default function Calculator() {
 
     setSaving(true);
     try {
-      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
+      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
       setProfile(nextProfile);
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
       setTargetWeight(trainingMax);
@@ -431,7 +431,7 @@ export default function Calculator() {
 
     setSaving(true);
     try {
-      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid) });
+      await saveProfile(nextProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
       setProfile(nextProfile);
       setMeasured1rm("");
       setTargetWeight("");

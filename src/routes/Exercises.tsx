@@ -109,7 +109,7 @@ export default function Exercises() {
     return unsubscribe;
   }, []);
 
-  const handleAddExercise = () => {
+  const handleAddExercise = async () => {
     const trimmedName = newName.trim();
     let trimmedUrl = newUrl.trim();
     
@@ -148,19 +148,33 @@ export default function Exercises() {
       return;
     }
     
+    const previous = exercises;
     const next = [...exercises, { name: trimmedName, url: trimmedUrl }];
     setExercises(next);
-    void saveExerciseLibrary(next);
-    setNewName("");
-    setNewUrl("");
+    try {
+      await saveExerciseLibrary(next, { requireRemote: true });
+      setNewName("");
+      setNewUrl("");
+    } catch (err) {
+      console.warn("Failed to sync exercise library", err);
+      setExercises(previous);
+      alert("Could not sync exercise changes right now. Please try again.");
+    }
   };
 
-  const handleDeleteExercise = () => {
+  const handleDeleteExercise = async () => {
     if (deleteConfirm === null) return;
+    const previous = exercises;
     const next = exercises.filter((_, i) => i !== deleteConfirm.index);
     setExercises(next);
-    void saveExerciseLibrary(next);
-    setDeleteConfirm(null);
+    try {
+      await saveExerciseLibrary(next, { requireRemote: true });
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.warn("Failed to sync exercise library", err);
+      setExercises(previous);
+      alert("Could not sync exercise changes right now. Please try again.");
+    }
   };
 
   if (loading) {

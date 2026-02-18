@@ -534,12 +534,14 @@ export default function ProgramOutline() {
   const prevEditMode = React.useRef(editMode);
   useEffect(() => {
     editModeRef.current = editMode;
-    if (prevEditMode.current && !editMode) {
-      setLibrary((current) => mergeLibrary(current, outline));
-      if (admin) {
-        void saveProgramOutline(outlineToRecord(outline));
-      }
-      if (pendingRemoteRef.current) {
+      if (prevEditMode.current && !editMode) {
+        setLibrary((current) => mergeLibrary(current, outline));
+        if (admin) {
+          void saveProgramOutline(outlineToRecord(outline), { requireRemote: true }).catch((err) => {
+            console.warn("Failed to sync program outline", err);
+          });
+        }
+        if (pendingRemoteRef.current) {
         const next = pendingRemoteRef.current;
         pendingRemoteRef.current = null;
         setOutline(next);
@@ -561,7 +563,9 @@ export default function ProgramOutline() {
     setOutline((prev) => {
       const next = normalizeOutline({ ...prev, ...partial });
       if (admin && editMode) {
-        void saveProgramOutline(outlineToRecord(next));
+        void saveProgramOutline(outlineToRecord(next), { requireRemote: true }).catch((err) => {
+          console.warn("Failed to sync program outline", err);
+        });
       }
       // Library is now updated only when exiting edit mode, not on every keystroke
       return next;
@@ -576,7 +580,7 @@ export default function ProgramOutline() {
       const updated: Profile = { ...profile, outlineViewMode: newMode };
       setProfile(updated);
       try {
-        await saveProfile(updated);
+        await saveProfile(updated, { requireRemote: true });
       } catch (err) {
         console.warn("Failed to save view mode preference", err);
       }

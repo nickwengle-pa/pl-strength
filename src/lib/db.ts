@@ -404,11 +404,20 @@ export async function loadProgramOutline(): Promise<ProgramOutlineRecord | null>
   }
 }
 
-export async function saveProgramOutline(outline: ProgramOutlineRecord): Promise<void> {
-  writeProgramOutlineToStorage(outline);
+export async function saveProgramOutline(
+  outline: ProgramOutlineRecord,
+  options?: { requireRemote?: boolean }
+): Promise<void> {
+  const requireRemote = options?.requireRemote === true;
   const handles = resolveHandles();
   const database = handles?.db;
-  if (!database) return;
+  if (!database) {
+    if (requireRemote) {
+      throw new Error("Firebase is not available to sync the program outline right now.");
+    }
+    writeProgramOutlineToStorage(outline);
+    return;
+  }
   try {
     const payload: Record<string, unknown> = {
       ...outline,
@@ -418,8 +427,15 @@ export async function saveProgramOutline(outline: ProgramOutlineRecord): Promise
       payload.createdAt = serverTimestamp();
     }
     await setDoc(programOutlineRef(database), payload, { merge: true });
+    writeProgramOutlineToStorage(outline);
   } catch (err) {
     console.warn("Failed to save program outline", err);
+    if (requireRemote) {
+      throw err instanceof Error
+        ? err
+        : new Error("Failed to save program outline to Firebase.");
+    }
+    writeProgramOutlineToStorage(outline);
   }
 }
 
@@ -500,13 +516,22 @@ export async function loadExerciseLibrary(
   }
 }
 
-export async function saveExerciseLibrary(items: ExerciseLibraryItem[]): Promise<void> {
+export async function saveExerciseLibrary(
+  items: ExerciseLibraryItem[],
+  options?: { requireRemote?: boolean }
+): Promise<void> {
+  const requireRemote = options?.requireRemote === true;
   const normalized = normalizeExerciseLibraryItems(items);
-  writeExerciseLibraryToStorage(normalized);
 
   const handles = resolveHandles();
   const database = handles?.db;
-  if (!database) return;
+  if (!database) {
+    if (requireRemote) {
+      throw new Error("Firebase is not available to sync the exercise library right now.");
+    }
+    writeExerciseLibraryToStorage(normalized);
+    return;
+  }
 
   try {
     const ref = exerciseLibraryRef(database);
@@ -519,8 +544,15 @@ export async function saveExerciseLibrary(items: ExerciseLibraryItem[]): Promise
       payload.createdAt = serverTimestamp();
     }
     await setDoc(ref, payload, { merge: true });
+    writeExerciseLibraryToStorage(normalized);
   } catch (err) {
     console.warn("Failed to save exercise library", err);
+    if (requireRemote) {
+      throw err instanceof Error
+        ? err
+        : new Error("Failed to save exercise library to Firebase.");
+    }
+    writeExerciseLibraryToStorage(normalized);
   }
 }
 
@@ -1444,9 +1476,13 @@ export async function loadProfileRemote(uid?: string): Promise<Profile | null> {
   return normalizeProfileData(snap.data() || {}, targetUid);
 }
 
-export async function saveProfile(p: Profile, options?: { skipLocal?: boolean }) {
+export async function saveProfile(
+  p: Profile,
+  options?: { skipLocal?: boolean; requireRemote?: boolean }
+) {
   const handles = resolveHandles();
   const database = handles?.db;
+  const requireRemote = options?.requireRemote === true;
   const actorUid = handles?.auth?.currentUser?.uid ?? null;
   const normalizedEquipment = normalizeEquipment(p.equipment);
   const normalizedHeight = normalizeHeight(p.height);
@@ -1492,7 +1528,7 @@ export async function saveProfile(p: Profile, options?: { skipLocal?: boolean })
     createdAt: normalizedCreatedAt || undefined,
   };
   if (!database) {
-    if (options?.skipLocal) {
+    if (options?.skipLocal || requireRemote) {
       throw new Error("Firebase is not available to sync this profile right now.");
     }
     saveProfileLocal({
@@ -1576,7 +1612,7 @@ export async function updateAthleteWeek(uid: string, week: 1 | 2 | 3): Promise<v
       liftCycles: nextLiftCycles,
       currentWeek: week,
     },
-    { skipLocal: true }
+    { skipLocal: true, requireRemote: true }
   );
 }
 
@@ -1657,7 +1693,7 @@ export async function advanceCycle(uid: string, tmIncreases?: {
     updatedProfile.tm = nextTm;
   }
   
-  await saveProfile(updatedProfile, { skipLocal: true });
+  await saveProfile(updatedProfile, { skipLocal: true, requireRemote: true });
 }
 
 export const normalizePasscodeDigits = (code: string): string =>
@@ -1802,7 +1838,7 @@ export async function signInOrCreateAthleteAccount(
     currentCycle,
   };
 
-  await saveProfile(profile);
+  await saveProfile(profile, { requireRemote: true });
 
   return {
     profile,
@@ -1963,7 +1999,7 @@ export async function createAthleteAccount(
   };
 
   try {
-    await saveProfile(profile, { skipLocal: true });
+    await saveProfile(profile, { skipLocal: true, requireRemote: true });
   } catch (err) {
     await cleanupCreatedAccount();
     throw err;
@@ -2978,10 +3014,15 @@ export async function loadAttendanceSheet(
 }
 
 export async function saveAttendanceSheet(
-  sheet: AttendanceSheet
+  sheet: AttendanceSheet,
+  options?: { requireRemote?: boolean }
 ): Promise<void> {
   const handles = resolveHandles();
   const database = handles?.db;
+  const requireRemote = options?.requireRemote === true;
+  if (!database && requireRemote) {
+    throw new Error("Firebase is not available to sync attendance right now.");
+  }
 
   const cleanDates = Array.from(
     new Set(sheet.dates.map((value) => value.trim()).filter(Boolean))
@@ -4284,8 +4325,10 @@ const normalizeSession = (
 
 export async function saveSession(
   payload: SessionPayload,
-  targetUid?: string
+  targetUid?: string,
+  options?: { requireRemote?: boolean }
 ): Promise<{ source: "remote" | "local" }> {
+  const requireRemote = options?.requireRemote === true;
   const resolvedTeam =
     normalizeTeam(payload.team) ??
     (typeof window !== "undefined" ? normalizeTeam(getStoredTeamSelection()) : undefined);
@@ -4321,6 +4364,9 @@ export async function saveSession(
   }
 
   if (!uid || !database) {
+    if (requireRemote) {
+      throw new Error("Firebase is not available to sync this session right now.");
+    }
     persistLocalSession({ ...base, uid: uid ?? LOCAL_UID });
     return { source: "local" };
   }
@@ -4503,7 +4549,7 @@ export async function assignAthleteAccessCode(
 ): Promise<AssignAthleteAccessCodeResult> {
   const trimmed = (code ?? "").trim();
   if (!/^\d{4}$/.test(trimmed)) {
-    return { status: "unavailable", code: trimmed, source: "local" };
+    return { status: "unavailable", code: trimmed, source: "remote" };
   }
 
   let profile = await loadProfileRemote(targetUid);
@@ -4532,8 +4578,7 @@ export async function assignAthleteAccessCode(
   const handles = resolveHandles();
   const database = handles?.db;
   if (!database) {
-    saveProfileLocal(normalized);
-    return { status: "ok", code: trimmed, source: "local" };
+    return { status: "unavailable", code: trimmed, source: "remote" };
   }
 
   const status = await ensureAthleteCode(targetUid, trimmed, profile.accessCode ?? null);
@@ -4541,17 +4586,15 @@ export async function assignAthleteAccessCode(
     return { status, code: trimmed, source: "remote" };
   }
   if (status !== "ok") {
-    saveProfileLocal(normalized);
-    return { status: "ok", code: trimmed, source: "local" };
+    return { status, code: trimmed, source: "remote" };
   }
 
   try {
-    await saveProfile(normalized);
+    await saveProfile(normalized, { requireRemote: true });
     return { status: "ok", code: trimmed, source: "remote" };
   } catch (err) {
-    console.warn("Failed to sync access code to Firestore, saved locally instead.", err);
-    saveProfileLocal(normalized);
-    return { status: "ok", code: trimmed, source: "local" };
+    console.warn("Failed to sync access code to Firestore.", err);
+    return { status: "unavailable", code: trimmed, source: "remote" };
   }
 }
 

@@ -465,7 +465,8 @@ export default function Session() {
           note,
           pr,
         },
-        targetUid
+        targetUid,
+        { requireRemote: true }
       );
 
       setPrFlag(pr);
@@ -544,7 +545,7 @@ export default function Session() {
       currentCycle: clampedCycle,
       tm: nextTm ?? profile.tm,
     };
-    await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
+    await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
     setProfile(updatedProfile);
     const nextTmValue = updatedProfile.tm?.[lift];
     setTm(typeof nextTmValue === "number" && Number.isFinite(nextTmValue) ? nextTmValue : null);
@@ -560,7 +561,7 @@ export default function Session() {
     // Save to profile so it syncs across devices
     if (profile) {
       const updatedProfile: Profile = { ...profile, sessionMode: newMode };
-      await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid) });
+      await saveProfile(updatedProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
       setProfile(updatedProfile);
       notifyProfileChange();
     }

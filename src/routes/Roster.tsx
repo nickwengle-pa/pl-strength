@@ -657,7 +657,7 @@ export default function Roster() {
         currentWeek: nextWeek,
         currentCycle: Math.floor(nextCycle),
       };
-      await saveProfile(updatedProfile, { skipLocal: true });
+      await saveProfile(updatedProfile, { skipLocal: true, requireRemote: true });
       setDetailProfile(updatedProfile);
       setFlash({
         kind: "success",

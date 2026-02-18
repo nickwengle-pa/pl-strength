@@ -199,7 +199,7 @@ export default function SignIn() {
       liftCycles: base?.liftCycles,
       currentWeek: base?.currentWeek ?? 1,
       currentCycle: base?.currentCycle ?? 1,
-    });
+    }, { requireRemote: true });
 
     setStoredTeamSelection(resolvedTeam ?? "");
 
