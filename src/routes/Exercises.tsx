@@ -62,6 +62,7 @@ export default function Exercises() {
   const [exercises, setExercises] = useState<Exercise[]>(() => [...DEFAULT_EXERCISES]);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [addPlacement, setAddPlacement] = useState<"top" | "bottom">("bottom");
   const [deleteConfirm, setDeleteConfirm] = useState<{ index: number; name: string } | null>(null);
 
   useEffect(() => {
@@ -149,7 +150,11 @@ export default function Exercises() {
     }
     
     const previous = exercises;
-    const next = [...exercises, { name: trimmedName, url: trimmedUrl }];
+    const nextExercise = { name: trimmedName, url: trimmedUrl };
+    const next =
+      addPlacement === "top"
+        ? [nextExercise, ...exercises]
+        : [...exercises, nextExercise];
     setExercises(next);
     try {
       await saveExerciseLibrary(next, { requireRemote: true });
@@ -159,6 +164,24 @@ export default function Exercises() {
       console.warn("Failed to sync exercise library", err);
       setExercises(previous);
       alert("Could not sync exercise changes right now. Please try again.");
+    }
+  };
+
+  const handleMoveExercise = async (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= exercises.length) return;
+    const previous = exercises;
+    const next = [...exercises];
+    const [moved] = next.splice(index, 1);
+    if (!moved) return;
+    next.splice(targetIndex, 0, moved);
+    setExercises(next);
+    try {
+      await saveExerciseLibrary(next, { requireRemote: true });
+    } catch (err) {
+      console.warn("Failed to sync exercise order", err);
+      setExercises(previous);
+      alert("Could not sync exercise order right now. Please try again.");
     }
   };
 
@@ -237,6 +260,21 @@ export default function Exercises() {
                 Supports Full URLs, Shorts, And youtu.be Links
               </p>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Insert Position
+              </label>
+              <select
+                className="field w-full"
+                value={addPlacement}
+                onChange={(e) =>
+                  setAddPlacement(e.target.value === "top" ? "top" : "bottom")
+                }
+              >
+                <option value="bottom">Bottom Of List</option>
+                <option value="top">Top Of List</option>
+              </select>
+            </div>
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -256,13 +294,33 @@ export default function Exercises() {
               <div className="flex items-start justify-between gap-2">
                 <div className="text-lg font-semibold">{exercise.name}</div>
                 {admin && editMode && (
-                  <button
-                    type="button"
-                    className="text-red-600 hover:text-red-700 text-xs font-medium"
-                    onClick={() => setDeleteConfirm({ index, name: exercise.name })}
-                  >
-                    Delete
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={index === 0}
+                      onClick={() => void handleMoveExercise(index, -1)}
+                      title="Move Up"
+                    >
+                      Up
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      disabled={index === exercises.length - 1}
+                      onClick={() => void handleMoveExercise(index, 1)}
+                      title="Move Down"
+                    >
+                      Down
+                    </button>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:text-red-700 text-xs font-medium"
+                      onClick={() => setDeleteConfirm({ index, name: exercise.name })}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-black pt-[56.25%]">
