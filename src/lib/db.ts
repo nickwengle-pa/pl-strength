@@ -231,9 +231,13 @@ const TEAM_SCOPES_STORAGE_KEY = "pl-strength-team-scopes";
 const PROGRAM_OUTLINE_STORAGE_KEY = "pl-strength.program-outline";
 const PROGRAM_OUTLINE_COLLECTION = "config";
 const PROGRAM_OUTLINE_DOC_ID = "programOutline";
+const EXERCISE_LIBRARY_STORAGE_KEY = "pl-strength.exercises";
+const EXERCISE_LIBRARY_DOC_ID = "exerciseLibrary";
 
 const programOutlineRef = (database: Firestore) =>
   doc(database, PROGRAM_OUTLINE_COLLECTION, PROGRAM_OUTLINE_DOC_ID);
+const exerciseLibraryRef = (database: Firestore) =>
+  doc(database, PROGRAM_OUTLINE_COLLECTION, EXERCISE_LIBRARY_DOC_ID);
 
 export type ProgramOutlineAccessory = {
   name?: string;
@@ -259,6 +263,97 @@ export type ProgramOutlineRecord = {
   squatAccessory?: ProgramOutlineAccessory[];
   updatedAt?: Timestamp;
   createdAt?: Timestamp;
+};
+
+export type ExerciseLibraryItem = {
+  name: string;
+  url: string;
+};
+
+export type ExerciseLibraryStatus = {
+  items: ExerciseLibraryItem[];
+  updatedAtMs: number | null;
+};
+
+type ExerciseLibraryRecord = {
+  items?: ExerciseLibraryItem[];
+  updatedAt?: Timestamp;
+  createdAt?: Timestamp;
+};
+
+const normalizeExerciseLibraryItems = (value: unknown): ExerciseLibraryItem[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: ExerciseLibraryItem[] = [];
+  value.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const name =
+      typeof (entry as { name?: unknown }).name === "string"
+        ? (entry as { name: string }).name.trim()
+        : "";
+    const url =
+      typeof (entry as { url?: unknown }).url === "string"
+        ? (entry as { url: string }).url.trim()
+        : "";
+    if (!name || !url) return;
+    const dedupeKey = name.toLowerCase();
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+    normalized.push({ name, url });
+  });
+  return normalized;
+};
+
+const readExerciseLibraryFromStorage = (): ExerciseLibraryItem[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(EXERCISE_LIBRARY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return normalizeExerciseLibraryItems(parsed);
+    }
+    if (parsed && typeof parsed === "object") {
+      const items = (parsed as { items?: unknown }).items;
+      return normalizeExerciseLibraryItems(items);
+    }
+  } catch (err) {
+    console.warn("Failed to read exercise library from storage", err);
+  }
+  return [];
+};
+
+const writeExerciseLibraryToStorage = (items: ExerciseLibraryItem[]): void => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      EXERCISE_LIBRARY_STORAGE_KEY,
+      JSON.stringify(normalizeExerciseLibraryItems(items))
+    );
+  } catch (err) {
+    console.warn("Failed to persist exercise library locally", err);
+  }
+};
+
+const getTimestampMillis = (value: unknown): number | null => {
+  if (!value || typeof value !== "object") return null;
+  if ("toMillis" in value && typeof (value as { toMillis?: unknown }).toMillis === "function") {
+    try {
+      const millis = (value as { toMillis: () => number }).toMillis();
+      return Number.isFinite(millis) ? millis : null;
+    } catch {
+      return null;
+    }
+  }
+  const seconds = (value as { seconds?: unknown }).seconds;
+  const nanoseconds = (value as { nanoseconds?: unknown }).nanoseconds;
+  if (typeof seconds === "number") {
+    const nanos = typeof nanoseconds === "number" ? nanoseconds : 0;
+    return Math.floor(seconds * 1000 + nanos / 1_000_000);
+  }
+  return null;
 };
 
 const readProgramOutlineFromStorage = (): ProgramOutlineRecord | null => {
@@ -370,6 +465,193 @@ export function subscribeProgramOutline(
   } catch (err) {
     console.warn("Failed to subscribe to program outline", err);
     listener(readProgramOutlineFromStorage());
+    return () => undefined;
+  }
+}
+
+export async function loadExerciseLibrary(
+  fallback: ExerciseLibraryItem[] = []
+): Promise<ExerciseLibraryItem[]> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const fallbackList = normalizeExerciseLibraryItems(fallback);
+  if (!database) {
+    const local = readExerciseLibraryFromStorage();
+    return local.length ? local : fallbackList;
+  }
+  try {
+    const snapshot = await getDoc(exerciseLibraryRef(database));
+    if (!snapshot.exists()) {
+      const local = readExerciseLibraryFromStorage();
+      return local.length ? local : fallbackList;
+    }
+    const data = snapshot.data() as ExerciseLibraryRecord;
+    if (Array.isArray(data?.items)) {
+      const items = normalizeExerciseLibraryItems(data.items);
+      writeExerciseLibraryToStorage(items);
+      return items;
+    }
+    const local = readExerciseLibraryFromStorage();
+    return local.length ? local : fallbackList;
+  } catch (err) {
+    console.warn("Failed to load exercise library", err);
+    const local = readExerciseLibraryFromStorage();
+    return local.length ? local : fallbackList;
+  }
+}
+
+export async function saveExerciseLibrary(items: ExerciseLibraryItem[]): Promise<void> {
+  const normalized = normalizeExerciseLibraryItems(items);
+  writeExerciseLibraryToStorage(normalized);
+
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) return;
+
+  try {
+    const ref = exerciseLibraryRef(database);
+    const existing = await getDoc(ref);
+    const payload: Record<string, unknown> = {
+      items: normalized,
+      updatedAt: serverTimestamp(),
+    };
+    if (!existing.exists()) {
+      payload.createdAt = serverTimestamp();
+    }
+    await setDoc(ref, payload, { merge: true });
+  } catch (err) {
+    console.warn("Failed to save exercise library", err);
+  }
+}
+
+export function subscribeExerciseLibrary(
+  listener: (items: ExerciseLibraryItem[]) => void,
+  fallback: ExerciseLibraryItem[] = []
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const fallbackList = normalizeExerciseLibraryItems(fallback);
+  const withFallback = (items: ExerciseLibraryItem[]): ExerciseLibraryItem[] =>
+    items.length ? items : fallbackList;
+
+  if (!database) {
+    listener(withFallback(readExerciseLibraryFromStorage()));
+    if (typeof window === "undefined") {
+      return () => undefined;
+    }
+    const handler = (event: StorageEvent) => {
+      if (event.key === EXERCISE_LIBRARY_STORAGE_KEY) {
+        listener(withFallback(readExerciseLibraryFromStorage()));
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+    };
+  }
+
+  try {
+    return onSnapshot(
+      exerciseLibraryRef(database),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          listener(withFallback(readExerciseLibraryFromStorage()));
+          return;
+        }
+        const data = snapshot.data() as ExerciseLibraryRecord;
+        if (Array.isArray(data?.items)) {
+          const items = normalizeExerciseLibraryItems(data.items);
+          writeExerciseLibraryToStorage(items);
+          listener(items);
+          return;
+        }
+        listener(withFallback(readExerciseLibraryFromStorage()));
+      },
+      (error) => {
+        console.warn("Exercise library subscription error", error);
+        listener(withFallback(readExerciseLibraryFromStorage()));
+      }
+    );
+  } catch (err) {
+    console.warn("Failed to subscribe to exercise library", err);
+    listener(withFallback(readExerciseLibraryFromStorage()));
+    return () => undefined;
+  }
+}
+
+export function subscribeExerciseLibraryStatus(
+  listener: (status: ExerciseLibraryStatus) => void,
+  fallback: ExerciseLibraryItem[] = []
+): () => void {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  const fallbackList = normalizeExerciseLibraryItems(fallback);
+  const withFallback = (items: ExerciseLibraryItem[]): ExerciseLibraryItem[] =>
+    items.length ? items : fallbackList;
+
+  if (!database) {
+    listener({
+      items: withFallback(readExerciseLibraryFromStorage()),
+      updatedAtMs: null,
+    });
+    if (typeof window === "undefined") {
+      return () => undefined;
+    }
+    const handler = (event: StorageEvent) => {
+      if (event.key === EXERCISE_LIBRARY_STORAGE_KEY) {
+        listener({
+          items: withFallback(readExerciseLibraryFromStorage()),
+          updatedAtMs: null,
+        });
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+    };
+  }
+
+  try {
+    return onSnapshot(
+      exerciseLibraryRef(database),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          listener({
+            items: withFallback(readExerciseLibraryFromStorage()),
+            updatedAtMs: null,
+          });
+          return;
+        }
+        const data = snapshot.data() as ExerciseLibraryRecord;
+        const updatedAtMs =
+          getTimestampMillis(data?.updatedAt) ?? getTimestampMillis(data?.createdAt);
+
+        if (Array.isArray(data?.items)) {
+          const items = normalizeExerciseLibraryItems(data.items);
+          writeExerciseLibraryToStorage(items);
+          listener({ items, updatedAtMs });
+          return;
+        }
+
+        listener({
+          items: withFallback(readExerciseLibraryFromStorage()),
+          updatedAtMs,
+        });
+      },
+      (error) => {
+        console.warn("Exercise library status subscription error", error);
+        listener({
+          items: withFallback(readExerciseLibraryFromStorage()),
+          updatedAtMs: null,
+        });
+      }
+    );
+  } catch (err) {
+    console.warn("Failed to subscribe to exercise library status", err);
+    listener({
+      items: withFallback(readExerciseLibraryFromStorage()),
+      updatedAtMs: null,
+    });
     return () => undefined;
   }
 }

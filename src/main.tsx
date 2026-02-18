@@ -18,17 +18,55 @@ try {
   }
 } catch {}
 
+const EXTENSION_ASYNC_RESPONSE_ERROR =
+  "A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received";
+const EXTENSION_RUNTIME_LAST_ERROR = "Unchecked runtime.lastError";
+
+const isKnownExtensionMessagingNoise = (value: unknown): boolean => {
+  const hasKnownMessage = (message: string): boolean =>
+    message.includes(EXTENSION_ASYNC_RESPONSE_ERROR) ||
+    message.includes(EXTENSION_RUNTIME_LAST_ERROR);
+
+  if (typeof value === "string") {
+    return hasKnownMessage(value);
+  }
+  if (value instanceof Error) {
+    const message = value.message || "";
+    return hasKnownMessage(message);
+  }
+  if (value && typeof value === "object") {
+    const message = (value as { message?: unknown }).message;
+    return typeof message === "string" && hasKnownMessage(message);
+  }
+  return false;
+};
+
 // Suppress expected Firestore listener termination errors during sign-out
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {
   // Filter out expected Firestore channel termination errors
   const message = args[0]?.toString() || '';
+  if (args.some(isKnownExtensionMessagingNoise)) {
+    return;
+  }
   if (message.includes('Firestore/Listen/channel') && message.includes('400')) {
     // This is expected when signing out - Firestore listeners are being cleaned up
     return;
   }
   originalConsoleError.apply(console, args);
 };
+
+window.addEventListener("error", (event) => {
+  if (isKnownExtensionMessagingNoise(event.error ?? event.message)) {
+    event.preventDefault();
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  if (isKnownExtensionMessagingNoise(event.reason)) {
+    event.preventDefault();
+  }
+});
 
 // Version key for localStorage
 const VERSION_KEY = 'pl-strength-app-version';

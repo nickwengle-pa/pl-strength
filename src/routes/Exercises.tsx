@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { ensureAnon, isAdmin, subscribeToRoleChanges } from "../lib/db";
+import {
+  ensureAnon,
+  isAdmin,
+  loadExerciseLibrary,
+  saveExerciseLibrary,
+  subscribeExerciseLibrary,
+  subscribeToRoleChanges,
+  type ExerciseLibraryItem,
+} from "../lib/db";
 import { ConfirmModal } from "../components/ConfirmModal";
 
-type Exercise = {
-  name: string;
-  url: string;
-};
+type Exercise = ExerciseLibraryItem;
 
 const DEFAULT_EXERCISES: Exercise[] = [
   { name: "Bench Press", url: "https://www.youtube.com/watch?v=AaxnxakLgRQ" },
@@ -22,40 +27,6 @@ const DEFAULT_EXERCISES: Exercise[] = [
   { name: "Bulgarian Split Squats", url: "https://www.youtube.com/shorts/lG3MsPmEQQk" },
   { name: "Spiderman Push-ups", url: "https://www.youtube.com/shorts/o7hoH-AsAqs" },
 ];
-
-const EXERCISES_STORAGE_KEY = "pl-strength.exercises";
-
-function loadStoredExercises(): Exercise[] {
-  if (typeof window === "undefined") {
-    return [...DEFAULT_EXERCISES];
-  }
-  try {
-    const raw = window.localStorage.getItem(EXERCISES_STORAGE_KEY);
-    if (!raw) {
-      return [...DEFAULT_EXERCISES];
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [...DEFAULT_EXERCISES];
-    }
-    return parsed.map((item: any) => ({
-      name: typeof item?.name === "string" ? item.name : "",
-      url: typeof item?.url === "string" ? item.url : "",
-    })).filter((ex: Exercise) => ex.name && ex.url);
-  } catch (err) {
-    console.warn("Failed to load exercises", err);
-    return [...DEFAULT_EXERCISES];
-  }
-}
-
-function saveExercises(exercises: Exercise[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(EXERCISES_STORAGE_KEY, JSON.stringify(exercises));
-  } catch (err) {
-    console.warn("Failed to save exercises", err);
-  }
-}
 
 const toEmbedUrl = (source: string): string => {
   try {
@@ -88,22 +59,36 @@ export default function Exercises() {
   const [admin, setAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  const [exercises, setExercises] = useState<Exercise[]>(() => loadStoredExercises());
+  const [exercises, setExercises] = useState<Exercise[]>(() => [...DEFAULT_EXERCISES]);
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{ index: number; name: string } | null>(null);
 
   useEffect(() => {
     let active = true;
+    let unsubscribeExercises: (() => void) | null = null;
     (async () => {
       try {
         await ensureAnon();
-        const adminFlag = await isAdmin();
+        const [adminFlag, loadedExercises] = await Promise.all([
+          isAdmin(),
+          loadExerciseLibrary(DEFAULT_EXERCISES),
+        ]);
         if (!active) return;
         setAdmin(adminFlag);
+        setExercises(loadedExercises);
+
+        unsubscribeExercises = subscribeExerciseLibrary(
+          (items) => {
+            if (!active) return;
+            setExercises(items);
+          },
+          DEFAULT_EXERCISES
+        );
       } catch (err) {
         if (!active) return;
-        console.warn("Failed to load admin status", err);
+        console.warn("Failed to initialize exercises", err);
+        setExercises([...DEFAULT_EXERCISES]);
         setAdmin(false);
       } finally {
         if (active) setLoading(false);
@@ -111,6 +96,9 @@ export default function Exercises() {
     })();
     return () => {
       active = false;
+      if (unsubscribeExercises) {
+        unsubscribeExercises();
+      }
     };
   }, []);
 
@@ -120,10 +108,6 @@ export default function Exercises() {
     });
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    saveExercises(exercises);
-  }, [exercises]);
 
   const handleAddExercise = () => {
     const trimmedName = newName.trim();
@@ -164,14 +148,18 @@ export default function Exercises() {
       return;
     }
     
-    setExercises(prev => [...prev, { name: trimmedName, url: trimmedUrl }]);
+    const next = [...exercises, { name: trimmedName, url: trimmedUrl }];
+    setExercises(next);
+    void saveExerciseLibrary(next);
     setNewName("");
     setNewUrl("");
   };
 
   const handleDeleteExercise = () => {
     if (deleteConfirm === null) return;
-    setExercises(prev => prev.filter((_, i) => i !== deleteConfirm.index));
+    const next = exercises.filter((_, i) => i !== deleteConfirm.index);
+    setExercises(next);
+    void saveExerciseLibrary(next);
     setDeleteConfirm(null);
   };
 
@@ -299,4 +287,3 @@ export default function Exercises() {
     </div>
   );
 }
-

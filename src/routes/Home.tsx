@@ -14,6 +14,7 @@ import {
   loadAttendanceTeamStatus,
   loadAthleteAttendanceCheckin,
   submitAthleteAttendanceCheckin,
+  subscribeExerciseLibraryStatus,
   normalizeTeam,
   formatTeamLabel,
   type AttendanceCheckin,
@@ -26,6 +27,8 @@ import {
 } from "../lib/db";
 import { roundToPlate } from "../lib/tm";
 import OnboardingWizard from "../components/OnboardingWizard";
+
+const VIDEO_UPDATE_GLOW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const ABBREVIATIONS = [
   {
@@ -119,6 +122,7 @@ export default function Home() {
   const [attendanceSheets, setAttendanceSheets] = useState<AttendanceSheet[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
+  const [showVideoUpdateGlow, setShowVideoUpdateGlow] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -401,6 +405,25 @@ export default function Home() {
 
     return unsubscribe;
   }, [isCoach, teamSelection]);
+
+  // Athlete-only video update highlight: glow for 7 days after the latest exercise library update.
+  useEffect(() => {
+    if (isCoach || !profile?.uid) {
+      setShowVideoUpdateGlow(false);
+      return;
+    }
+
+    const unsubscribe = subscribeExerciseLibraryStatus(({ updatedAtMs }) => {
+      if (!updatedAtMs) {
+        setShowVideoUpdateGlow(false);
+        return;
+      }
+      const ageMs = Date.now() - updatedAtMs;
+      setShowVideoUpdateGlow(ageMs >= 0 && ageMs <= VIDEO_UPDATE_GLOW_WINDOW_MS);
+    });
+
+    return unsubscribe;
+  }, [isCoach, profile?.uid]);
 
   const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const totalWorkouts = athleteActivity.reduce((sum, a) => sum + a.weekCount, 0);
@@ -1100,9 +1123,19 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => navigate('/exercises')}
-                  className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white transition"
+                  className={[
+                    "relative px-4 py-2 text-xs font-bold uppercase tracking-wide border transition",
+                    showVideoUpdateGlow
+                      ? "text-emerald-200 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.55)] animate-pulse hover:text-white hover:border-emerald-300"
+                      : "text-gray-400 border-gray-700 hover:border-gray-500 hover:text-white",
+                  ].join(" ")}
                 >
                   Videos
+                  {showVideoUpdateGlow && (
+                    <span className="absolute -right-1 -top-1 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[9px] font-black text-zinc-900">
+                      NEW
+                    </span>
+                  )}
                 </button>
               </div>
             )}
