@@ -170,7 +170,7 @@ export default function Home() {
     }
 
     const resolvedTeam = normalizeTeam(
-      teamSelection || profile.team || profile.teamAnchor || ""
+      profile.team || profile.teamAnchor || teamSelection || ""
     );
     if (!resolvedTeam) {
       setCheckinState(null);

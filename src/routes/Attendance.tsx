@@ -1040,6 +1040,9 @@ export default function Attendance() {
     }
     setReviewDate((prev) => {
       if (prev && reportSourceDates.includes(prev)) return prev;
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      if (reportSourceDates.includes(todayStr)) return todayStr;
       return reportSourceDates[reportSourceDates.length - 1];
     });
   }, [selectedTeam, reportSourceDates]);

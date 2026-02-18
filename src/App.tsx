@@ -18,6 +18,7 @@ import SignIn from "./routes/SignIn";
 import Welcome from "./routes/Welcome";
 import Turf from "./routes/Turf";
 import Accessory from "./routes/Accessory";
+import FootballSimulator from "./routes/FootballSimulator";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="/roster" element={<Roster />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/football" element={<FootballSimulator />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -690,6 +690,7 @@ export default function Nav() {
       ? [
           { to: "/summary", label: "Summary" },
           { to: "/admin", label: admin ? "Admin" : "Team" },
+          { to: "/football", label: "Football Sim" },
         ]
       : [{ to: "/progress", label: "Progress" }]),
   ];
