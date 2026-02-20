@@ -11,12 +11,14 @@ import {
   loadProfileRemote,
   saveProfile,
   saveSession,
+  updateSession,
   bestEst1RM,
   recentSessions,
   defaultEquipment,
   getStoredTeamSelection,
   type Team,
   type Profile,
+  type SessionRecord,
 } from "../lib/db";
 import CoachTips from "../components/CoachTips";
 import TrendMini from "../components/TrendMini";
@@ -103,6 +105,17 @@ const nextCycleAfter = (value: number): number => {
   return normalized >= 3 ? 1 : normalized + 1;
 };
 
+const toLocalDayKey = (value: number): string => {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const isSameLocalDay = (value: number, reference = Date.now()): boolean =>
+  toLocalDayKey(value) === toLocalDayKey(reference);
+
 const hasLiftWeekMap = (profile: Profile | null): boolean =>
   Boolean(profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0);
 
@@ -168,6 +181,7 @@ export default function Session() {
   const [prFlag, setPrFlag] = useState<boolean>(false);
   const [warmOutcomes, setWarmOutcomes] = useState<SetOutcome[]>([]);
   const [workOutcomes, setWorkOutcomes] = useState<SetOutcome[]>([]);
+  const [existingTodaySession, setExistingTodaySession] = useState<SessionRecord | null>(null);
   const { activeAthlete, isCoach, loading: coachLoading, notifyProfileChange, version } = useActiveAthlete();
   const device = useDevice();
   const isMobileDevice = device.isMobile || (device.isTouch && !device.isDesktop);
@@ -422,7 +436,7 @@ export default function Session() {
       };
     });
 
-  async function save() {
+  async function save(options?: { allowUpdate?: boolean }) {
     // Prevent duplicate submissions from rapid clicks
     if (savingRef.current) return;
     savingRef.current = true;
@@ -432,7 +446,8 @@ export default function Session() {
       alert("Set a training max and enter AMRAP reps.");
       return;
     }
-    const missingActual = [...warmOutcomes, ...workOutcomes].some(
+    // Exclude the last work set (AMRAP) — its reps are captured via amrapReps, not workOutcomes
+    const missingActual = [...warmOutcomes, ...workOutcomes.slice(0, workOutcomes.length - 1)].some(
       (outcome) => outcome?.status === "F" && !outcome.actualReps.trim()
     );
     if (missingActual) {
@@ -444,30 +459,55 @@ export default function Session() {
     const warmWithResults = mergeSets(warm, warmOutcomes);
     const workWithResults = mergeSets(work, workOutcomes);
 
+    if (options?.allowUpdate) {
+      setExistingTodaySession(null);
+    }
+
     setSaving(true);
     try {
+      const recent = await recentSessions(lift, 25, targetUid, sessionTeam);
+      const existingForToday = recent.find((row) => {
+        if (row.source !== "remote" || !row.id) return false;
+        const createdAt = typeof row.createdAt === "number" ? row.createdAt : 0;
+        return createdAt > 0 && isSameLocalDay(createdAt);
+      });
+
+      if (existingForToday && !options?.allowUpdate) {
+        setExistingTodaySession(existingForToday);
+        savingRef.current = false; // Allow re-save after user resolves the duplicate prompt
+        return;
+      }
+
       const est1rm = roundToPlate(estimate1RM(lastWorkWeight, amrapReps), unit, step);
       const best = await bestEst1RM(lift, 20, targetUid, sessionTeam);
       const pr = est1rm > best;
 
-      await saveSession(
-        {
-          lift,
-          week,
-          cycle,
-          team: sessionTeam,
-          unit,
-          tm,
-          warmups: warmWithResults,
-          work: workWithResults,
-          amrap: { weight: lastWorkWeight, reps: amrapReps },
-          est1rm,
-          note,
-          pr,
-        },
-        targetUid,
-        { requireRemote: true }
-      );
+      const payload = {
+        lift,
+        week,
+        cycle,
+        team: sessionTeam,
+        unit,
+        tm,
+        warmups: warmWithResults,
+        work: workWithResults,
+        amrap: { weight: lastWorkWeight, reps: amrapReps },
+        est1rm,
+        note,
+        pr,
+      };
+
+      if (existingForToday?.id) {
+        const ownerUid = targetUid ?? user?.uid;
+        if (!ownerUid) {
+          throw new Error("Unable to resolve athlete UID for session update.");
+        }
+        await updateSession(ownerUid, existingForToday.id, payload);
+      } else {
+        await saveSession(payload, targetUid, { requireRemote: !!targetUid });
+      }
+
+      setExistingTodaySession(null);
 
       setPrFlag(pr);
       setEst(est1rm);
@@ -513,12 +553,14 @@ export default function Session() {
         }
       }
       setShowPrPopup(true);
+      // Keep savingRef.current = true after success — prevents any re-save until
+      // the component unmounts (navigation away). Only reset on failure so retries work.
     } catch (err) {
       console.warn("Failed to save session", err);
       alert("Unable to save session right now. Please try again.");
+      savingRef.current = false;
     } finally {
       setSaving(false);
-      savingRef.current = false;
       autoAdvanceRef.current = false;
     }
   }
@@ -694,6 +736,41 @@ export default function Session() {
     ? `Working with ${activeAthleteName}`
     : "Personal session";
 
+  const existingSessionModal = existingTodaySession ? (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-xl font-bold text-gray-900">Lift Already Recorded Today</h3>
+          <p className="text-sm text-gray-600">
+            A {LIFT_LABELS[lift]} session is already saved with{" "}
+            <span className="font-semibold text-gray-900">
+              {existingTodaySession.amrap?.weight ?? 0} {existingTodaySession.unit} x{" "}
+              {existingTodaySession.amrap?.reps ?? 0}
+            </span>
+            .
+          </p>
+          <p className="text-sm text-gray-600">Do you want to update that entry?</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setExistingTodaySession(null)}
+            className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+          >
+            Keep Existing
+          </button>
+          <button
+            type="button"
+            onClick={() => void save({ allowUpdate: true })}
+            className="px-4 py-2 rounded-xl bg-brand-600 text-white font-semibold hover:bg-brand-700"
+          >
+            Update Entry
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (coachLoading) {
     return (
       <div className="container py-6">
@@ -710,6 +787,7 @@ export default function Session() {
     
     return (
       <>
+        {existingSessionModal}
         {plateCalcTarget !== null && (
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
@@ -1039,6 +1117,7 @@ export default function Session() {
 
   return (
     <div className="container py-6 space-y-8">
+      {existingSessionModal}
       {/* Week Advance Prompt Modal */}
       {showWeekAdvancePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -1554,22 +1633,59 @@ export default function Session() {
                   <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-2">Work Sets</div>
                 )}
                 <div className={isMobileDevice ? "space-y-1.5" : "space-y-2"}>
-                  {work.map((set, index) => (
-                    <SetRow
-                      key={`work-${index}`}
-                      phase="Work"
-                      index={index + warm.length}
-                      set={set}
-                      unit={unit}
-                      repsLabel={set.repsDisplay}
-                      outcome={workOutcomes[index]}
-                      onStatusChange={(status) => setWorkStatus(index, status)}
-                      onActualChange={(value) => setWorkActual(index, value)}
-                      onPlateCalc={(w) => setPlateCalcTarget(w)}
-                      showActualInput
-                      compact={isMobileDevice}
-                    />
-                  ))}
+                  {work.map((set, index) => {
+                    const isAMRAPRow = index === work.length - 1;
+                    if (isAMRAPRow) {
+                      // Last work set is the AMRAP set — reps are captured in the section below
+                      return isMobileDevice ? (
+                        <div key={`work-${index}`} className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-amber-900 w-6">{index + warm.length + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => setPlateCalcTarget(set.weight)}
+                              className="text-base font-bold text-amber-900 hover:text-amber-700"
+                            >
+                              {set.weight} <span className="font-normal text-amber-700">{unit}</span>
+                            </button>
+                            <span className="text-sm font-medium text-amber-700">× {set.repsDisplay}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">AMRAP ↓</span>
+                        </div>
+                      ) : (
+                        <div key={`work-${index}`} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-bold text-amber-900 w-6">{index + warm.length + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => setPlateCalcTarget(set.weight)}
+                              className="text-base font-bold text-amber-900 hover:text-amber-700"
+                            >
+                              {set.weight} <span className="font-normal text-amber-700">{unit}</span>
+                            </button>
+                            <span className="text-sm font-medium text-amber-700">× {set.repsDisplay}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">AMRAP — Enter Reps Below</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <SetRow
+                        key={`work-${index}`}
+                        phase="Work"
+                        index={index + warm.length}
+                        set={set}
+                        unit={unit}
+                        repsLabel={set.repsDisplay}
+                        outcome={workOutcomes[index]}
+                        onStatusChange={(status) => setWorkStatus(index, status)}
+                        onActualChange={(value) => setWorkActual(index, value)}
+                        onPlateCalc={(w) => setPlateCalcTarget(w)}
+                        showActualInput
+                        compact={isMobileDevice}
+                      />
+                    );
+                  })}
                   {work.length === 0 && (
                     <div className="rounded-xl border border-dashed border-brand-200 px-3 py-2 text-sm text-brand-700">
                       Add A Training Max To Populate The Working Weights.
