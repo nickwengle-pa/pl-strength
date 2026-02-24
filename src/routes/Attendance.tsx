@@ -39,8 +39,58 @@ const createEmptySheet = (team: Team): AttendanceSheet => ({
   sessionsByDate: {},
   sessionLocks: {},
   lockedDates: {},
+  reviewedDuplicatePairKeys: [],
   updatedAt: undefined,
 });
+
+const buildDuplicatePairKey = (firstId: string, secondId: string): string =>
+  [firstId, secondId]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .sort()
+    .join("__");
+
+const sanitizeDuplicatePairKey = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed || !trimmed.includes("__")) return "";
+  const parts = trimmed.split("__");
+  if (parts.length !== 2) return "";
+  const normalized = parts
+    .map((part) => part.trim().replace(/[^a-zA-Z0-9_-]/g, ""))
+    .filter(Boolean)
+    .sort();
+  if (normalized.length !== 2) return "";
+  return `${normalized[0]}__${normalized[1]}`;
+};
+
+const normalizeReviewedDuplicatePairKeys = (raw: unknown): string[] => {
+  const source = Array.isArray(raw) ? raw : [];
+  const next: string[] = [];
+  const seen = new Set<string>();
+  source.forEach((entry) => {
+    const key = sanitizeDuplicatePairKey(entry);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    next.push(key);
+  });
+  return next;
+};
+
+const mergeReviewedDuplicatePairKeys = (
+  current: unknown,
+  additions: string[]
+): string[] => {
+  const merged = normalizeReviewedDuplicatePairKeys(current);
+  const seen = new Set(merged);
+  additions.forEach((entry) => {
+    const key = sanitizeDuplicatePairKey(entry);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(key);
+  });
+  return merged;
+};
 
 const normalizeRuntimeSheet = (
   sheet: AttendanceSheet | undefined,
@@ -83,6 +133,9 @@ const normalizeRuntimeSheet = (
   const sessionLocks: AttendanceSheet["sessionLocks"] = {};
   const sessionSelections: AttendanceSheet["sessionSelections"] = {};
   const lockedDates: Record<string, boolean> = {};
+  const reviewedDuplicatePairKeys = normalizeReviewedDuplicatePairKeys(
+    sheet.reviewedDuplicatePairKeys
+  );
   dates.forEach((date) => {
     const sessionsRaw = Array.isArray(sessionsSource[date]) ? sessionsSource[date] : [];
     const normalizedSessions: AttendanceSession[] = [];
@@ -157,6 +210,7 @@ const normalizeRuntimeSheet = (
     sessionsByDate,
     sessionLocks,
     lockedDates,
+    reviewedDuplicatePairKeys,
   };
 };
 
@@ -857,7 +911,6 @@ export default function Attendance() {
   const [showInlineAddDate, setShowInlineAddDate] = useState(false);
   const [expandedLiftDates, setExpandedLiftDates] = useState<Set<string>>(new Set());
   const [tableRangePreset, setTableRangePreset] = useState<TableRangePreset>("this_week");
-  const [skippedDuplicatePairs, setSkippedDuplicatePairs] = useState<Set<string>>(new Set());
   const [mergePreviewIds, setMergePreviewIds] = useState<{ primaryId: string; candidateId: string } | null>(null);
   const [addDateDraftDate, setAddDateDraftDate] = useState(() => formatDateInput(new Date()));
   const [addDateDraftSessions, setAddDateDraftSessions] = useState<AddDateSessionDraft[]>(() => [
@@ -870,6 +923,7 @@ export default function Attendance() {
   const [reviewStatusModal, setReviewStatusModal] = useState<ReviewStatusModalType>(null);
   const [reviewCheckins, setReviewCheckins] = useState<AttendanceCheckin[]>([]);
   const [loadingReviewCheckins, setLoadingReviewCheckins] = useState(false);
+  const [reviewCheckinsKey, setReviewCheckinsKey] = useState(0);
   const [reviewingCheckinId, setReviewingCheckinId] = useState<string | null>(null);
   const [lockingDate, setLockingDate] = useState<string | null>(null);
   const [lockingSessionKey, setLockingSessionKey] = useState<string | null>(null);
@@ -1183,7 +1237,7 @@ export default function Attendance() {
       active = false;
       unsubscribe();
     };
-  }, [authLoading, isCoach, selectedTeam, reviewDate]);
+  }, [authLoading, isCoach, selectedTeam, reviewDate, reviewCheckinsKey]);
 
   useEffect(() => {
     if (reportSourceDates.length === 0) {
@@ -1480,6 +1534,11 @@ export default function Attendance() {
     return selectedSheet.dates.filter((d) => d >= start && d <= end);
   }, [selectedSheet.dates, tableRangePreset]);
 
+  const reviewedDuplicatePairSet = useMemo(
+    () => new Set(normalizeReviewedDuplicatePairKeys(selectedSheet.reviewedDuplicatePairKeys)),
+    [selectedSheet.reviewedDuplicatePairKeys]
+  );
+
   const potentialDuplicatePairs = useMemo(() => {
     const teamAthletes = selectedSheet.athletes.filter((a) => a.level === selectedTeam);
     const byLastName: Record<string, AttendanceAthlete[]> = {};
@@ -1493,15 +1552,15 @@ export default function Attendance() {
       if (group.length < 2) return;
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
-          const pairKey = [group[i].id, group[j].id].sort().join("__");
-          if (!skippedDuplicatePairs.has(pairKey)) {
+          const pairKey = buildDuplicatePairKey(group[i].id, group[j].id);
+          if (!reviewedDuplicatePairSet.has(pairKey)) {
             pairs.push([group[i], group[j]]);
           }
         }
       }
     });
     return pairs;
-  }, [selectedSheet.athletes, selectedTeam, skippedDuplicatePairs]);
+  }, [selectedSheet.athletes, selectedTeam, reviewedDuplicatePairSet]);
 
   const handleSetError = useCallback((team: Team, message: string | null) => {
     setTeamErrors((prev) => ({
@@ -1520,7 +1579,7 @@ export default function Attendance() {
 
   const persistTeamSheet = async (
     team: Team,
-    options: { showFlash?: boolean } = {}
+    options: { showFlash?: boolean; sheetOverride?: AttendanceSheet } = {}
   ) => {
     const showFlash = options.showFlash ?? false;
     if (saveInFlightRef.current[team]) {
@@ -1536,7 +1595,11 @@ export default function Attendance() {
     handleSetError(team, null);
 
     try {
-      await saveAttendanceSheet(normalizeRuntimeSheet(sheetsRef.current[team], team), {
+      const sheetToPersist = normalizeRuntimeSheet(
+        options.sheetOverride ?? sheetsRef.current[team],
+        team
+      );
+      await saveAttendanceSheet(sheetToPersist, {
         requireRemote: true,
       });
       const fresh = await loadAttendanceSheet(team);
@@ -1591,6 +1654,40 @@ export default function Attendance() {
       ...prev,
       [team]: true,
     }));
+  };
+
+  const markDuplicatePairsReviewed = (team: Team, pairKeys: string[]) => {
+    const normalizedPairKeys = normalizeReviewedDuplicatePairKeys(pairKeys);
+    if (normalizedPairKeys.length === 0) return;
+    const currentSheet = normalizeRuntimeSheet(sheetsRef.current[team], team);
+    const currentPairKeys = normalizeReviewedDuplicatePairKeys(
+      currentSheet.reviewedDuplicatePairKeys
+    );
+    const nextPairKeys = mergeReviewedDuplicatePairKeys(
+      currentPairKeys,
+      normalizedPairKeys
+    );
+    if (nextPairKeys.length === currentPairKeys.length) {
+      return;
+    }
+    const nextSheet = normalizeRuntimeSheet(
+      {
+        ...currentSheet,
+        reviewedDuplicatePairKeys: nextPairKeys,
+      },
+      team
+    );
+    sheetsRef.current = { ...sheetsRef.current, [team]: nextSheet };
+    setSheets((prev) => {
+      const next = { ...prev, [team]: nextSheet };
+      sheetsRef.current = next;
+      return next;
+    });
+    setDirty((prev) => ({
+      ...prev,
+      [team]: true,
+    }));
+    void persistTeamSheet(team, { showFlash: false, sheetOverride: nextSheet });
   };
 
   const resetAddDateDraft = useCallback(() => {
@@ -2104,7 +2201,21 @@ export default function Attendance() {
   };
 
   const handleConfirmMergeAthletes = async (primaryId: string, candidateId: string) => {
-    const merged = manualMergeAttendanceAthletes(selectedSheet, primaryId, candidateId);
+    const pairKey = buildDuplicatePairKey(primaryId, candidateId);
+    const currentSheet = normalizeRuntimeSheet(sheetsRef.current[selectedTeam], selectedTeam);
+    const mergedSheet = manualMergeAttendanceAthletes(currentSheet, primaryId, candidateId);
+    const merged = normalizeRuntimeSheet(
+      {
+        ...mergedSheet,
+        reviewedDuplicatePairKeys: mergeReviewedDuplicatePairKeys(
+          mergedSheet.reviewedDuplicatePairKeys,
+          [pairKey]
+        ),
+      },
+      selectedTeam
+    );
+
+    sheetsRef.current = { ...sheetsRef.current, [selectedTeam]: merged };
     setSheets((prev) => {
       const next = { ...prev, [selectedTeam]: merged };
       sheetsRef.current = next;
@@ -2112,7 +2223,7 @@ export default function Attendance() {
     });
     setDirty((prev) => ({ ...prev, [selectedTeam]: true }));
     setMergePreviewIds(null);
-    await persistTeamSheet(selectedTeam, { showFlash: false });
+    await persistTeamSheet(selectedTeam, { showFlash: false, sheetOverride: merged });
     setFlash("Athletes merged and saved.");
   };
 
@@ -2921,6 +3032,12 @@ export default function Attendance() {
         coachDisplayName
       );
       await refreshTeamAfterReview(team);
+      // If the locked date is currently being reviewed, force the check-in
+      // listener to re-subscribe so auto-approved reviews appear immediately
+      // rather than waiting for the Firestore snapshot to propagate on its own.
+      if (lockNext && date === reviewDate) {
+        setReviewCheckinsKey((k) => k + 1);
+      }
       if (lockNext && result.autoApprovedPending > 0) {
         setFlash(
           `Locked ${formatDateLabel(
@@ -3501,13 +3618,12 @@ export default function Attendance() {
                 type="button"
                 className="rounded-lg border border-amber-300 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-200"
                 onClick={() =>
-                  setSkippedDuplicatePairs((prev) => {
-                    const next = new Set(prev);
-                    potentialDuplicatePairs.forEach(([a, b]) => {
-                      next.add([a.id, b.id].sort().join("__"));
-                    });
-                    return next;
-                  })
+                  markDuplicatePairsReviewed(
+                    selectedTeam,
+                    potentialDuplicatePairs.map(([a, b]) =>
+                      buildDuplicatePairKey(a.id, b.id)
+                    )
+                  )
                 }
               >
                 Dismiss All
@@ -3515,7 +3631,7 @@ export default function Attendance() {
             </div>
             <div className="space-y-2">
               {potentialDuplicatePairs.map(([athleteA, athleteB]) => {
-                const pairKey = [athleteA.id, athleteB.id].sort().join("__");
+                const pairKey = buildDuplicatePairKey(athleteA.id, athleteB.id);
                 const aDateCount = Object.values(selectedSheet.records[athleteA.id] ?? {}).filter(Boolean).length;
                 const bDateCount = Object.values(selectedSheet.records[athleteB.id] ?? {}).filter(Boolean).length;
                 const suggestedPrimary = aDateCount >= bDateCount ? athleteA : athleteB;
@@ -3552,9 +3668,7 @@ export default function Attendance() {
                       <button
                         type="button"
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
-                        onClick={() =>
-                          setSkippedDuplicatePairs((prev) => new Set([...prev, pairKey]))
-                        }
+                        onClick={() => markDuplicatePairsReviewed(selectedTeam, [pairKey])}
                       >
                         Not the Same Person — Skip
                       </button>

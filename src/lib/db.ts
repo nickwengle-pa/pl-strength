@@ -2223,6 +2223,7 @@ export type AttendanceSheet = {
   sessionsByDate: AttendanceSessionsByDate;
   sessionLocks: AttendanceSessionLocksByDate;
   lockedDates: Record<string, boolean>;
+  reviewedDuplicatePairKeys?: string[];
   updatedAt?: number;
 };
 
@@ -2271,6 +2272,7 @@ const defaultAttendanceSheet = (team: Team): AttendanceSheet => ({
   sessionsByDate: {},
   sessionLocks: {},
   lockedDates: {},
+  reviewedDuplicatePairKeys: [],
   updatedAt: undefined,
 });
 
@@ -2802,6 +2804,32 @@ const normalizeAttendanceSessionSelections = (
   return selections;
 };
 
+const sanitizeAttendanceDuplicatePairKey = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed || !trimmed.includes("__")) return "";
+  const parts = trimmed.split("__");
+  if (parts.length !== 2) return "";
+  const normalized = parts
+    .map((part) => part.trim().replace(/[^a-zA-Z0-9_-]/g, ""))
+    .sort();
+  if (!normalized[0] || !normalized[1]) return "";
+  return `${normalized[0]}__${normalized[1]}`;
+};
+
+const normalizeAttendanceReviewedDuplicatePairKeys = (raw: unknown): string[] => {
+  const source = Array.isArray(raw) ? raw : [];
+  const next: string[] = [];
+  const seen = new Set<string>();
+  source.forEach((entry) => {
+    const key = sanitizeAttendanceDuplicatePairKey(entry);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    next.push(key);
+  });
+  return next;
+};
+
 const dedupeAttendanceAthletesAndRecords = (
   athletes: AttendanceAthlete[],
   dates: string[],
@@ -2964,6 +2992,9 @@ const normalizeAttendanceSheet = (
     records,
     input?.sessionSelections
   );
+  const reviewedDuplicatePairKeys = normalizeAttendanceReviewedDuplicatePairKeys(
+    input?.reviewedDuplicatePairKeys
+  );
   const deduped = dedupeAttendanceAthletesAndRecords(
     athletes,
     dates,
@@ -2981,6 +3012,7 @@ const normalizeAttendanceSheet = (
     sessionsByDate: sessionState.sessionsByDate,
     sessionLocks: sessionState.sessionLocks,
     lockedDates: sessionState.lockedDates,
+    reviewedDuplicatePairKeys,
     updatedAt,
   };
 };
@@ -3074,6 +3106,9 @@ export async function saveAttendanceSheet(
     cleanRecords,
     sheet.sessionSelections
   );
+  const cleanReviewedDuplicatePairKeys = normalizeAttendanceReviewedDuplicatePairKeys(
+    sheet.reviewedDuplicatePairKeys
+  );
 
   const payload = {
     dates: cleanDates,
@@ -3083,6 +3118,7 @@ export async function saveAttendanceSheet(
     sessionsByDate: cleanSessionsByDate,
     sessionLocks: cleanSessionLocks,
     lockedDates: cleanLockedDates,
+    reviewedDuplicatePairKeys: cleanReviewedDuplicatePairKeys,
     updatedAt: serverTimestamp(),
   };
 
@@ -3112,6 +3148,7 @@ export async function saveAttendanceSheet(
     sessionsByDate: cleanSessionsByDate,
     sessionLocks: cleanSessionLocks,
     lockedDates: cleanLockedDates,
+    reviewedDuplicatePairKeys: cleanReviewedDuplicatePairKeys,
     updatedAt: Date.now(),
   });
 }
