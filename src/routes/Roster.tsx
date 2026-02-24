@@ -162,6 +162,7 @@ export default function Roster() {
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [rosterSheet, setRosterSheet] = useState<import("../lib/db").AttendanceSheet | null>(null);
   const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
   const activeTeamSelection = coachTeam ?? getStoredTeamSelection();
 
@@ -354,6 +355,13 @@ export default function Roster() {
     
     return () => { active = false; };
   }, [rows, activeTeamSelection]);
+
+  useEffect(() => {
+    if (!activeTeamSelection) return;
+    loadAttendanceSheet(activeTeamSelection)
+      .then(setRosterSheet)
+      .catch(() => setRosterSheet(null));
+  }, [activeTeamSelection]);
 
   // Real-time subscription to team sessions for live activity updates
   const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
@@ -1981,7 +1989,7 @@ export default function Roster() {
                 <th className="p-2 text-left">Team</th>
                 <th className="p-2 text-left">Code</th>
                 <th className="p-2 text-left">Joined</th>
-                <th className="p-2 text-left">This Week</th>
+                <th className="p-2 text-left text-xs font-semibold">Current Lift</th>
                 <th
                   className="p-2 text-left cursor-pointer hover:bg-gray-100 transition select-none"
                   onClick={() => handleSort("lastWorkout")}
@@ -2001,6 +2009,14 @@ export default function Roster() {
                 const selected = selectedUid === r.uid;
                 const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
                 const activity = activityMap[r.uid];
+                const sortedDates = rosterSheet ? [...rosterSheet.dates].sort() : [];
+                const currentLiftDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
+                const attendanceAthlete = rosterSheet?.athletes.find((a) => a.uid === r.uid) ?? null;
+                const liftedCurrentDate = Boolean(
+                  currentLiftDate &&
+                  attendanceAthlete &&
+                  rosterSheet!.records[attendanceAthlete.id]?.[currentLiftDate] === true
+                );
                 return (
                   <tr
                     key={rowKey}
@@ -2034,13 +2050,12 @@ export default function Roster() {
                           })
                         : <span className="text-gray-400">-</span>}
                     </td>
-                    <td className="p-2">
-                      {loadingActivity ? (
-                        <span className="text-gray-400 text-xs">...</span>
-                      ) : activity?.weekCount ? (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700">
-                          {activity.weekCount} workout{activity.weekCount !== 1 ? 's' : ''}
-                        </span>
+                    <td className="p-2 text-center">
+                      {liftedCurrentDate ? (
+                        <span
+                          className="inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 shadow-[0_0_7px_2px_rgba(52,211,153,0.55)]"
+                          title={currentLiftDate ? `Present on ${currentLiftDate}` : "Present"}
+                        />
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>
                       )}

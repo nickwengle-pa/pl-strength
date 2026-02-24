@@ -7,6 +7,7 @@ import {
   getTeamDefinition,
   listAttendanceCheckinsForDate,
   loadAttendanceSheet,
+  manualMergeAttendanceAthletes,
   reviewAttendanceCheckin,
   saveAttendanceSheet,
   setAttendanceDateLocked,
@@ -14,6 +15,7 @@ import {
   subscribeAttendanceCheckinsForDate,
   updateAttendanceCheckinStatus,
   fetchLastWorkoutDates,
+  type AttendanceAthlete,
   type AttendanceCheckin,
   type AttendanceSession,
   type AttendanceSheet,
@@ -221,6 +223,23 @@ type AddDateSessionDraft = {
   label: string;
 };
 
+type TableRangePreset =
+  | "this_week"
+  | "last_week"
+  | "last_14_days"
+  | "last_30_days"
+  | "last_8_weeks"
+  | "all_dates";
+
+const TABLE_RANGE_OPTIONS: Array<{ value: TableRangePreset; label: string }> = [
+  { value: "this_week", label: "This Week" },
+  { value: "last_week", label: "Last Week" },
+  { value: "last_14_days", label: "Last 2 Weeks" },
+  { value: "last_30_days", label: "Last Month" },
+  { value: "last_8_weeks", label: "Last 2 Months" },
+  { value: "all_dates", label: "All Dates" },
+];
+
 const HIGH_ATTENDANCE_THRESHOLD = 85;
 const LOW_ATTENDANCE_THRESHOLD = 70;
 
@@ -354,6 +373,31 @@ const resolveReportPresetRange = (
       return { start: first, end: last };
     default:
       return { start: first, end: last };
+  }
+};
+
+const resolveTablePresetRange = (preset: TableRangePreset): { start: string; end: string } => {
+  const anchor = new Date();
+  switch (preset) {
+    case "all_dates":
+      return { start: "", end: "" };
+    case "this_week":
+      return {
+        start: formatDateInput(mondayOfWeek(anchor)),
+        end: formatDateInput(anchor),
+      };
+    case "last_week": {
+      const thisWeekStart = mondayOfWeek(anchor);
+      const lastWeekEnd = shiftDateByDays(thisWeekStart, -1);
+      const lastWeekStart = shiftDateByDays(lastWeekEnd, -6);
+      return { start: formatDateInput(lastWeekStart), end: formatDateInput(lastWeekEnd) };
+    }
+    case "last_14_days":
+      return { start: formatDateInput(shiftDateByDays(anchor, -13)), end: formatDateInput(anchor) };
+    case "last_30_days":
+      return { start: formatDateInput(shiftDateByDays(anchor, -29)), end: formatDateInput(anchor) };
+    case "last_8_weeks":
+      return { start: formatDateInput(shiftDateByDays(anchor, -55)), end: formatDateInput(anchor) };
   }
 };
 
@@ -810,7 +854,11 @@ export default function Attendance() {
   const [isReportSectionCollapsed, setIsReportSectionCollapsed] = useState<boolean>(() =>
     isMobileDevice()
   );
-  const [showAddDateModal, setShowAddDateModal] = useState(false);
+  const [showInlineAddDate, setShowInlineAddDate] = useState(false);
+  const [expandedLiftDates, setExpandedLiftDates] = useState<Set<string>>(new Set());
+  const [tableRangePreset, setTableRangePreset] = useState<TableRangePreset>("this_week");
+  const [skippedDuplicatePairs, setSkippedDuplicatePairs] = useState<Set<string>>(new Set());
+  const [mergePreviewIds, setMergePreviewIds] = useState<{ primaryId: string; candidateId: string } | null>(null);
   const [addDateDraftDate, setAddDateDraftDate] = useState(() => formatDateInput(new Date()));
   const [addDateDraftSessions, setAddDateDraftSessions] = useState<AddDateSessionDraft[]>(() => [
     {
@@ -1045,6 +1093,11 @@ export default function Attendance() {
       if (reportSourceDates.includes(todayStr)) return todayStr;
       return reportSourceDates[reportSourceDates.length - 1];
     });
+    // Auto-expand the most recent lift date card
+    const latestDate = reportSourceDates[reportSourceDates.length - 1];
+    if (latestDate) {
+      setExpandedLiftDates(new Set([latestDate]));
+    }
   }, [selectedTeam, reportSourceDates]);
 
   useEffect(() => {
@@ -1421,6 +1474,35 @@ export default function Attendance() {
     selectedTeam,
   ]);
 
+  const tableVisibleDates = useMemo(() => {
+    if (tableRangePreset === "all_dates") return selectedSheet.dates;
+    const { start, end } = resolveTablePresetRange(tableRangePreset);
+    return selectedSheet.dates.filter((d) => d >= start && d <= end);
+  }, [selectedSheet.dates, tableRangePreset]);
+
+  const potentialDuplicatePairs = useMemo(() => {
+    const teamAthletes = selectedSheet.athletes.filter((a) => a.level === selectedTeam);
+    const byLastName: Record<string, AttendanceAthlete[]> = {};
+    teamAthletes.forEach((a) => {
+      const key = (a.lastName ?? "").trim().toLowerCase();
+      if (!key) return;
+      byLastName[key] = [...(byLastName[key] ?? []), a];
+    });
+    const pairs: Array<[AttendanceAthlete, AttendanceAthlete]> = [];
+    Object.values(byLastName).forEach((group) => {
+      if (group.length < 2) return;
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          const pairKey = [group[i].id, group[j].id].sort().join("__");
+          if (!skippedDuplicatePairs.has(pairKey)) {
+            pairs.push([group[i], group[j]]);
+          }
+        }
+      }
+    });
+    return pairs;
+  }, [selectedSheet.athletes, selectedTeam, skippedDuplicatePairs]);
+
   const handleSetError = useCallback((team: Team, message: string | null) => {
     setTeamErrors((prev) => ({
       ...prev,
@@ -1521,14 +1603,14 @@ export default function Attendance() {
     ]);
   }, []);
 
-  const handleOpenAddDateModal = (team: Team) => {
+  const handleOpenInlineAddDate = (team: Team) => {
     resetAddDateDraft();
-    setShowAddDateModal(true);
+    setShowInlineAddDate(true);
     handleSetError(team, null);
   };
 
-  const handleCloseAddDateModal = () => {
-    setShowAddDateModal(false);
+  const handleCloseInlineAddDate = () => {
+    setShowInlineAddDate(false);
   };
 
   const handleAddDateDraftSession = () => {
@@ -1613,7 +1695,7 @@ export default function Attendance() {
       };
     });
     setReviewDate(newDate);
-    setShowAddDateModal(false);
+    setShowInlineAddDate(false);
     resetAddDateDraft();
     handleSetError(team, null);
   };
@@ -2019,6 +2101,21 @@ export default function Attendance() {
       };
     });
     setFlash("Athlete Removed From Attendance.");
+  };
+
+  const handleConfirmMergeAthletes = async (primaryId: string, candidateId: string) => {
+    const currentSheet = sheetsRef.current[selectedTeam];
+    if (!currentSheet) return;
+    const merged = manualMergeAttendanceAthletes(currentSheet, primaryId, candidateId);
+    setSheets((prev) => {
+      const next = { ...prev, [selectedTeam]: merged };
+      sheetsRef.current = next;
+      return next;
+    });
+    setDirty((prev) => ({ ...prev, [selectedTeam]: true }));
+    setMergePreviewIds(null);
+    await persistTeamSheet(selectedTeam, { showFlash: false });
+    setFlash("Athletes merged and saved.");
   };
 
   const handleAddAthlete = (event: React.FormEvent) => {
@@ -3071,11 +3168,11 @@ export default function Attendance() {
             )}
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => handleOpenAddDateModal(selectedTeam)}
-              disabled={selectedSaving}
+              className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900 disabled:opacity-60"
+              onClick={() => handleOpenInlineAddDate(selectedTeam)}
+              disabled={selectedSaving || showInlineAddDate}
             >
-              Add Date
+              + Add Lift Day
             </button>
             <button
               type="button"
@@ -3128,117 +3225,453 @@ export default function Attendance() {
           </div>
         )}
 
+        {/* Lift Day Cards */}
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-              Session Date
-            </label>
-            <select
-              className="field min-w-44 bg-white text-sm"
-              value={reviewDate}
-              onChange={(event) => setReviewDate(event.target.value)}
-              disabled={reportSourceDates.length === 0}
-            >
-              {reportSourceDates.length === 0 ? (
-                <option value="">No Dates</option>
-              ) : (
-                reportSourceDates.map((date) => (
-                  <option key={`session-setup-date-${date}`} value={date}>
-                    {formatDateLabel(date)}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            Lift Days
+          </h3>
 
-          {reviewDate ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                  Sessions For {formatMonthDay(reviewDate)}
-                </h4>
+          {/* Inline Add Lift Day Form */}
+          {showInlineAddDate && (
+            <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 space-y-2">
+              <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                Date
+                <input
+                  type="date"
+                  className="field h-10 bg-white"
+                  value={addDateDraftDate}
+                  onChange={(event) => setAddDateDraftDate(event.target.value)}
+                />
+              </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Sessions
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                    onClick={handleAddDateDraftSession}
+                  >
+                    + Add Session
+                  </button>
+                </div>
+                <datalist id="attendance-session-name-options">
+                  {sessionNameOptions.map((label) => (
+                    <option key={`attendance-session-option-${label}`} value={label} />
+                  ))}
+                </datalist>
+                {addDateDraftSessions.map((session, index) => (
+                  <div
+                    key={session.id}
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2"
+                  >
+                    <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                      {index + 1}
+                    </span>
+                    <input
+                      className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                      value={session.label}
+                      list="attendance-session-name-options"
+                      onChange={(event) =>
+                        handleDateDraftSessionLabelChange(session.id, event.target.value)
+                      }
+                      placeholder={defaultSessionLabelForIndex(index)}
+                    />
+                    <button
+                      type="button"
+                      className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      onClick={() => handleRemoveDateDraftSession(session.id)}
+                      disabled={addDateDraftSessions.length <= 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {selectedError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {selectedError}
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-900"
-                  onClick={() => handleAddSessionToDate(selectedTeam, reviewDate)}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  onClick={handleCloseInlineAddDate}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => handleSaveDateSetup(selectedTeam)}
                   disabled={selectedSaving}
                 >
-                  Add Session
+                  Save Date
                 </button>
               </div>
-              <div className="space-y-2">
-                {reviewDateSessions.map((session, index) => {
-                  const locked = reviewDateSessionLocks[session.key] === true;
-                  const lockToken = `${reviewDate}__${session.key}`;
-                  return (
-                    <div
-                      key={`${reviewDate}-${session.key}`}
-                      className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
-                    >
-                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                        {index + 1}
-                      </span>
-                      <input
-                        className="field h-9 min-w-44 flex-1 bg-white text-xs"
-                        value={session.label}
-                        onChange={(event) =>
-                          handleSessionLabelChange(
-                            selectedTeam,
-                            reviewDate,
-                            session.key,
-                            event.target.value
-                          )
-                        }
-                        placeholder={`Session ${index + 1}`}
-                      />
-                      <button
-                        type="button"
-                        className={[
-                          "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
-                          locked
-                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
-                        ].join(" ")}
-                        onClick={() =>
-                          handleToggleSessionLock(
-                            selectedTeam,
-                            reviewDate,
-                            session.key,
-                            !locked
-                          )
-                        }
-                        disabled={selectedSaving || lockingSessionKey === lockToken}
-                      >
-                        {lockingSessionKey === lockToken
-                          ? "Saving..."
-                          : locked
-                          ? "Unlock"
-                          : "Lock"}
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
-                        onClick={() =>
-                          handleRemoveSessionFromDate(selectedTeam, reviewDate, session.key)
-                        }
-                        disabled={reviewDateSessions.length <= 1 || selectedSaving}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Athletes Are Auto-Assigned To The First Unlocked Session. One Check-In Per Date.
-              </p>
-            </>
+            </div>
+          )}
+
+          {/* Existing date cards */}
+          {reportSourceDates.length === 0 && !showInlineAddDate ? (
+            <p className="text-xs text-slate-500 py-1">
+              No lift days added yet. Click "+ Add Lift Day" to get started.
+            </p>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-              Add An Attendance Date To Start Session Setup.
+            <div className="space-y-1">
+              {[...reportSourceDates].reverse().map((date) => {
+                const isExpanded = expandedLiftDates.has(date);
+                const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
+                const sessionLocksForDate = selectedSheet.sessionLocks?.[date] ?? {};
+                const dateLocked = Boolean(selectedSheet.lockedDates?.[date]);
+                const isNewest = date === reportSourceDates[reportSourceDates.length - 1];
+
+                return (
+                  <div
+                    key={`liftday-card-${date}`}
+                    className={[
+                      "rounded-lg border transition",
+                      isNewest
+                        ? "border-amber-200 bg-amber-50/40"
+                        : "border-slate-200 bg-white",
+                    ].join(" ")}
+                  >
+                    {/* Card header row */}
+                    <div
+                      className="flex flex-wrap items-center gap-2 px-3 py-2 cursor-pointer select-none"
+                      onClick={() => {
+                        setExpandedLiftDates((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(date)) {
+                            next.delete(date);
+                          } else {
+                            next.add(date);
+                            setReviewDate(date);
+                          }
+                          return next;
+                        });
+                      }}
+                    >
+                      <span className="text-[11px] text-slate-500 select-none">
+                        {isExpanded ? "▼" : "►"}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800">
+                        {formatDateLabel(date)}
+                      </span>
+                      {isNewest && (
+                        <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                          Latest
+                        </span>
+                      )}
+                      <span className="text-[11px] text-slate-500">
+                        {sessionsForDate.length || 1} Session{sessionsForDate.length !== 1 ? "s" : ""}
+                      </span>
+                      <span
+                        className={[
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          dateLocked
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700",
+                        ].join(" ")}
+                      >
+                        {dateLocked ? "Locked" : "Open"}
+                      </span>
+                      <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className={[
+                            "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                            dateLocked
+                              ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                          ].join(" ")}
+                          onClick={() => handleToggleDateLock(selectedTeam, date, !dateLocked)}
+                          disabled={selectedSaving || lockingDate === date}
+                        >
+                          {lockingDate === date ? "Saving..." : dateLocked ? "Unlock" : "Lock"}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                          onClick={() => handleRemoveDate(selectedTeam, date)}
+                          disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded session management */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 px-3 pb-3 pt-2 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                            Sessions
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                            onClick={() => handleAddSessionToDate(selectedTeam, date)}
+                            disabled={selectedSaving}
+                          >
+                            + Add Session
+                          </button>
+                        </div>
+                        {sessionsForDate.map((session, index) => {
+                          const locked = sessionLocksForDate[session.key] === true;
+                          const lockToken = `${date}__${session.key}`;
+                          return (
+                            <div
+                              key={`${date}-${session.key}`}
+                              className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
+                            >
+                              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                {index + 1}
+                              </span>
+                              <input
+                                className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                                value={session.label}
+                                onChange={(event) =>
+                                  handleSessionLabelChange(
+                                    selectedTeam,
+                                    date,
+                                    session.key,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={`Session ${index + 1}`}
+                              />
+                              <button
+                                type="button"
+                                className={[
+                                  "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                                  locked
+                                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+                                ].join(" ")}
+                                onClick={() =>
+                                  handleToggleSessionLock(selectedTeam, date, session.key, !locked)
+                                }
+                                disabled={selectedSaving || lockingSessionKey === lockToken}
+                              >
+                                {lockingSessionKey === lockToken
+                                  ? "Saving..."
+                                  : locked
+                                  ? "Unlock"
+                                  : "Lock"}
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                                onClick={() =>
+                                  handleRemoveSessionFromDate(selectedTeam, date, session.key)
+                                }
+                                disabled={sessionsForDate.length <= 1 || selectedSaving}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })}
+                        <p className="text-[11px] text-slate-500">
+                          Athletes auto-assigned to the first unlocked session. One check-in per date.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {/* Potential Duplicates Panel */}
+        {potentialDuplicatePairs.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  Potential Duplicates
+                </h4>
+                <p className="text-[11px] text-amber-700">
+                  {potentialDuplicatePairs.length} pair{potentialDuplicatePairs.length !== 1 ? "s" : ""} share the same last name — review and merge, or skip.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg border border-amber-300 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-200"
+                onClick={() =>
+                  setSkippedDuplicatePairs((prev) => {
+                    const next = new Set(prev);
+                    potentialDuplicatePairs.forEach(([a, b]) => {
+                      next.add([a.id, b.id].sort().join("__"));
+                    });
+                    return next;
+                  })
+                }
+              >
+                Dismiss All
+              </button>
+            </div>
+            <div className="space-y-2">
+              {potentialDuplicatePairs.map(([athleteA, athleteB]) => {
+                const pairKey = [athleteA.id, athleteB.id].sort().join("__");
+                const aDateCount = Object.values(selectedSheet.records[athleteA.id] ?? {}).filter(Boolean).length;
+                const bDateCount = Object.values(selectedSheet.records[athleteB.id] ?? {}).filter(Boolean).length;
+                const suggestedPrimary = aDateCount >= bDateCount ? athleteA : athleteB;
+                const suggestedCandidate = suggestedPrimary.id === athleteA.id ? athleteB : athleteA;
+                return (
+                  <div key={pairKey} className="rounded-lg border border-amber-200 bg-white px-3 py-2 space-y-2">
+                    {[athleteA, athleteB].map((athlete) => {
+                      const dateCount = Object.values(selectedSheet.records[athlete.id] ?? {}).filter(Boolean).length;
+                      return (
+                        <div key={athlete.id} className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                          <span className="font-semibold">{athlete.firstName} {athlete.lastName}</span>
+                          {athlete.number && <span className="text-slate-500">#{athlete.number}</span>}
+                          {athlete.grade && <span className="text-slate-500">Gr.{athlete.grade}</span>}
+                          <span className={["rounded-full px-1.5 py-0.5 text-[10px] font-semibold", athlete.uid ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"].join(" ")}>
+                            {athlete.uid ? "✓ linked" : "unlinked"}
+                          </span>
+                          <span className="text-slate-500">{dateCount} date{dateCount !== 1 ? "s" : ""}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-amber-700"
+                        onClick={() =>
+                          setMergePreviewIds({
+                            primaryId: suggestedPrimary.id,
+                            candidateId: suggestedCandidate.id,
+                          })
+                        }
+                      >
+                        Review Merge
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                        onClick={() =>
+                          setSkippedDuplicatePairs((prev) => new Set([...prev, pairKey]))
+                        }
+                      >
+                        Not the Same Person — Skip
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Merge Preview Modal */}
+        {mergePreviewIds && (() => {
+          const primary = selectedSheet.athletes.find((a) => a.id === mergePreviewIds.primaryId);
+          const candidate = selectedSheet.athletes.find((a) => a.id === mergePreviewIds.candidateId);
+          if (!primary || !candidate) return null;
+          const primaryRecord = selectedSheet.records[mergePreviewIds.primaryId] ?? {};
+          const candidateRecord = selectedSheet.records[mergePreviewIds.candidateId] ?? {};
+          const conflictDates = selectedSheet.dates.filter(
+            (d) => !primaryRecord[d] && candidateRecord[d]
+          );
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+              onClick={() => setMergePreviewIds(null)}
+            >
+              <div
+                className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                    Merge Preview
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Review what will change before confirming.
+                  </p>
+                </div>
+                <div className="space-y-4 p-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Profile Result
+                    </p>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs space-y-1">
+                      <div className="flex gap-2">
+                        <span className="w-20 text-slate-500">Name:</span>
+                        <span className="font-medium">{primary.firstName} {primary.lastName}</span>
+                        <span className="text-slate-400">(from primary)</span>
+                      </div>
+                      {(primary.number || candidate.number) && (
+                        <div className="flex gap-2">
+                          <span className="w-20 text-slate-500">Jersey #:</span>
+                          <span className="font-medium">{primary.number ?? candidate.number}</span>
+                          <span className="text-slate-400">{primary.number ? "(from primary)" : "(from linked entry)"}</span>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <span className="w-20 text-slate-500">Login:</span>
+                        {(primary.uid ?? candidate.uid) ? (
+                          <span className="font-medium text-emerald-700">✓ linked</span>
+                        ) : (
+                          <span className="text-slate-400">unlinked</span>
+                        )}
+                        {!primary.uid && candidate.uid && (
+                          <span className="text-slate-400">(added from linked entry)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Attendance Records
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      OR logic — any date where either entry was present will be kept as present.
+                    </p>
+                    {conflictDates.length > 0 ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
+                        <p className="font-semibold text-amber-800 mb-1">
+                          {conflictDates.length} date{conflictDates.length !== 1 ? "s" : ""} where only the merged entry was present — will be added:
+                        </p>
+                        <p className="text-amber-700">
+                          {conflictDates.map((d) => formatDateLabel(d)).join(", ")}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">
+                        No conflicting dates — records are compatible.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    onClick={() => setMergePreviewIds(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                    disabled={selectedSaving}
+                    onClick={() =>
+                      handleConfirmMergeAthletes(mergePreviewIds.primaryId, mergePreviewIds.candidateId)
+                    }
+                  >
+                    Confirm Merge & Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {useCompactMobileAthleteLayout ? (
           <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
@@ -3364,6 +3797,32 @@ export default function Attendance() {
             )}
           </div>
         ) : (
+          <div className="space-y-2">
+          {/* Date range filter bar */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Show:
+            </span>
+            {TABLE_RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTableRangePreset(opt.value)}
+                className={
+                  tableRangePreset === opt.value
+                    ? "rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white transition"
+                    : "rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+            {tableVisibleDates.length === 0 && tableRangePreset !== "all_dates" && (
+              <span className="text-[11px] text-slate-400 italic">
+                No dates in this range
+              </span>
+            )}
+          </div>
           <div className="overflow-x-auto">
           <table className="w-max table-auto divide-y divide-gray-200 text-sm">
             <thead>
@@ -3423,11 +3882,12 @@ export default function Attendance() {
                     )}
                   </div>
                 </th>
-                {selectedSheet.dates.map((date, index) => {
+                {tableVisibleDates.map((date) => {
                   const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
                   const sessionCountsForDate = sessionCountsByDate[date] ?? {};
+                  const isNewestDate = date === selectedSheet.dates[selectedSheet.dates.length - 1];
                   return (
-                  <th key={date} className="px-2 py-2 text-center text-xs font-semibold text-gray-600">
+                  <th key={date} className={["px-2 py-2 text-center text-xs font-semibold text-gray-600", isNewestDate ? "bg-amber-50" : ""].join(" ")}>
                     <div className="flex flex-col items-center gap-1">
                       {selectedSheet.lockedDates?.[date] ? (
                         <span className="rounded-full bg-rose-100 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-rose-700">
@@ -3466,7 +3926,7 @@ export default function Attendance() {
                         type="date"
                         value={date}
                         onChange={(event) =>
-                          handleDateChange(selectedTeam, index, event.target.value)
+                          handleDateChange(selectedTeam, selectedSheet.dates.indexOf(date), event.target.value)
                         }
                         disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                         className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs"
@@ -3544,7 +4004,7 @@ export default function Attendance() {
                         );
                       })()}
                     </td>
-                    {selectedSheet.dates.map((date) => {
+                    {tableVisibleDates.map((date) => {
                       const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
                       const sessionLocksForDate = selectedSheet.sessionLocks?.[date] ?? {};
                       const dateLocked = Boolean(selectedSheet.lockedDates?.[date]);
@@ -3619,7 +4079,8 @@ export default function Attendance() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          </div>
         )}
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
@@ -3779,118 +4240,6 @@ export default function Attendance() {
             </>
           )}
         </div>
-
-        {showAddDateModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
-            onClick={handleCloseAddDateModal}
-          >
-            <div
-              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
-                    Add Attendance Date
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Default Date Is Today. Update It Before Save If Needed.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                  onClick={handleCloseAddDateModal}
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="space-y-4 p-4">
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  Date
-                  <input
-                    type="date"
-                    className="field h-10 bg-white"
-                    value={addDateDraftDate}
-                    onChange={(event) => setAddDateDraftDate(event.target.value)}
-                  />
-                </label>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h5 className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                      Sessions
-                    </h5>
-                    <button
-                      type="button"
-                      className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-900"
-                      onClick={handleAddDateDraftSession}
-                    >
-                      Add Session
-                    </button>
-                  </div>
-                  <datalist id="attendance-session-name-options">
-                    {sessionNameOptions.map((label) => (
-                      <option key={`attendance-session-option-${label}`} value={label} />
-                    ))}
-                  </datalist>
-                  <div className="space-y-2">
-                    {addDateDraftSessions.map((session, index) => (
-                      <div
-                        key={session.id}
-                        className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
-                      >
-                        <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                          {index + 1}
-                        </span>
-                        <input
-                          className="field h-9 min-w-44 flex-1 bg-white text-xs"
-                          value={session.label}
-                          list="attendance-session-name-options"
-                          onChange={(event) =>
-                            handleDateDraftSessionLabelChange(session.id, event.target.value)
-                          }
-                          placeholder={defaultSessionLabelForIndex(index)}
-                        />
-                        <button
-                          type="button"
-                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
-                          onClick={() => handleRemoveDateDraftSession(session.id)}
-                          disabled={addDateDraftSessions.length <= 1}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {selectedError && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    {selectedError}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-3">
-                <button
-                  type="button"
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50"
-                  onClick={handleCloseAddDateModal}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => handleSaveDateSetup(selectedTeam)}
-                  disabled={selectedSaving}
-                >
-                  Save Date
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {reviewStatusModal && (
           <div

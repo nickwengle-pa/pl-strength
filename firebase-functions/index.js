@@ -3,7 +3,9 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { FieldValue, getFirestore } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const functions = require("firebase-functions");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 // Initialize the Admin SDK once per process.
 initializeApp();
@@ -486,3 +488,57 @@ exports.autoApproveJuniorHighAttendanceCheckin = functions.firestore
       uid,
     });
   });
+
+// Weekly backup — runs every Sunday at 11:59 PM America/Chicago
+// Exports attendance sheets, athlete profiles, and roles to Firebase Storage.
+// Keeps the 8 most recent backups (approximately 2 months).
+exports.weeklyBackup = onSchedule(
+  { schedule: "59 23 * * 0", timeZone: "America/Chicago" },
+  async () => {
+    const db = getFirestore();
+    const bucket = getStorage().bucket();
+    const timestamp = new Date().toISOString().split("T")[0];
+
+    const backup = {};
+
+    // Attendance sheets (one document per team)
+    const attendanceSnap = await db.collection(ATTENDANCE_COLLECTION).get();
+    backup.attendance = {};
+    attendanceSnap.forEach((doc) => {
+      backup.attendance[doc.id] = doc.data();
+    });
+
+    // Athlete profiles (collection group across all athletes)
+    const profileSnap = await db.collectionGroup("profile").get();
+    backup.profiles = {};
+    profileSnap.forEach((doc) => {
+      backup.profiles[doc.ref.path] = doc.data();
+    });
+
+    // Roles (coach / admin role documents)
+    const rolesSnap = await db.collection("roles").get();
+    backup.roles = {};
+    rolesSnap.forEach((doc) => {
+      backup.roles[doc.id] = doc.data();
+    });
+
+    // Write backup JSON to Firebase Storage
+    const fileName = `backups/weekly-${timestamp}.json`;
+    const file = bucket.file(fileName);
+    await file.save(JSON.stringify(backup, null, 2), {
+      contentType: "application/json",
+      metadata: { cacheControl: "no-cache" },
+    });
+
+    // Prune old backups — keep only the most recent 8
+    const [files] = await bucket.getFiles({ prefix: "backups/weekly-" });
+    const sorted = files.sort((a, b) => a.name.localeCompare(b.name));
+    if (sorted.length > 8) {
+      const toDelete = sorted.slice(0, sorted.length - 8);
+      await Promise.all(toDelete.map((f) => f.delete()));
+      functions.logger.info(`Pruned ${toDelete.length} old backup(s).`);
+    }
+
+    functions.logger.info(`Weekly backup complete: ${fileName}`);
+  }
+);

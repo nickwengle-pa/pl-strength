@@ -195,7 +195,7 @@ export default function Summary() {
     if (!profile || tm === "") return;
     const updated: Profile = {
       ...profile,
-      tm: { ...(profile.tm || {}), [lift]: Number(tm) }
+      tm: { ...(profile.tm || {}), [lift]: Number(tm) },
     };
     try {
       await saveProfile(updated, { skipLocal: Boolean(targetUid), requireRemote: true });

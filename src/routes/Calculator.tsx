@@ -398,6 +398,14 @@ export default function Calculator() {
         ...(profile.oneRm ?? {}),
         [lift]: nextOneRm,
       },
+      liftWeeks: {
+        ...(profile.liftWeeks ?? {}),
+        [lift]: 1,
+      },
+      liftCycles: {
+        ...(profile.liftCycles ?? {}),
+        [lift]: 1,
+      },
     };
 
     setSaving(true);
@@ -407,7 +415,7 @@ export default function Calculator() {
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
       setTargetWeight(trainingMax);
       notifyProfileChange();
-      alert("Training max saved for this lift.");
+      alert("Training max saved. Cycle reset to Week 1, Cycle 1 for this lift.");
     } catch (err) {
       console.warn("Failed to save training max", err);
       alert("Unable to sync with Firebase right now. We kept it locally.");

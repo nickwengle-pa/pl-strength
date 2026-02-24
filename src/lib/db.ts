@@ -3116,6 +3116,49 @@ export async function saveAttendanceSheet(
   });
 }
 
+export function manualMergeAttendanceAthletes(
+  sheet: AttendanceSheet,
+  primaryId: string,
+  candidateId: string
+): AttendanceSheet {
+  const primary = sheet.athletes.find((a) => a.id === primaryId);
+  const candidate = sheet.athletes.find((a) => a.id === candidateId);
+  if (!primary || !candidate || primaryId === candidateId) return sheet;
+
+  const merged = mergeAttendanceAthleteProfile(primary, candidate);
+  const candidateRecord = sheet.records[candidateId] ?? {};
+  const primaryRecord = sheet.records[primaryId] ?? {};
+
+  const mergedRecord: Record<string, boolean> = {};
+  sheet.dates.forEach((date) => {
+    mergedRecord[date] = Boolean(primaryRecord[date] || candidateRecord[date]);
+  });
+
+  // Primary session wins; candidate fills in dates where primary has no selection
+  const candidateSel = sheet.sessionSelections[candidateId] ?? {};
+  const primarySel = sheet.sessionSelections[primaryId] ?? {};
+  const mergedSel: Record<string, string> = { ...candidateSel, ...primarySel };
+
+  const nextAthletes = sheet.athletes
+    .filter((a) => a.id !== candidateId)
+    .map((a) => (a.id === primaryId ? merged : a));
+
+  const nextRecords = { ...sheet.records };
+  delete nextRecords[candidateId];
+  nextRecords[primaryId] = mergedRecord;
+
+  const nextSelections = { ...sheet.sessionSelections };
+  delete nextSelections[candidateId];
+  nextSelections[primaryId] = mergedSel;
+
+  return {
+    ...sheet,
+    athletes: nextAthletes,
+    records: nextRecords,
+    sessionSelections: nextSelections,
+  };
+}
+
 const buildAttendanceAthleteIdForUid = (uid: string): string =>
   `uid-${uid}`.replace(/[^a-zA-Z0-9_-]/g, "_");
 
