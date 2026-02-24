@@ -2104,9 +2104,7 @@ export default function Attendance() {
   };
 
   const handleConfirmMergeAthletes = async (primaryId: string, candidateId: string) => {
-    const currentSheet = sheetsRef.current[selectedTeam];
-    if (!currentSheet) return;
-    const merged = manualMergeAttendanceAthletes(currentSheet, primaryId, candidateId);
+    const merged = manualMergeAttendanceAthletes(selectedSheet, primaryId, candidateId);
     setSheets((prev) => {
       const next = { ...prev, [selectedTeam]: merged };
       sheetsRef.current = next;
