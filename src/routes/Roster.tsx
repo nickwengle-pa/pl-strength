@@ -12,6 +12,7 @@ import {
   getStoredTeamSelection,
   isAdmin,
   listRoster,
+  loadAttendanceSheet,
   loadProfileRemote,
   normalizePasscodeDigits,
   regenerateAthleteCode,
@@ -21,7 +22,6 @@ import {
   subscribeToTeamSessions,
   updateSession,
   backfillCreatedAtDates,
-  loadAttendanceSheet,
   type Profile,
   type RosterEntry,
   type SessionRecord,
@@ -75,6 +75,14 @@ const formatTimeAgo = (timestamp: number): string => {
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return new Date(timestamp).toLocaleDateString();
+};
+
+const toLocalDateKey = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const normalizeRoles = (roles?: string[] | null): string[] =>
@@ -162,7 +170,6 @@ export default function Roster() {
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
   const [loadingActivity, setLoadingActivity] = useState(false);
-  const [rosterSheet, setRosterSheet] = useState<import("../lib/db").AttendanceSheet | null>(null);
   const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
   const activeTeamSelection = coachTeam ?? getStoredTeamSelection();
 
@@ -355,13 +362,6 @@ export default function Roster() {
     
     return () => { active = false; };
   }, [rows, activeTeamSelection]);
-
-  useEffect(() => {
-    if (!activeTeamSelection) return;
-    loadAttendanceSheet(activeTeamSelection)
-      .then(setRosterSheet)
-      .catch(() => setRosterSheet(null));
-  }, [activeTeamSelection]);
 
   // Real-time subscription to team sessions for live activity updates
   const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
@@ -923,6 +923,17 @@ export default function Roster() {
     return rows;
   }, [athleteRows, coachTeamFilter, isAdminUser, adminAthleteFilter, coachLevelFilter, searchQuery, teamFilter, sortField, sortDirection, activityMap]);
 
+  const latestSessionDateKey = useMemo(() => {
+    let latestWorkout = 0;
+    for (const row of filteredAthleteRows) {
+      const ts = activityMap[row.uid]?.lastWorkout;
+      if (typeof ts === "number" && Number.isFinite(ts) && ts > latestWorkout) {
+        latestWorkout = ts;
+      }
+    }
+    return latestWorkout > 0 ? toLocalDateKey(latestWorkout) : null;
+  }, [filteredAthleteRows, activityMap]);
+
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
     [filteredAthleteRows, selectedUid]
@@ -1049,29 +1060,14 @@ export default function Roster() {
 
       {!detailLoading && !detailError && detailProfile && (
         <>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <div className="text-sm text-gray-600">Team</div>
-            <div className="text-base font-semibold text-gray-900">
-              {formatTeamLabel(activeTeamSelection || detailProfile.team, "-")}
-            </div>
-            <div className="mt-2 text-sm text-gray-600">Unit</div>
-            <div className="text-base font-semibold text-gray-900">
-              {detailProfile.unit}
-            </div>
-            <div className="mt-2 text-sm text-gray-600">Sign-in code</div>
-            <div className="font-mono text-base text-gray-900">
-              {detailProfile.accessCode ?? "-"}
-            </div>
-            <div className="mt-2 text-sm text-gray-600">Created</div>
-            <div className="text-base font-semibold text-gray-900">
-              {detailProfile.createdAt
-                ? new Date(detailProfile.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "-"}
-            </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm">
+            <span className="text-gray-500">Team: <span className="font-semibold text-gray-900">{formatTeamLabel(activeTeamSelection || detailProfile.team, "-")}</span></span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">Unit: <span className="font-semibold text-gray-900">{detailProfile.unit ?? "-"}</span></span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">Code: <span className="font-mono font-semibold text-gray-900">{detailProfile.accessCode ?? "-"}</span></span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">Created: <span className="font-semibold text-gray-900">{detailProfile.createdAt ? new Date(detailProfile.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-"}</span></span>
           </div>
 
           {/* Attendance Breakdown */}
@@ -2009,13 +2005,14 @@ export default function Roster() {
                 const selected = selectedUid === r.uid;
                 const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
                 const activity = activityMap[r.uid];
-                const sortedDates = rosterSheet ? [...rosterSheet.dates].sort() : [];
-                const currentLiftDate = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : null;
-                const attendanceAthlete = rosterSheet?.athletes.find((a) => a.uid === r.uid) ?? null;
-                const liftedCurrentDate = Boolean(
-                  currentLiftDate &&
-                  attendanceAthlete &&
-                  rosterSheet!.records[attendanceAthlete.id]?.[currentLiftDate] === true
+                const lastWorkoutDateKey =
+                  typeof activity?.lastWorkout === "number" && Number.isFinite(activity.lastWorkout)
+                    ? toLocalDateKey(activity.lastWorkout)
+                    : null;
+                const loggedCurrentLift = Boolean(
+                  latestSessionDateKey &&
+                  lastWorkoutDateKey &&
+                  latestSessionDateKey === lastWorkoutDateKey
                 );
                 return (
                   <tr
@@ -2051,10 +2048,14 @@ export default function Roster() {
                         : <span className="text-gray-400">-</span>}
                     </td>
                     <td className="p-2 text-center">
-                      {liftedCurrentDate ? (
+                      {loggedCurrentLift ? (
                         <span
                           className="inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 shadow-[0_0_7px_2px_rgba(52,211,153,0.55)]"
-                          title={currentLiftDate ? `Present on ${currentLiftDate}` : "Present"}
+                          title={
+                            latestSessionDateKey
+                              ? `Session logged on ${latestSessionDateKey}`
+                              : "Session logged"
+                          }
                         />
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>
