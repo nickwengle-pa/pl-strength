@@ -30,6 +30,7 @@ import {
 import { roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { StatCardSkeleton } from "../components/LoadingSkeleton";
+import { useDevice } from "../lib/device";
 
 const LIFT_KEYS = ["bench", "squat", "deadlift"] as const;
 type LiftKey = (typeof LIFT_KEYS)[number];
@@ -125,6 +126,7 @@ function RoleBadges({ roles }: RoleBadgesProps) {
 }
 
 export default function Roster() {
+  const device = useDevice();
   const [rows, setRows] = useState<RosterEntry[]>([]);
   const [err, setErr] = useState<string|undefined>();
   const [busyUid, setBusyUid] = useState<string | null>(null);
@@ -167,9 +169,12 @@ export default function Roster() {
   const [teamFilter, setTeamFilter] = useState<Team | "all">("all");
   const [sortField, setSortField] = useState<"firstName" | "lastName" | "lastWorkout" | null>("lastName");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [showAthleteTableOnMobile, setShowAthleteTableOnMobile] = useState(false);
   const currentUid = fb.auth?.currentUser?.uid ?? null;
   const [activityMap, setActivityMap] = useState<Record<string, { lastWorkout?: number; weekCount: number }>>({});
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const isMobileLayout = device.isMobile || (device.isTouch && !device.isDesktop);
+  const useMobileAthleteCards = isMobileLayout && !showAthleteTableOnMobile;
   const coachTeamFilter = !isAdminUser ? coachTeam ?? null : null;
   const activeTeamSelection = coachTeam ?? getStoredTeamSelection();
 
@@ -411,6 +416,12 @@ export default function Roster() {
     const timer = window.setTimeout(() => setFlash(null), 5000);
     return () => window.clearTimeout(timer);
   }, [flash]);
+
+  useEffect(() => {
+    if (!isMobileLayout) {
+      setShowAthleteTableOnMobile(false);
+    }
+  }, [isMobileLayout]);
 
   useEffect(() => {
     let active = true;
@@ -937,6 +948,24 @@ export default function Roster() {
   const selectedRow = useMemo(
     () => filteredAthleteRows.find((row) => row.uid === selectedUid) ?? null,
     [filteredAthleteRows, selectedUid]
+  );
+
+  const handleSelectAthlete = useCallback(
+    (row: RosterEntry) => {
+      if (!row.uid) return;
+      setSelectedUid(row.uid);
+      setDetailModalOpen(true);
+      if (isCoach) {
+        setActiveAthlete({
+          uid: row.uid,
+          firstName: row.firstName ?? undefined,
+          lastName: row.lastName ?? undefined,
+          team: activeTeamSelection || row.team || null,
+          unit: row.unit ?? undefined,
+        });
+      }
+    },
+    [activeTeamSelection, isCoach, setActiveAthlete]
   );
 
   useEffect(() => {
@@ -1652,7 +1681,7 @@ export default function Roster() {
               </p>
             </div>
             {(isCoach || isAdminUser) && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -1669,6 +1698,17 @@ export default function Roster() {
                     disabled={backfillRunning}
                   >
                     {backfillRunning ? "Backfilling..." : "Backfill Dates"}
+                  </button>
+                )}
+                {isMobileLayout && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setShowAthleteTableOnMobile((prev) => !prev)}
+                  >
+                    {showAthleteTableOnMobile
+                      ? "Mobile Card View"
+                      : "Desktop Table View"}
                   </button>
                 )}
               </div>
@@ -1956,8 +1996,141 @@ export default function Roster() {
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border rounded-xl overflow-hidden">
+        {useMobileAthleteCards && (
+          <div className="space-y-2">
+            {filteredAthleteRows.map((r, index) => {
+              const selected = selectedUid === r.uid;
+              const rowKey = r.uid ? `${r.uid}-${index}` : `row-${index}`;
+              const activity = activityMap[r.uid];
+              const lastWorkoutDateKey =
+                typeof activity?.lastWorkout === "number" && Number.isFinite(activity.lastWorkout)
+                  ? toLocalDateKey(activity.lastWorkout)
+                  : null;
+              const loggedCurrentLift = Boolean(
+                latestSessionDateKey &&
+                lastWorkoutDateKey &&
+                latestSessionDateKey === lastWorkoutDateKey
+              );
+              const joinedLabel = r.createdAt
+                ? new Date(r.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "2-digit",
+                  })
+                : "-";
+              const lastWorkoutLabel = loadingActivity
+                ? "..."
+                : activity?.lastWorkout
+                ? new Date(activity.lastWorkout).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "-";
+              return (
+                <div
+                  key={rowKey}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleSelectAthlete(r)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleSelectAthlete(r);
+                    }
+                  }}
+                  className={`rounded-xl border p-3 shadow-sm transition ${
+                    selected
+                      ? "border-brand-300 bg-brand-50/40"
+                      : "border-gray-200 bg-white hover:border-brand-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-gray-900">
+                        {r.firstName || "-"} {r.lastName || "-"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatTeamLabel(r.team, "-")}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {loggedCurrentLift ? (
+                        <span
+                          className="inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 shadow-[0_0_7px_2px_rgba(52,211,153,0.55)]"
+                          title={
+                            latestSessionDateKey
+                              ? `Session logged on ${latestSessionDateKey}`
+                              : "Session logged"
+                          }
+                        />
+                      ) : (
+                        <span className="text-[11px] text-gray-400">No Lift</span>
+                      )}
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-[11px] text-gray-700">
+                        {r.accessCode ?? "--"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div>
+                      Joined: <span className="font-medium text-gray-700">{joinedLabel}</span>
+                    </div>
+                    <div>
+                      Last: <span className="font-medium text-gray-700">{lastWorkoutLabel}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn px-3 py-1 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleSelectAthlete(r);
+                      }}
+                    >
+                      Review
+                    </button>
+                    <button
+                      type="button"
+                      className="btn px-3 py-1 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRegenerate(r);
+                      }}
+                      disabled={busyUid === r.uid || deleteUid === r.uid}
+                    >
+                      {busyUid === r.uid ? "Working..." : "Set code"}
+                    </button>
+                    {isAdminUser ? (
+                      <button
+                        type="button"
+                        className="btn px-3 py-1 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDelete(r);
+                        }}
+                        disabled={deleteUid === r.uid || busyUid === r.uid}
+                      >
+                        {deleteUid === r.uid ? "Deleting..." : "Delete"}
+                      </button>
+                    ) : (
+                      <span className="self-center text-xs text-gray-400">Admin Only</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {filteredAthleteRows.length === 0 && (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-4 text-sm text-gray-500">
+                No athletes found for the selected team.
+              </div>
+            )}
+          </div>
+        )}
+
+        {!useMobileAthleteCards && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border rounded-xl overflow-hidden">
             <thead className="bg-gray-50">
               <tr>
                 <th 
@@ -1993,7 +2166,7 @@ export default function Roster() {
                   <div className="flex items-center gap-1">
                     Last Workout
                     {sortField === "lastWorkout" && (
-                      <span className="text-xs">{sortDirection === "asc" ? "â†‘" : "â†“"}</span>
+                      <span className="text-xs">{sortDirection === "asc" ? "↑" : "↓"}</span>
                     )}
                   </div>
                 </th>
@@ -2020,19 +2193,7 @@ export default function Roster() {
                     className={`border-t cursor-pointer transition ${
                       selected ? "bg-brand-50" : "hover:bg-gray-50"
                     }`}
-                    onClick={() => {
-                      setSelectedUid(r.uid);
-                      setDetailModalOpen(true);
-                      if (isCoach && r.uid) {
-                        setActiveAthlete({
-                          uid: r.uid,
-                          firstName: r.firstName ?? undefined,
-                          lastName: r.lastName ?? undefined,
-                          team: activeTeamSelection || r.team || null,
-                          unit: r.unit ?? undefined,
-                        });
-                      }
-                    }}
+                    onClick={() => handleSelectAthlete(r)}
                   >
                     <td className="p-2">{r.firstName || "-"}</td>
                     <td className="p-2">{r.lastName || "-"}</td>
@@ -2112,7 +2273,8 @@ export default function Roster() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+        )}
       </div>
 
       {selectedUid && (

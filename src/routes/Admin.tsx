@@ -93,7 +93,7 @@ export default function Admin() {
   }, [user]);
 
   return (
-    <div className="card space-y-5">
+    <div className="card space-y-4 p-4 sm:space-y-5 sm:p-6">
       <div className="space-y-1">
         <h3 className="text-xl font-semibold">Team Admin</h3>
         <p className="text-sm text-gray-600">
@@ -108,7 +108,7 @@ export default function Admin() {
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-        Signed-In User UID: <code>{uid}</code>
+        Signed-In User UID: <code className="break-all">{uid}</code>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
@@ -131,7 +131,7 @@ export default function Admin() {
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="font-medium text-gray-700">Access History</div>
           {accessHistory.length > 0 && (
             <button
@@ -141,7 +141,7 @@ export default function Admin() {
                   setAccessHistory([]);
                 }
               }}
-              className="text-xs text-red-600 hover:text-red-800"
+              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:text-red-700"
             >
               Clear History
             </button>
@@ -150,7 +150,7 @@ export default function Admin() {
         <div className="space-y-3">
           {accessHistory.map((entry) => (
             <div key={entry.code} className="rounded-xl border border-gray-200 bg-white p-3 space-y-1">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="font-medium text-gray-900">
                   {entry.code === "1357" ? "Admin Access" : "Coach Access"}
                 </span>

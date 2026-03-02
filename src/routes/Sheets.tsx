@@ -15,6 +15,7 @@ import {
 import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { roundToPlate, weekPercents } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { useDevice } from "../lib/device";
 
 type LiftKey = "squat" | "bench" | "deadlift";
 type Week = 1 | 2 | 3;
@@ -239,6 +240,7 @@ function SingleSheet({
 }
 
 export default function Sheets() {
+  const device = useDevice();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const [selectedCycle, setSelectedCycle] = useState<number>(1);
@@ -250,6 +252,10 @@ export default function Sheets() {
 
   const { activeAthlete, isCoach } = useActiveAthlete();
   const targetUid = isCoach && activeAthlete ? activeAthlete.uid : undefined;
+  const isMobileLayout = device.isMobile || (device.isTouch && !device.isDesktop);
+  const activeAthleteName = activeAthlete
+    ? [activeAthlete.firstName, activeAthlete.lastName].filter(Boolean).join(" ").trim()
+    : "";
 
   // Load single profile
   useEffect(() => {
@@ -322,20 +328,49 @@ export default function Sheets() {
 
   return (
     <div className="container py-6">
-      <div className="flex items-center justify-between mb-6 no-print">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between no-print">
         <h1 className="text-2xl font-semibold">Printable Sheets</h1>
-        <button className="btn btn-primary" onClick={() => window.print()}>
+        <button className="btn btn-primary w-full sm:w-auto" onClick={() => window.print()}>
           Print Sheets
         </button>
       </div>
 
       {/* Controls */}
       <div className="card mb-8 space-y-4 no-print bg-gray-50 border-gray-200">
+        {isMobileLayout && (
+          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+            <div className="font-semibold uppercase tracking-wide text-slate-600">Mobile Quick Mode</div>
+            <div className="mt-1">
+              Use Single Athlete For Fast Access. Batch Printing Works Best On Desktop.
+            </div>
+            {targetUid && activeAthleteName && (
+              <div className="mt-1 text-slate-500">
+                Active Athlete: <span className="font-semibold text-slate-700">{activeAthleteName}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isMobileLayout && batchMode && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Batch mode is enabled. Switch to single athlete for faster mobile workflow.
+            <div className="mt-2">
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setBatchMode(false)}
+              >
+                Switch To Single Athlete
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {isCoach && (
             <label className="flex flex-col gap-1">
               <span className="text-sm font-medium">Mode</span>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"

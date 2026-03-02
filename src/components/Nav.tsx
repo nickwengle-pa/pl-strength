@@ -686,12 +686,14 @@ export default function Nav() {
 
   const gearLinks = [
     { to: "/profile", label: "Profile" },
-    ...(coach || admin
+    ...(admin
       ? [
           { to: "/summary", label: "Summary" },
-          { to: "/admin", label: admin ? "Admin" : "Team" },
+          { to: "/admin", label: "Admin" },
           { to: "/football", label: "Football Sim" },
         ]
+      : coach
+      ? [{ to: "/football", label: "Football Sim" }]
       : [{ to: "/progress", label: "Progress" }]),
   ];
 

@@ -857,6 +857,7 @@ const isMobileDevice = (): boolean => {
 
 const DEFAULT_TEAM: Team = FALLBACK_TEAMS[0] ?? ALL_TEAMS[0] ?? "football-varsity";
 const TOGGLE_AUTOSAVE_DELAY_MS = 350;
+const MOBILE_VIEW_STORAGE_KEY = "pl-attendance-mobile-view";
 
 export default function Attendance() {
   const { loading: authLoading, isCoach } = useActiveAthlete();
@@ -901,7 +902,14 @@ export default function Attendance() {
   const [reportSessionFilter, setReportSessionFilter] = useState<string>("all");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
-  const [showDesktopTableOnMobile, setShowDesktopTableOnMobile] = useState(false);
+  const [showDesktopTableOnMobile, setShowDesktopTableOnMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(MOBILE_VIEW_STORAGE_KEY) === "desktop-table";
+    } catch {
+      return false;
+    }
+  });
   const [isAddAthleteCollapsed, setIsAddAthleteCollapsed] = useState<boolean>(() =>
     isMobileDevice()
   );
@@ -928,6 +936,7 @@ export default function Attendance() {
   const [lockingDate, setLockingDate] = useState<string | null>(null);
   const [lockingSessionKey, setLockingSessionKey] = useState<string | null>(null);
   const sheetsRef = useRef<TeamMap<AttendanceSheet>>(sheets);
+  const reviewSectionRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
   const saveQueuedRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
   const saveQueuedFlashRef = useRef<TeamMap<boolean>>(buildTeamMap(() => false));
@@ -1075,6 +1084,16 @@ export default function Attendance() {
     return () => window.clearTimeout(timer);
   }, [flash]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        MOBILE_VIEW_STORAGE_KEY,
+        showDesktopTableOnMobile ? "desktop-table" : "mobile-athlete"
+      );
+    } catch {}
+  }, [showDesktopTableOnMobile]);
+
   const selectedSheet = normalizeRuntimeSheet(sheets[selectedTeam], selectedTeam);
   const selectedError = teamErrors[selectedTeam];
   const selectedDirty = dirty[selectedTeam];
@@ -1097,6 +1116,9 @@ export default function Attendance() {
   const reviewDateSessionLocks = reviewDate
     ? selectedSheet.sessionLocks?.[reviewDate] ?? {}
     : {};
+  const showMobileQuickActionBar =
+    isMobileCoachBrowser && (selectedDirty || Boolean(reviewDate));
+  const canJumpToReview = reportSourceDates.length > 0;
   const pendingReviewCheckins = useMemo(
     () => reviewCheckins.filter((row) => row.status === "pending"),
     [reviewCheckins]
@@ -3068,6 +3090,11 @@ export default function Attendance() {
     await persistTeamSheet(team, { showFlash: true });
   };
 
+  const handleJumpToReview = useCallback(() => {
+    if (!reviewSectionRef.current) return;
+    reviewSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   if (authLoading || loading) {
     return (
       <div className="container py-10">
@@ -3090,7 +3117,12 @@ export default function Attendance() {
   }
 
   return (
-    <div className="container py-6 space-y-6">
+    <div
+      className={[
+        "container py-6 space-y-6",
+        showMobileQuickActionBar ? "pb-24" : "",
+      ].join(" ")}
+    >
       <div className="card space-y-2 p-3 sm:space-y-3 sm:p-6">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-between">
           <div>
@@ -3281,6 +3313,16 @@ export default function Attendance() {
                 {showDesktopTableOnMobile ? "Mobile Athlete View" : "Desktop Table View"}
               </button>
             )}
+            {isMobileCoachBrowser && (
+              <button
+                type="button"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-60"
+                onClick={handleJumpToReview}
+                disabled={!canJumpToReview}
+              >
+                Review & Lock
+              </button>
+            )}
             <button
               type="button"
               className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900 disabled:opacity-60"
@@ -3321,7 +3363,7 @@ export default function Attendance() {
           </div>
         )}
 
-        {selectedDirty && !selectedSaving && (
+        {selectedDirty && !selectedSaving && !isMobileCoachBrowser && (
           <div className="fixed inset-x-3 bottom-3 z-40">
             <div className="rounded-2xl border border-rose-300 bg-white/95 shadow-2xl backdrop-blur">
               <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -3336,6 +3378,36 @@ export default function Attendance() {
                   Save Now
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showMobileQuickActionBar && (
+          <div className="fixed inset-x-3 bottom-3 z-40 sm:hidden">
+            <div className="rounded-2xl border border-slate-300 bg-white/95 shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-2 px-3 py-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  onClick={handleJumpToReview}
+                  disabled={!canJumpToReview}
+                >
+                  Review & Lock
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                  onClick={() => handleSave(selectedTeam)}
+                  disabled={!selectedDirty || selectedSaving}
+                >
+                  {selectedSaving ? "Saving..." : selectedDirty ? "Save Now" : "Saved"}
+                </button>
+              </div>
+              {selectedDirty && (
+                <div className="border-t border-slate-200 px-3 pb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
+                  Unsaved Attendance Changes
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -4195,7 +4267,10 @@ export default function Attendance() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+        <div
+          ref={reviewSectionRef}
+          className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
