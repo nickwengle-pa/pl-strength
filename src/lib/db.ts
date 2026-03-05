@@ -855,6 +855,15 @@ export type Profile = {
   currentCycle?: number;
   sessionMode?: "simple" | "full";
   outlineViewMode?: "simple" | "full";
+  // Athletic combine metrics
+  dash40?: number;
+  benchRepsWeight?: number;
+  benchReps?: number;
+  broadJumpFt?: number;
+  broadJumpIn?: number;
+  verticalJump?: number;
+  threeCone?: number;
+  shuttle?: number;
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
@@ -1014,6 +1023,33 @@ const normalizeWeight = (value: unknown): number | undefined =>
 
 const normalizeGraduationYear = (value: unknown): number | undefined =>
   normalizeScalar(value, { min: 1900, max: 2100, integer: true });
+
+const normalizeDash40 = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 30 });
+
+const normalizeBenchRepsWeight = (value: unknown): number | undefined => {
+  const n = Number(value);
+  if (n === 135 || n === 185 || n === 225) return n;
+  return undefined;
+};
+
+const normalizeBenchReps = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 200, integer: true });
+
+const normalizeBroadJumpFt = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 50, integer: true });
+
+const normalizeBroadJumpIn = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 11, integer: true });
+
+const normalizeVerticalJump = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 80 });
+
+const normalizeThreeCone = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 60 });
+
+const normalizeShuttle = (value: unknown): number | undefined =>
+  normalizeScalar(value, { min: 0, max: 60 });
 
 const LIFT_KEYS: LiftKey[] = ["bench", "squat", "deadlift"];
 
@@ -1427,6 +1463,14 @@ function normalizeProfileData(data: Record<string, any>, targetUid: string): Pro
   const height = normalizeHeight(data.height);
   const weight = normalizeWeight(data.weight);
   const graduationYear = normalizeGraduationYear(data.graduationYear);
+  const dash40 = normalizeDash40(data.dash40);
+  const benchRepsWeight = normalizeBenchRepsWeight(data.benchRepsWeight);
+  const benchReps = normalizeBenchReps(data.benchReps);
+  const broadJumpFt = normalizeBroadJumpFt(data.broadJumpFt);
+  const broadJumpIn = normalizeBroadJumpIn(data.broadJumpIn);
+  const verticalJump = normalizeVerticalJump(data.verticalJump);
+  const threeCone = normalizeThreeCone(data.threeCone);
+  const shuttle = normalizeShuttle(data.shuttle);
   const liftWeeks =
     activeState?.liftWeeks && Object.keys(activeState.liftWeeks).length
       ? activeState.liftWeeks
@@ -1462,6 +1506,14 @@ function normalizeProfileData(data: Record<string, any>, targetUid: string): Pro
     equipment: normalizeEquipment(data.equipment as EquipmentSettings | undefined),
     currentWeek: activeState?.currentWeek ?? normalizeWeek(data.currentWeek),
     currentCycle: activeState?.currentCycle ?? normalizeCycle(data.currentCycle),
+    dash40,
+    benchRepsWeight,
+    benchReps,
+    broadJumpFt,
+    broadJumpIn,
+    verticalJump,
+    threeCone,
+    shuttle,
   };
 }
 
@@ -1545,6 +1597,14 @@ export async function saveProfile(
     height: normalizedHeight ?? null,
     weight: normalizedWeight ?? null,
     graduationYear: normalizedGraduationYear ?? null,
+    dash40: normalizeDash40(p.dash40) ?? null,
+    benchRepsWeight: normalizeBenchRepsWeight(p.benchRepsWeight) ?? null,
+    benchReps: normalizeBenchReps(p.benchReps) ?? null,
+    broadJumpFt: normalizeBroadJumpFt(p.broadJumpFt) ?? null,
+    broadJumpIn: normalizeBroadJumpIn(p.broadJumpIn) ?? null,
+    verticalJump: normalizeVerticalJump(p.verticalJump) ?? null,
+    threeCone: normalizeThreeCone(p.threeCone) ?? null,
+    shuttle: normalizeShuttle(p.shuttle) ?? null,
     team: normalizedProfile.team || null,
     tm: normalizedProfile.tm || {},
     oneRm: normalizedProfile.oneRm || {},

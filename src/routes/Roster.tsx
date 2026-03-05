@@ -17,6 +17,7 @@ import {
   normalizePasscodeDigits,
   regenerateAthleteCode,
   saveProfile,
+  saveSession,
   fb,
   subscribeToRoleChanges,
   subscribeToTeamSessions,
@@ -148,6 +149,18 @@ export default function Roster() {
   const [editSessionDraft, setEditSessionDraft] = useState<Partial<SessionRecord>>({});
   const [sessionSaving, setSessionSaving] = useState(false);
   const [sessionDeleting, setSessionDeleting] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState({ firstName: "", lastName: "" });
+  const [nameSaving, setNameSaving] = useState(false);
+  const [logSessionOpen, setLogSessionOpen] = useState(false);
+  const [logSessionDraft, setLogSessionDraft] = useState<{
+    lift: LiftKey;
+    week: Week;
+    cycle: number;
+    amrapWeight: string;
+    amrapReps: string;
+  }>({ lift: "bench", week: 1, cycle: 1, amrapWeight: "", amrapReps: "" });
+  const [logSessionSaving, setLogSessionSaving] = useState(false);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
@@ -767,6 +780,89 @@ export default function Roster() {
     }
   };
 
+  const handleStartEditName = () => {
+    if (!detailProfile) return;
+    setNameDraft({ firstName: detailProfile.firstName ?? "", lastName: detailProfile.lastName ?? "" });
+    setEditingName(true);
+  };
+
+  const handleCancelEditName = () => {
+    setEditingName(false);
+    setNameDraft({ firstName: "", lastName: "" });
+  };
+
+  const handleSaveName = async () => {
+    if (!detailProfile) return;
+    const first = nameDraft.firstName.trim().replace(/\s+/g, " ");
+    const last = nameDraft.lastName.trim().replace(/\s+/g, " ");
+    if (!first || !last) {
+      setFlash({ kind: "error", text: "First and last name are required." });
+      return;
+    }
+    setNameSaving(true);
+    try {
+      const updated: Profile = { ...detailProfile, firstName: first, lastName: last };
+      await saveProfile(updated, { skipLocal: true, requireRemote: true });
+      setDetailProfile(updated);
+      setRows((prev) =>
+        prev.map((r) => r.uid === detailProfile.uid ? { ...r, firstName: first, lastName: last } : r)
+      );
+      setEditingName(false);
+      setFlash({ kind: "success", text: "Name updated." });
+    } catch (e: any) {
+      setFlash({ kind: "error", text: e?.message ?? "Failed to update name." });
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
+  const handleLogSession = async () => {
+    if (!detailProfile) return;
+    const weight = Number(logSessionDraft.amrapWeight);
+    const reps = Number(logSessionDraft.amrapReps);
+    if (!Number.isFinite(weight) || weight < 0) {
+      setFlash({ kind: "error", text: "Enter a valid AMRAP weight." });
+      return;
+    }
+    if (!Number.isFinite(reps) || reps < 0 || !Number.isInteger(reps)) {
+      setFlash({ kind: "error", text: "Enter a valid rep count." });
+      return;
+    }
+    const tm = detailProfile.tm?.[logSessionDraft.lift];
+    if (!tm) {
+      setFlash({ kind: "error", text: "This athlete has no training max set for this lift." });
+      return;
+    }
+    const est1rm = reps > 0 ? Math.round(weight * (1 + reps / 30)) : weight;
+    setLogSessionSaving(true);
+    try {
+      await saveSession(
+        {
+          lift: logSessionDraft.lift,
+          week: logSessionDraft.week,
+          cycle: logSessionDraft.cycle,
+          unit: detailProfile.unit ?? "lb",
+          tm,
+          warmups: [],
+          work: [],
+          amrap: { weight, reps },
+          est1rm,
+          team: activeTeamSelection || detailProfile.team,
+        },
+        detailProfile.uid
+      );
+      const refreshed = await fetchAthleteSessions(detailProfile.uid, 12, activeTeamSelection || undefined);
+      setDetailSessions(refreshed);
+      setLogSessionOpen(false);
+      setLogSessionDraft({ lift: "bench", week: 1, cycle: 1, amrapWeight: "", amrapReps: "" });
+      setFlash({ kind: "success", text: "Session logged." });
+    } catch (e: any) {
+      setFlash({ kind: "error", text: e?.message ?? "Failed to log session." });
+    } finally {
+      setLogSessionSaving(false);
+    }
+  };
+
   const liftSummaries = useMemo(() => {
     const buckets: Record<LiftKey, SessionRecord[]> = {
       bench: [],
@@ -1064,10 +1160,51 @@ export default function Roster() {
   }, [filteredAthleteRows, isCoach, selectedRow, selectedUid, setActiveAthlete, activeTeamSelection]);
 
   const detailHeader = (
-    <div>
-      <h3 className="text-lg font-semibold">
-        Review: {detailProfile?.firstName} {detailProfile?.lastName}
-      </h3>
+    <div className="space-y-1">
+      {editingName ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="border rounded-xl px-2 py-1 text-sm w-28"
+            value={nameDraft.firstName}
+            onChange={(e) => setNameDraft((p) => ({ ...p, firstName: e.target.value }))}
+            placeholder="First"
+          />
+          <input
+            className="border rounded-xl px-2 py-1 text-sm w-32"
+            value={nameDraft.lastName}
+            onChange={(e) => setNameDraft((p) => ({ ...p, lastName: e.target.value }))}
+            placeholder="Last"
+          />
+          <button
+            className="btn px-3 py-1 text-xs bg-green-50 text-green-700 border-green-200"
+            onClick={handleSaveName}
+            disabled={nameSaving}
+          >
+            {nameSaving ? "Saving..." : "Save"}
+          </button>
+          <button
+            className="btn px-3 py-1 text-xs"
+            onClick={handleCancelEditName}
+            disabled={nameSaving}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold">
+            Review: {detailProfile?.firstName} {detailProfile?.lastName}
+          </h3>
+          {isCoach && detailProfile && (
+            <button
+              className="text-xs text-brand-600 hover:text-brand-800 underline"
+              onClick={handleStartEditName}
+            >
+              Edit Name
+            </button>
+          )}
+        </div>
+      )}
       {selectedRow?.roles && <RoleBadges roles={selectedRow.roles} />}
     </div>
   );
@@ -1268,6 +1405,90 @@ export default function Roster() {
               </table>
             </div>
           </div>
+
+          {isCoach && (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-indigo-900">Log Session for Athlete</div>
+                <button
+                  className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                  onClick={() => setLogSessionOpen((v) => !v)}
+                >
+                  {logSessionOpen ? "Cancel" : "+ Log Session"}
+                </button>
+              </div>
+              {logSessionOpen && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-indigo-800">Lift</span>
+                      <select
+                        className="rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm"
+                        value={logSessionDraft.lift}
+                        onChange={(e) => setLogSessionDraft((p) => ({ ...p, lift: e.target.value as LiftKey }))}
+                      >
+                        {LIFT_KEYS.map((k) => (
+                          <option key={k} value={k}>{k.charAt(0).toUpperCase() + k.slice(1)}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-indigo-800">Week</span>
+                      <select
+                        className="rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm"
+                        value={logSessionDraft.week}
+                        onChange={(e) => setLogSessionDraft((p) => ({ ...p, week: Number(e.target.value) as Week }))}
+                      >
+                        {[1, 2, 3].map((w) => <option key={w} value={w}>Week {w}</option>)}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-indigo-800">Cycle</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        className="rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm"
+                        value={logSessionDraft.cycle}
+                        onChange={(e) => setLogSessionDraft((p) => ({ ...p, cycle: Number(e.target.value) }))}
+                      />
+                    </label>
+                    <div />
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-indigo-800">AMRAP Weight ({detailProfile?.unit})</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className="rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm"
+                        value={logSessionDraft.amrapWeight}
+                        onChange={(e) => setLogSessionDraft((p) => ({ ...p, amrapWeight: e.target.value }))}
+                        placeholder="e.g. 185"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-indigo-800">AMRAP Reps</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm"
+                        value={logSessionDraft.amrapReps}
+                        onChange={(e) => setLogSessionDraft((p) => ({ ...p, amrapReps: e.target.value }))}
+                        placeholder="e.g. 5"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    className="btn btn-primary text-sm px-4 py-1.5"
+                    onClick={handleLogSession}
+                    disabled={logSessionSaving}
+                  >
+                    {logSessionSaving ? "Saving..." : "Save Session"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-gray-700">

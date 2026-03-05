@@ -213,6 +213,101 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Athletic Combine Metrics */}
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 space-y-3">
+          <div className="text-sm font-semibold text-blue-900">Combine Metrics</div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">40-Yard Dash (sec)</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.dash40 ?? ""}
+                onChange={(e) => update({ dash40: parseOptionalNumber(e.target.value) })}
+                placeholder="e.g., 4.52"
+              />
+            </label>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Bench Press Reps</span>
+              <div className="flex gap-2">
+                <select
+                  className="border rounded-xl px-3 py-2 flex-shrink-0"
+                  value={p.benchRepsWeight ?? 185}
+                  onChange={(e) => update({ benchRepsWeight: Number(e.target.value) })}
+                >
+                  <option value={135}>135 lb</option>
+                  <option value={185}>185 lb</option>
+                  <option value={225}>225 lb</option>
+                </select>
+                <input
+                  className="border rounded-xl px-3 py-2 w-full"
+                  inputMode="numeric"
+                  value={p.benchReps ?? ""}
+                  onChange={(e) => update({ benchReps: parseOptionalNumber(e.target.value, { integer: true }) })}
+                  placeholder="Reps"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Broad Jump</span>
+              <div className="flex gap-2 items-center">
+                <input
+                  className="border rounded-xl px-3 py-2 w-full"
+                  inputMode="numeric"
+                  value={p.broadJumpFt ?? ""}
+                  onChange={(e) => update({ broadJumpFt: parseOptionalNumber(e.target.value, { integer: true }) })}
+                  placeholder="Feet"
+                />
+                <span className="text-sm text-gray-500 flex-shrink-0">ft</span>
+                <input
+                  className="border rounded-xl px-3 py-2 w-full"
+                  inputMode="numeric"
+                  value={p.broadJumpIn ?? ""}
+                  onChange={(e) => update({ broadJumpIn: parseOptionalNumber(e.target.value, { integer: true }) })}
+                  placeholder="Inches"
+                />
+                <span className="text-sm text-gray-500 flex-shrink-0">in</span>
+              </div>
+            </div>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Vertical Jump (inches)</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.verticalJump ?? ""}
+                onChange={(e) => update({ verticalJump: parseOptionalNumber(e.target.value) })}
+                placeholder="e.g., 28.5"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">3-Cone Drill (sec)</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.threeCone ?? ""}
+                onChange={(e) => update({ threeCone: parseOptionalNumber(e.target.value) })}
+                placeholder="e.g., 7.04"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">Shuttle Run (sec)</span>
+              <input
+                className="border rounded-xl px-3 py-2"
+                inputMode="decimal"
+                value={p.shuttle ?? ""}
+                onChange={(e) => update({ shuttle: parseOptionalNumber(e.target.value) })}
+                placeholder="e.g., 4.14"
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
           <div className="font-semibold">Sign-In Code</div>
           <div className="mt-1 font-mono text-base text-gray-900">
