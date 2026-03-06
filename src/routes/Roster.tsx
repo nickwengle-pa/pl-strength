@@ -32,6 +32,8 @@ import { roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { StatCardSkeleton } from "../components/LoadingSkeleton";
 import { useDevice } from "../lib/device";
+import { useToast } from "../context/ToastContext";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 const LIFT_KEYS = ["bench", "squat", "deadlift"] as const;
 type LiftKey = (typeof LIFT_KEYS)[number];
@@ -127,6 +129,8 @@ function RoleBadges({ roles }: RoleBadgesProps) {
 }
 
 export default function Roster() {
+  const showToast = useToast();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ row: RosterEntry; kind: "coach" | "athlete" } | null>(null);
   const device = useDevice();
   const [rows, setRows] = useState<RosterEntry[]>([]);
   const [err, setErr] = useState<string|undefined>();
@@ -494,7 +498,7 @@ export default function Roster() {
 
     const trimmed = input.trim();
     if (trimmed && !/^\d{4}$/.test(trimmed)) {
-      alert("Codes Must Be Exactly 4 Digits (For Example, 1234).");
+      showToast("Codes must be exactly 4 digits (for example, 1234).", "warning");
       return;
     }
 
@@ -570,17 +574,15 @@ export default function Roster() {
     }
 
     if (currentUid && row.uid === currentUid) {
-      alert("You Cannot Remove Your Own Account From The Roster While Signed In.");
+      showToast("You cannot remove your own account from the roster while signed in.", "error");
       return;
     }
 
-    const label =
-      kind === "coach"
-        ? `Remove ${row.firstName ?? "This Coach"}? This Will Revoke Access And Queue Account Deletion.`
-        : `Delete ${row.firstName ?? "This Athlete"} From Roster? This Clears Their Profile And Sessions.`;
-    const confirmDelete = window.confirm(label);
-    if (!confirmDelete) return;
+    setDeleteConfirm({ row, kind });
+  }
 
+  async function doDelete(row: RosterEntry, kind: "coach" | "athlete") {
+    setDeleteConfirm(null);
     setDeleteUid(row.uid);
     try {
       const result = await deleteAthlete(row.uid);
@@ -980,20 +982,18 @@ export default function Roster() {
   const filteredCoachRows = useMemo(() => {
     let rows = coachRows;
     if (!isAdminUser && coachTeamFilter) {
-      // For coaches: filter by sport/program, then optionally by level
       const coachTeamDef = TEAM_DEFINITIONS.find(def => def.id === coachTeamFilter);
       if (coachTeamDef) {
         rows = rows.filter((row) => {
+          // Always show admins regardless of sport
+          if (normalizeRoles(row.roles).includes("admin")) return true;
           const rowTeams = getRowTeams(row);
           if (rowTeams.length === 0) return false;
           return rowTeams.some((teamId) => {
             const rowTeamDef = TEAM_DEFINITIONS.find(def => def.id === teamId);
             if (!rowTeamDef) return false;
-            // Must match sport and program
-            const matchesSportProgram = rowTeamDef.sport === coachTeamDef.sport &&
-                                        rowTeamDef.program === coachTeamDef.program;
-            if (!matchesSportProgram) return false;
-            // Apply level filter
+            // Match by sport only — basketball coaches see all basketball coaches
+            if (rowTeamDef.sport !== coachTeamDef.sport) return false;
             if (coachLevelFilter === "both") return true;
             return rowTeamDef.level === coachLevelFilter;
           });
@@ -1940,6 +1940,19 @@ export default function Roster() {
 
   return (
     <div className="container py-6 space-y-6">
+      <ConfirmModal
+        isOpen={deleteConfirm !== null}
+        title={deleteConfirm?.kind === "coach" ? "Remove Coach" : "Delete Athlete"}
+        message={
+          deleteConfirm?.kind === "coach"
+            ? `Remove ${deleteConfirm.row.firstName ?? "this coach"}? This will revoke access and queue account deletion.`
+            : `Delete ${deleteConfirm?.row.firstName ?? "this athlete"} from roster? This clears their profile and sessions.`
+        }
+        confirmLabel="Delete"
+        onConfirm={() => deleteConfirm && doDelete(deleteConfirm.row, deleteConfirm.kind)}
+        onCancel={() => setDeleteConfirm(null)}
+        variant="danger"
+      />
       {flash && (
         <div
           className={`rounded-2xl border px-3 py-2 text-sm ${

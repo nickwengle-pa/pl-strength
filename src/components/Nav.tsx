@@ -32,6 +32,7 @@ import {
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
+import { ConfirmModal } from "./ConfirmModal";
 
 type Status = "checking" | "connected" | "offline" | "syncing";
 type Theme = "light" | "dark";
@@ -61,6 +62,7 @@ const DEFAULT_QUOTES: Array<{ text: string; author: string }> = [
 export default function Nav() {
   const { user, signOut } = useAuth();
   const device = useDevice();
+  const [deleteQuoteConfirm, setDeleteQuoteConfirm] = useState<string | null>(null);
   const location = useLocation();
   const [status, setStatus] = useState<Status>("checking");
   const [coach, setCoach] = useState(false);
@@ -460,8 +462,12 @@ export default function Nav() {
     }
   };
 
-  const handleDeleteQuote = async (quoteId: string) => {
-    if (!window.confirm("Delete this quote?")) return;
+  const handleDeleteQuote = (quoteId: string) => {
+    setDeleteQuoteConfirm(quoteId);
+  };
+
+  const doDeleteQuote = async (quoteId: string) => {
+    setDeleteQuoteConfirm(null);
     const success = await deleteCustomQuote(quoteId);
     if (success) {
       setCustomQuotes((prev) => prev.filter((q) => q.id !== quoteId));
@@ -1127,7 +1133,21 @@ export default function Nav() {
         )
       : null;
 
+  const deleteQuoteTarget = deleteQuoteConfirm
+    ? customQuotes.find((q) => q.id === deleteQuoteConfirm)
+    : null;
+
   return (
+    <>
+    <ConfirmModal
+      isOpen={deleteQuoteConfirm !== null}
+      title="Delete Quote"
+      message={deleteQuoteTarget ? `Delete "${deleteQuoteTarget.text.slice(0, 80)}${deleteQuoteTarget.text.length > 80 ? "..." : ""}"?` : "Delete this quote?"}
+      confirmLabel="Delete"
+      onConfirm={() => deleteQuoteConfirm && doDeleteQuote(deleteQuoteConfirm)}
+      onCancel={() => setDeleteQuoteConfirm(null)}
+      variant="danger"
+    />
     <header className="relative z-50 border-b border-gray-200/70 bg-white/90 backdrop-blur">
       <div className="container flex items-center gap-3 py-3 md:h-16 md:py-0">
         <Link to="/" className="flex items-center gap-2 text-gray-900 hover:opacity-90">
@@ -1311,5 +1331,6 @@ export default function Nav() {
         </div>
       )}
     </header>
+    </>
   );
 }

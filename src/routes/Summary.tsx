@@ -14,6 +14,7 @@ import {
 } from "../lib/db";
 import { roundToPlate, weekPercents, warmupPercents } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { useToast } from "../context/ToastContext";
 
 type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
@@ -52,6 +53,7 @@ function roundWeight(x:number, unit:Unit) {
 
 export default function Summary() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [uid, setUid] = useState<string>("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [lift, setLift] = useState<Lift>("bench");
@@ -203,7 +205,7 @@ export default function Summary() {
       notifyProfileChange();
     } catch (err) {
       console.warn("Failed to save training max", err);
-      alert("Unable To Save The Training Max Right Now. Please Try Again.");
+      showToast("Unable to save training max right now. Please try again.", "error");
     }
   };
 

@@ -21,6 +21,7 @@ import Accessory from "./routes/Accessory";
 import FootballSimulator from "./routes/FootballSimulator";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
+import { ToastProvider } from "./context/ToastContext";
 
 // App version - keep in sync with main.tsx
 export const APP_VERSION = '2.1.0';
@@ -63,6 +64,7 @@ export default function App() {
   }
 
   return (
+    <ToastProvider>
     <ActiveAthleteProvider>
       <div className="min-h-full flex flex-col">
         <div className="print:hidden">
@@ -94,5 +96,6 @@ export default function App() {
         </footer>
       </div>
     </ActiveAthleteProvider>
+    </ToastProvider>
   );
 }

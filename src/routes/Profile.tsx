@@ -11,8 +11,10 @@ import {
 } from "../lib/db";
 import OnboardingWizard from "../components/OnboardingWizard";
 import { AllLiftsProgressCharts } from "../components/LiftProgressChart";
+import { useToast } from "../context/ToastContext";
 
 export default function ProfilePage() {
+  const showToast = useToast();
   const [p, setP] = useState<ProfileModel | null>(null);
   const [uid, setUid] = useState<string>("");
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
@@ -63,10 +65,10 @@ export default function ProfilePage() {
     try {
       await saveProfile(p, { requireRemote: true });
       setLastSaved(Date.now());
-      alert("Saved.");
+      showToast("Profile saved.", "success");
     } catch (err) {
       console.warn("Failed to save profile", err);
-      alert("Could not sync profile right now. Check connection and try again.");
+      showToast("Could not sync profile right now. Check connection and try again.", "error");
     }
   };
   

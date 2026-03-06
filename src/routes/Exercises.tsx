@@ -9,6 +9,7 @@ import {
   type ExerciseLibraryItem,
 } from "../lib/db";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { useToast } from "../context/ToastContext";
 
 type Exercise = ExerciseLibraryItem;
 
@@ -56,6 +57,7 @@ const toEmbedUrl = (source: string): string => {
 };
 
 export default function Exercises() {
+  const showToast = useToast();
   const [admin, setAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -115,37 +117,37 @@ export default function Exercises() {
     let trimmedUrl = newUrl.trim();
     
     if (!trimmedName) {
-      alert("Please Enter An Exercise Name");
+      showToast("Please enter an exercise name.", "warning");
       return;
     }
-    
+
     if (!trimmedUrl) {
-      alert("Please Enter A YouTube URL");
+      showToast("Please enter a YouTube URL.", "warning");
       return;
     }
-    
+
     // Add https:// if missing
     if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
       trimmedUrl = "https://" + trimmedUrl;
     }
-    
+
     // Check if URL is a valid YouTube URL
     if (!trimmedUrl.includes("youtube.com") && !trimmedUrl.includes("youtu.be")) {
-      alert("Please Enter A Valid YouTube URL");
+      showToast("Please enter a valid YouTube URL.", "warning");
       return;
     }
-    
+
     // Validate URL format
     try {
       new URL(trimmedUrl);
     } catch {
-      alert("Please Enter A Valid URL");
+      showToast("Please enter a valid URL.", "warning");
       return;
     }
-    
+
     // Check for duplicate names
     if (exercises.some(ex => ex.name.toLowerCase() === trimmedName.toLowerCase())) {
-      alert("An Exercise With This Name Already Exists");
+      showToast("An exercise with this name already exists.", "warning");
       return;
     }
     
@@ -163,7 +165,7 @@ export default function Exercises() {
     } catch (err) {
       console.warn("Failed to sync exercise library", err);
       setExercises(previous);
-      alert("Could not sync exercise changes right now. Please try again.");
+      showToast("Could not sync exercise changes right now. Please try again.", "error");
     }
   };
 
@@ -181,7 +183,7 @@ export default function Exercises() {
     } catch (err) {
       console.warn("Failed to sync exercise order", err);
       setExercises(previous);
-      alert("Could not sync exercise order right now. Please try again.");
+      showToast("Could not sync exercise order right now. Please try again.", "error");
     }
   };
 
@@ -196,7 +198,7 @@ export default function Exercises() {
     } catch (err) {
       console.warn("Failed to sync exercise library", err);
       setExercises(previous);
-      alert("Could not sync exercise changes right now. Please try again.");
+      showToast("Could not sync exercise changes right now. Please try again.", "error");
     }
   };
 

@@ -26,6 +26,7 @@ import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PlateCalculatorDisplay } from "../components/PlateMath";
 import { useDevice } from "../lib/device";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../context/ToastContext";
 
 type Lift = "bench" | "squat" | "deadlift";
 type Week = 1 | 2 | 3;
@@ -147,6 +148,7 @@ export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const showToast = useToast();
   const [lift, setLift] = useState<Lift>(() => {
     const state = location.state as { lift?: Lift } | null;
     return state?.lift || "bench";
@@ -443,7 +445,7 @@ export default function Session() {
 
     if (!tm || work.length === 0 || amrapReps <= 0) {
       savingRef.current = false;
-      alert("Set a training max and enter AMRAP reps.");
+      showToast("Set a training max and enter AMRAP reps.", "warning");
       return;
     }
     // Exclude the last work set (AMRAP) — its reps are captured via amrapReps, not workOutcomes
@@ -452,7 +454,7 @@ export default function Session() {
     );
     if (missingActual) {
       savingRef.current = false;
-      alert("Enter the actual reps completed for any set marked as a fail.");
+      showToast("Enter the actual reps completed for any set marked as a fail.", "warning");
       return;
     }
 
@@ -534,10 +536,11 @@ export default function Session() {
           const nextCyc = nextCycleAfter(cycle);
           const resetCycle = clampCycle(cycle) === 3;
           await advanceWeek();
-          alert(
+          showToast(
             resetCycle
               ? `Week 3 complete. ${LIFT_LABELS[lift]} reset to Cycle 1. Re-test your 1RM and start Week 1.`
-              : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCyc}. Training max updated.`
+              : `Week 3 complete. ${LIFT_LABELS[lift]} moved to Cycle ${nextCyc}. Training max updated.`,
+            "success"
           );
           navigate("/");
         });
@@ -557,7 +560,7 @@ export default function Session() {
       // the component unmounts (navigation away). Only reset on failure so retries work.
     } catch (err) {
       console.warn("Failed to save session", err);
-      alert("Unable to save session right now. Please try again.");
+      showToast("Unable to save session right now. Please try again.", "error");
       savingRef.current = false;
     } finally {
       setSaving(false);

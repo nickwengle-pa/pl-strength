@@ -11,10 +11,12 @@ import {
   type AccessHistory,
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 export default function Admin() {
   const configured = hasFirebase();
   const { user } = useAuth();
+  const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
 
   const uid = user?.uid ?? "unknown";
   const [roles, setRoles] = useState<string[]>([]);
@@ -94,6 +96,19 @@ export default function Admin() {
 
   return (
     <div className="card space-y-4 p-4 sm:space-y-5 sm:p-6">
+      <ConfirmModal
+        isOpen={clearHistoryConfirm}
+        title="Clear Access History"
+        message={`Clear all ${accessHistory.length} access history entries? This cannot be undone.`}
+        confirmLabel="Clear All"
+        onConfirm={async () => {
+          setClearHistoryConfirm(false);
+          await clearAccessHistory();
+          setAccessHistory([]);
+        }}
+        onCancel={() => setClearHistoryConfirm(false)}
+        variant="danger"
+      />
       <div className="space-y-1">
         <h3 className="text-xl font-semibold">Team Admin</h3>
         <p className="text-sm text-gray-600">
@@ -135,12 +150,7 @@ export default function Admin() {
           <div className="font-medium text-gray-700">Access History</div>
           {accessHistory.length > 0 && (
             <button
-              onClick={async () => {
-                if (window.confirm("Are You Sure You Want To Clear All Access History?")) {
-                  await clearAccessHistory();
-                  setAccessHistory([]);
-                }
-              }}
+              onClick={() => setClearHistoryConfirm(true)}
               className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:text-red-700"
             >
               Clear History

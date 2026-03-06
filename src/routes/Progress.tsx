@@ -12,6 +12,7 @@ import {
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { estimate1RM, roundToPlate } from "../lib/tm";
+import { useToast } from "../context/ToastContext";
 
 type Lift = "bench" | "squat" | "deadlift";
 
@@ -21,6 +22,7 @@ const roundEstimate = (value: number, unit: Unit): number => {
 };
 
 export default function Progress() {
+  const showToast = useToast();
   const [uid, setUid] = useState<string>("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [selectedLift, setSelectedLift] = useState<Lift>("bench");
@@ -132,11 +134,11 @@ export default function Progress() {
     const reps = Number(prReps);
     
     if (!weight || weight <= 0) {
-      alert("Please Enter A Valid Weight");
+      showToast("Please enter a valid weight.", "warning");
       return;
     }
     if (!reps || reps <= 0) {
-      alert("Please Enter A Valid Number Of Reps");
+      showToast("Please enter a valid number of reps.", "warning");
       return;
     }
     
@@ -181,7 +183,7 @@ export default function Progress() {
       setShowQuickPR(false);
     } catch (err) {
       console.error("Failed to save PR", err);
-      alert("Failed To Save PR. Please Try Again.");
+      showToast("Failed to save PR. Please try again.", "error");
     } finally {
       setSaving(false);
     }

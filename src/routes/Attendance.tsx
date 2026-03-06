@@ -22,6 +22,7 @@ import {
   type Team,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 const ALL_TEAMS: Team[] = TEAM_DEFINITIONS.map((definition) => definition.id as Team);
 const DEFAULT_FOOTBALL_TEAMS: Team[] = TEAM_DEFINITIONS.filter(
@@ -861,6 +862,7 @@ const MOBILE_VIEW_STORAGE_KEY = "pl-attendance-mobile-view";
 
 export default function Attendance() {
   const { loading: authLoading, isCoach } = useActiveAthlete();
+  const [removeAthleteConfirm, setRemoveAthleteConfirm] = useState<{ team: Team; athleteId: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sheets, setSheets] = useState<TeamMap<AttendanceSheet>>(() =>
@@ -2203,9 +2205,12 @@ export default function Attendance() {
     }
   };
 
-  const handleRemoveAthlete = (team: Team, athleteId: string) => {
-    const confirmDelete = window.confirm("Remove This Athlete From The Sheet?");
-    if (!confirmDelete) return;
+  const handleRemoveAthlete = (team: Team, athleteId: string, name?: string) => {
+    setRemoveAthleteConfirm({ team, athleteId, name: name ?? "this athlete" });
+  };
+
+  const doRemoveAthlete = (team: Team, athleteId: string) => {
+    setRemoveAthleteConfirm(null);
     updateSheet(team, (current) => {
       const nextAthletes = current.athletes.filter((a) => a.id !== athleteId);
       const nextRecords = { ...current.records };
@@ -3123,6 +3128,15 @@ export default function Attendance() {
         showMobileQuickActionBar ? "pb-24" : "",
       ].join(" ")}
     >
+      <ConfirmModal
+        isOpen={removeAthleteConfirm !== null}
+        title="Remove Athlete"
+        message={`Remove ${removeAthleteConfirm?.name ?? "this athlete"} from the sheet? Their attendance records for this sheet will be deleted.`}
+        confirmLabel="Remove"
+        onConfirm={() => removeAthleteConfirm && doRemoveAthlete(removeAthleteConfirm.team, removeAthleteConfirm.athleteId)}
+        onCancel={() => setRemoveAthleteConfirm(null)}
+        variant="danger"
+      />
       <div className="card space-y-2 p-3 sm:space-y-3 sm:p-6">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-between">
           <div>
@@ -3339,7 +3353,7 @@ export default function Attendance() {
                   <button
                     type="button"
                     className="shrink-0 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-                    onClick={() => handleRemoveAthlete(selectedTeam, athlete.id)}
+                    onClick={() => handleRemoveAthlete(selectedTeam, athlete.id, [athlete.firstName, athlete.lastName].filter(Boolean).join(" ") || undefined)}
                     disabled={selectedSaving}
                   >
                     Remove

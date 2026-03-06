@@ -17,6 +17,8 @@ import { loadProfile as loadProfileLocal } from "../lib/storage";
 import { estimate1RM, roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { PageLoadingSkeleton } from "../components/LoadingSkeleton";
+import { useToast } from "../context/ToastContext";
+import { ConfirmModal } from "../components/ConfirmModal";
 import {
   PlateVisual,
   computePlatePlan,
@@ -39,6 +41,8 @@ function parseNumeric(value: string): number | "" {
 }
 
 export default function Calculator() {
+  const showToast = useToast();
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [unit, setUnit] = useState<Unit>("lb");
@@ -379,7 +383,7 @@ export default function Calculator() {
   async function handleSave() {
     if (!profile) return;
     if (trainingMax === null) {
-      alert("Enter a valid 1RM to calculate the training max first.");
+      showToast("Enter a valid 1RM to calculate the training max first.", "warning");
       return;
     }
 
@@ -415,18 +419,17 @@ export default function Calculator() {
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
       setTargetWeight(trainingMax);
       notifyProfileChange();
-      alert("Training max saved. Cycle reset to Week 1, Cycle 1 for this lift.");
+      showToast("Training max saved. Cycle reset to Week 1, Cycle 1.", "success");
     } catch (err) {
       console.warn("Failed to save training max", err);
-      alert("Unable to sync with Firebase right now. We kept it locally.");
+      showToast("Unable to sync with Firebase right now. We kept it locally.", "error");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleClear() {
+  async function doClear() {
     if (!profile) return;
-    if (!confirm(`Are you sure you want to clear your ${lift} max?`)) return;
 
     const nextProfile: Profile = {
       ...profile,
@@ -448,7 +451,7 @@ export default function Calculator() {
       notifyProfileChange();
     } catch (err) {
       console.warn("Failed to clear max", err);
-      alert("Unable to sync with Firebase right now.");
+      showToast("Unable to sync with Firebase right now.", "error");
     } finally {
       setSaving(false);
     }
@@ -460,6 +463,15 @@ export default function Calculator() {
 
   return (
     <div className="min-h-screen bg-black text-white pb-8">
+      <ConfirmModal
+        isOpen={clearConfirmOpen}
+        title="Clear Training Max"
+        message={`Are you sure you want to clear your ${lift} max? This cannot be undone.`}
+        confirmLabel="Clear"
+        onConfirm={() => { setClearConfirmOpen(false); doClear(); }}
+        onCancel={() => setClearConfirmOpen(false)}
+        variant="danger"
+      />
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-4">
         <div className="flex items-center gap-3">
@@ -643,7 +655,7 @@ export default function Calculator() {
             {(profile?.tm?.[lift] || profile?.oneRm?.[lift]) && (
               <button
                 className="w-full py-2 text-gray-500 text-sm font-semibold uppercase tracking-wide hover:text-red-500 transition-colors"
-                onClick={handleClear}
+                onClick={() => setClearConfirmOpen(true)}
                 disabled={saving}
               >
                 Clear {lift} Max
