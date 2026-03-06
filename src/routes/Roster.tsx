@@ -161,6 +161,9 @@ export default function Roster() {
     amrapReps: string;
   }>({ lift: "bench", week: 1, cycle: 1, amrapWeight: "", amrapReps: "" });
   const [logSessionSaving, setLogSessionSaving] = useState(false);
+  const [profilePanelOpen, setProfilePanelOpen] = useState(false);
+  const [profileEditDraft, setProfileEditDraft] = useState<Partial<Profile>>({});
+  const [profileSaving, setProfileSaving] = useState(false);
   const { setActiveAthlete, isCoach } = useActiveAthlete();
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [coachTeam, setCoachTeam] = useState<Team | null>(null);
@@ -618,6 +621,27 @@ export default function Roster() {
 
   useEffect(() => {
     if (!detailProfile) {
+      setProfileEditDraft({});
+      setProfilePanelOpen(false);
+      return;
+    }
+    setProfileEditDraft({
+      height: detailProfile.height,
+      weight: detailProfile.weight,
+      graduationYear: detailProfile.graduationYear,
+      dash40: detailProfile.dash40,
+      benchRepsWeight: detailProfile.benchRepsWeight ?? 185,
+      benchReps: detailProfile.benchReps,
+      broadJumpFt: detailProfile.broadJumpFt,
+      broadJumpIn: detailProfile.broadJumpIn,
+      verticalJump: detailProfile.verticalJump,
+      threeCone: detailProfile.threeCone,
+      shuttle: detailProfile.shuttle,
+    });
+  }, [detailProfile?.uid]);
+
+  useEffect(() => {
+    if (!detailProfile) {
       setTmDraft(emptyTmDraft());
       setLiftWeekDraft(emptyLiftWeekDraft());
       return;
@@ -813,6 +837,43 @@ export default function Roster() {
       setFlash({ kind: "error", text: e?.message ?? "Failed to update name." });
     } finally {
       setNameSaving(false);
+    }
+  };
+
+  const parseMetricNum = (v: unknown, integer = false): number | undefined => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return undefined;
+    if (String(v).trim() === "") return undefined;
+    return integer ? Math.floor(n) : n;
+  };
+
+  const handleSaveProfileMetrics = async () => {
+    if (!detailProfile) return;
+    setProfileSaving(true);
+    try {
+      const updated: Profile = {
+        ...detailProfile,
+        height: parseMetricNum(profileEditDraft.height),
+        weight: parseMetricNum(profileEditDraft.weight),
+        graduationYear: parseMetricNum(profileEditDraft.graduationYear, true),
+        dash40: parseMetricNum(profileEditDraft.dash40),
+        benchRepsWeight: [135, 185, 225].includes(Number(profileEditDraft.benchRepsWeight))
+          ? Number(profileEditDraft.benchRepsWeight)
+          : undefined,
+        benchReps: parseMetricNum(profileEditDraft.benchReps, true),
+        broadJumpFt: parseMetricNum(profileEditDraft.broadJumpFt, true),
+        broadJumpIn: parseMetricNum(profileEditDraft.broadJumpIn, true),
+        verticalJump: parseMetricNum(profileEditDraft.verticalJump),
+        threeCone: parseMetricNum(profileEditDraft.threeCone),
+        shuttle: parseMetricNum(profileEditDraft.shuttle),
+      };
+      await saveProfile(updated, { skipLocal: true, requireRemote: true });
+      setDetailProfile(updated);
+      setFlash({ kind: "success", text: "Profile updated." });
+    } catch (e: any) {
+      setFlash({ kind: "error", text: e?.message ?? "Failed to update profile." });
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -1235,6 +1296,180 @@ export default function Roster() {
             <span className="text-gray-300">|</span>
             <span className="text-gray-500">Created: <span className="font-semibold text-gray-900">{detailProfile.createdAt ? new Date(detailProfile.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-"}</span></span>
           </div>
+
+          {/* Athlete Profile & Combine Metrics */}
+          {(isCoach || isAdminUser) && (
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 mt-3">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+                onClick={() => setProfilePanelOpen((v) => !v)}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-sm font-semibold text-violet-900">Athlete Profile &amp; Combine Metrics</span>
+                  {!profilePanelOpen && (
+                    <span className="text-xs text-violet-600 truncate hidden sm:block">
+                      {[
+                        detailProfile.height != null && `${detailProfile.height}${detailProfile.unit === "kg" ? "cm" : "in"}`,
+                        detailProfile.weight != null && `${detailProfile.weight}${detailProfile.unit}`,
+                        detailProfile.dash40 != null && `${detailProfile.dash40}s 40yd`,
+                        detailProfile.benchReps != null && `${detailProfile.benchReps}r@${detailProfile.benchRepsWeight ?? 185}`,
+                        (detailProfile.broadJumpFt != null || detailProfile.broadJumpIn != null) &&
+                          `${detailProfile.broadJumpFt ?? 0}'${detailProfile.broadJumpIn ?? 0}" BJ`,
+                        detailProfile.verticalJump != null && `${detailProfile.verticalJump}" VJ`,
+                        detailProfile.threeCone != null && `${detailProfile.threeCone}s 3cone`,
+                        detailProfile.shuttle != null && `${detailProfile.shuttle}s shuttle`,
+                      ].filter(Boolean).join(" · ") || "No data yet"}
+                    </span>
+                  )}
+                </div>
+                <span className="text-violet-500 text-xs ml-2 flex-shrink-0">{profilePanelOpen ? "▲ Close" : "▼ Edit"}</span>
+              </button>
+
+              {profilePanelOpen && (
+                <div className="px-4 pb-4 space-y-4 border-t border-violet-200 pt-3">
+                  {/* Basic measurements */}
+                  <div>
+                    <div className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2">Measurements</div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Height ({detailProfile.unit === "kg" ? "cm" : "in"})</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.height ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, height: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder={detailProfile.unit === "kg" ? "e.g. 178" : "e.g. 70"}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Weight ({detailProfile.unit})</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.weight ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, weight: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder={detailProfile.unit === "kg" ? "e.g. 82" : "e.g. 185"}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Grad Year</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="numeric"
+                          value={profileEditDraft.graduationYear ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, graduationYear: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder="e.g. 2026"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Combine metrics */}
+                  <div>
+                    <div className="text-xs font-semibold text-violet-700 uppercase tracking-wide mb-2">Combine Metrics</div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">40-Yd Dash (sec)</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.dash40 ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, dash40: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder="e.g. 4.52"
+                        />
+                      </label>
+
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Bench Press Reps</span>
+                        <div className="flex gap-1">
+                          <select
+                            className="border rounded-lg px-1.5 py-1.5 text-sm flex-shrink-0"
+                            value={profileEditDraft.benchRepsWeight ?? 185}
+                            onChange={(e) => setProfileEditDraft((p) => ({ ...p, benchRepsWeight: Number(e.target.value) }))}
+                          >
+                            <option value={135}>135</option>
+                            <option value={185}>185</option>
+                            <option value={225}>225</option>
+                          </select>
+                          <input
+                            className="border rounded-lg px-2 py-1.5 text-sm w-full"
+                            inputMode="numeric"
+                            value={profileEditDraft.benchReps ?? ""}
+                            onChange={(e) => setProfileEditDraft((p) => ({ ...p, benchReps: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                            placeholder="Reps"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Broad Jump</span>
+                        <div className="flex gap-1 items-center">
+                          <input
+                            className="border rounded-lg px-2 py-1.5 text-sm w-full"
+                            inputMode="numeric"
+                            value={profileEditDraft.broadJumpFt ?? ""}
+                            onChange={(e) => setProfileEditDraft((p) => ({ ...p, broadJumpFt: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                            placeholder="ft"
+                          />
+                          <span className="text-xs text-gray-400 flex-shrink-0">ft</span>
+                          <input
+                            className="border rounded-lg px-2 py-1.5 text-sm w-full"
+                            inputMode="numeric"
+                            value={profileEditDraft.broadJumpIn ?? ""}
+                            onChange={(e) => setProfileEditDraft((p) => ({ ...p, broadJumpIn: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                            placeholder="in"
+                          />
+                          <span className="text-xs text-gray-400 flex-shrink-0">in</span>
+                        </div>
+                      </div>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Vertical Jump (in)</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.verticalJump ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, verticalJump: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder="e.g. 28.5"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">3-Cone (sec)</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.threeCone ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, threeCone: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder="e.g. 7.04"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-700">Shuttle (sec)</span>
+                        <input
+                          className="border rounded-lg px-2 py-1.5 text-sm"
+                          inputMode="decimal"
+                          value={profileEditDraft.shuttle ?? ""}
+                          onChange={(e) => setProfileEditDraft((p) => ({ ...p, shuttle: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                          placeholder="e.g. 4.14"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn btn-primary text-sm px-4 py-1.5"
+                    onClick={handleSaveProfileMetrics}
+                    disabled={profileSaving}
+                  >
+                    {profileSaving ? "Saving..." : "Save Profile"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Attendance Breakdown */}
           {detailAttendance && (

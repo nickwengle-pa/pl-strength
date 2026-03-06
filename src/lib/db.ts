@@ -3834,6 +3834,79 @@ export async function reviewAttendanceCheckin(options: {
   });
 }
 
+/**
+ * Self-check-in for non-football athletes (basketball, etc.).
+ * Directly adds today as a lift date and marks the athlete present in the
+ * attendance sheet — no coach approval step required.
+ * Returns "checked-in" on success or "already-present" if already marked.
+ */
+export async function selfCheckInToAttendanceSheet(options: {
+  team: Team;
+  uid: string;
+  firstName?: string;
+  lastName?: string;
+  date?: string;
+}): Promise<"checked-in" | "already-present"> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+  if (!database) {
+    throw new Error("Firebase is required for attendance check-in.");
+  }
+
+  const today = (options.date ?? formatLocalDateInput(new Date())).trim();
+  const uid = options.uid.trim();
+  const firstName = sanitizeName(options.firstName ?? "");
+  const lastName = sanitizeName(options.lastName ?? "");
+  const team = options.team;
+
+  const sheet = await loadAttendanceSheet(team);
+
+  // Find existing athlete entry by uid or matching name
+  let athlete = sheet.athletes.find(
+    (a) => (a.uid && a.uid === uid) ||
+    (firstName && lastName &&
+      sanitizeName(a.firstName).toLowerCase() === firstName.toLowerCase() &&
+      sanitizeName(a.lastName).toLowerCase() === lastName.toLowerCase())
+  ) ?? null;
+
+  const athleteId = athlete?.id ?? `uid-${uid}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  // Return early if already present
+  if (athlete && sheet.records[athleteId]?.[today] === true) {
+    return "already-present";
+  }
+
+  // Build updated sheet
+  const nextDates = sheet.dates.includes(today) ? sheet.dates : [...sheet.dates, today].sort();
+
+  let nextAthletes = sheet.athletes;
+  if (!athlete) {
+    const newAthlete: AttendanceAthlete = {
+      id: athleteId,
+      uid,
+      firstName,
+      lastName,
+      level: team,
+    };
+    nextAthletes = [...sheet.athletes, newAthlete];
+  } else if (!athlete.uid) {
+    // Backfill uid if missing
+    nextAthletes = sheet.athletes.map((a) =>
+      a.id === athleteId ? { ...a, uid } : a
+    );
+  }
+
+  const nextRecords: Record<string, Record<string, boolean>> = { ...sheet.records };
+  nextRecords[athleteId] = { ...(nextRecords[athleteId] ?? {}), [today]: true };
+
+  await saveAttendanceSheet(
+    { ...sheet, dates: nextDates, athletes: nextAthletes, records: nextRecords },
+    { requireRemote: true }
+  );
+
+  return "checked-in";
+}
+
 export async function setAttendanceDateLocked(
   team: Team,
   date: string,

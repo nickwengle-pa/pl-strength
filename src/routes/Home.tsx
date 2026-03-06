@@ -14,6 +14,7 @@ import {
   loadAttendanceTeamStatus,
   loadAthleteAttendanceCheckin,
   submitAthleteAttendanceCheckin,
+  selfCheckInToAttendanceSheet,
   subscribeExerciseLibraryStatus,
   normalizeTeam,
   formatTeamLabel,
@@ -121,6 +122,8 @@ export default function Home() {
   const [submittingCheckin, setSubmittingCheckin] = useState(false);
   const [checkinError, setCheckinError] = useState<string | null>(null);
   const [checkinNotice, setCheckinNotice] = useState<string | null>(null);
+  const [selfCheckinStatus, setSelfCheckinStatus] = useState<"idle" | "loading" | "present" | "error">("idle");
+  const [selfCheckinError, setSelfCheckinError] = useState<string | null>(null);
   const [attendanceSheets, setAttendanceSheets] = useState<AttendanceSheet[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [liveSessionFeed, setLiveSessionFeed] = useState<Array<SessionRecord & { athleteId: string }>>([]);
@@ -235,6 +238,44 @@ export default function Home() {
     return () => {
       active = false;
     };
+  }, [isCoach, profile?.uid, profile?.team, profile?.teamAnchor, teamSelection]);
+
+  // Self-checkin status check for non-football athletes
+  useEffect(() => {
+    if (isCoach || !profile?.uid) {
+      setSelfCheckinStatus("idle");
+      return;
+    }
+    const resolvedTeam = normalizeTeam(profile.team || profile.teamAnchor || teamSelection || "");
+    if (!resolvedTeam) return;
+    const teamDef = TEAM_DEFINITIONS.find((d) => d.id === resolvedTeam);
+    if (!teamDef || teamDef.sport === "football") return; // football uses the other flow
+
+    // Check if already marked present today
+    let active = true;
+    setSelfCheckinStatus("loading");
+    setSelfCheckinError(null);
+    (async () => {
+      try {
+        const sheet = await loadAttendanceSheet(resolvedTeam);
+        const today = formatLocalDateInput(new Date());
+        const firstName = (profile.firstName ?? "").trim().toLowerCase();
+        const lastName = (profile.lastName ?? "").trim().toLowerCase();
+        const athleteEntry = sheet.athletes.find(
+          (a) => (a.uid && a.uid === profile.uid) ||
+            (firstName && lastName &&
+              a.firstName.trim().toLowerCase() === firstName &&
+              a.lastName.trim().toLowerCase() === lastName)
+        );
+        const alreadyPresent = athleteEntry
+          ? sheet.records[athleteEntry.id]?.[today] === true
+          : false;
+        if (active) setSelfCheckinStatus(alreadyPresent ? "present" : "idle");
+      } catch {
+        if (active) setSelfCheckinStatus("idle");
+      }
+    })();
+    return () => { active = false; };
   }, [isCoach, profile?.uid, profile?.team, profile?.teamAnchor, teamSelection]);
 
   // Load athlete activity for coaches
@@ -692,6 +733,36 @@ export default function Home() {
     }
   };
 
+  const handleSelfCheckIn = async () => {
+    if (!profile?.uid) return;
+    const resolvedTeam = normalizeTeam(profile.team || profile.teamAnchor || teamSelection || "");
+    if (!resolvedTeam) return;
+    setSelfCheckinStatus("loading");
+    setSelfCheckinError(null);
+    try {
+      await selfCheckInToAttendanceSheet({
+        team: resolvedTeam,
+        uid: profile.uid,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      });
+      setSelfCheckinStatus("present");
+    } catch (err: any) {
+      setSelfCheckinStatus("error");
+      setSelfCheckinError(err?.message ?? "Could not check in. Try again.");
+    }
+  };
+
+  // Determine if this athlete is on a non-football team (self-checkin flow)
+  const selfCheckinTeam = (() => {
+    if (isCoach || !profile) return null;
+    const resolved = normalizeTeam(profile.team || profile.teamAnchor || teamSelection || "");
+    if (!resolved) return null;
+    const def = TEAM_DEFINITIONS.find((d) => d.id === resolved);
+    if (!def || def.sport === "football") return null;
+    return resolved;
+  })();
+
   const getLiftStatus = (lift: Lift) => {
     const hasLiftWeekMap = Boolean(
       profile?.liftWeeks && Object.keys(profile.liftWeeks).length > 0
@@ -1076,6 +1147,54 @@ export default function Home() {
                     No Sessions Available Right Now.
                   </p>
                 ) : null}
+              </div>
+            )}
+
+            {/* Self Check-In Panel — non-football teams */}
+            {selfCheckinTeam && (
+              <div className="rounded-2xl border border-emerald-700/60 bg-zinc-900/95 p-4 shadow-lg shadow-black/30">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">
+                    Lift Day Check-In
+                  </h2>
+                  <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                    {formatTeamLabel(selfCheckinTeam)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs uppercase tracking-wide text-zinc-400">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                </p>
+
+                {selfCheckinStatus === "loading" ? (
+                  <p className="mt-3 text-sm text-zinc-300">Loading...</p>
+                ) : selfCheckinStatus === "present" ? (
+                  <div className="mt-3 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2">
+                    <p className="text-sm font-semibold text-emerald-300">You're Checked In For Today.</p>
+                    <p className="mt-0.5 text-xs text-zinc-400">Attendance recorded. Keep lifting.</p>
+                  </div>
+                ) : selfCheckinStatus === "error" ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm font-semibold text-rose-300">{selfCheckinError ?? "Check-in failed. Try again."}</p>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-emerald-600 disabled:opacity-65"
+                      onClick={handleSelfCheckIn}
+                    >
+                      Retry Check In
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-zinc-200">Tap when you're in the weight room to mark yourself present.</p>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-emerald-500 active:bg-emerald-700"
+                      onClick={handleSelfCheckIn}
+                    >
+                      Check In Now
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
