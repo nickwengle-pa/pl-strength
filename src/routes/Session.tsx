@@ -1119,7 +1119,7 @@ export default function Session() {
   }
 
   return (
-    <div className="container py-6 space-y-8">
+    <div className={`container ${isMobileDevice ? 'py-2 space-y-3' : 'py-6 space-y-8'}`}>
       {existingSessionModal}
       {/* Week Advance Prompt Modal */}
       {showWeekAdvancePrompt && (
@@ -1294,7 +1294,7 @@ export default function Session() {
               <button
                 key={w}
                 onClick={() => handleWeekChange(w)}
-                className={`relative rounded-xl px-2 py-3 text-center transition-all ${
+                className={`relative rounded-xl px-2 ${isMobileDevice ? 'py-2' : 'py-3'} text-center transition-all ${
                   isActive
                     ? `bg-gradient-to-br ${weekColors[w]} text-white shadow-lg scale-[1.02]`
                     : "bg-gray-700/50 text-gray-300 hover:bg-gray-700 hover:text-white"
@@ -1359,9 +1359,9 @@ export default function Session() {
           </>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80">
+      <div className={`grid ${isMobileDevice ? 'gap-3' : 'gap-6'} lg:grid-cols-3`}>
+        <div className={`${isMobileDevice ? 'space-y-3' : 'space-y-6'} lg:col-span-2`}>
+          <div className={isMobileDevice ? 'rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-xl ring-1 ring-gray-100/80 space-y-3' : 'card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80'}>
             <div className={`flex flex-col gap-3 border-b border-gray-100 ${isMobileDevice ? 'pb-3' : 'pb-4'}`}>
               {/* Mobile: Combined header with lift name, stats, and toggle */}
               {isMobileDevice ? (
@@ -1488,12 +1488,12 @@ export default function Session() {
               </div>
             )}
 
-            <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 shadow-inner">
-              <div className="grid gap-4">
+            <div className={`rounded-2xl border border-gray-100 bg-gray-50/80 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-inner`}>
+              <div className={`grid ${isMobileDevice ? 'gap-2' : 'gap-4'}`}>
                 <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                   <span className="text-xs uppercase tracking-wide text-gray-500">Lift</span>
                   <select
-                    className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                    className={`rounded-xl border-2 border-brand-300 bg-white px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200`}
                     value={lift}
                     onChange={(event) => {
                       setLift(event.target.value as Lift);
@@ -1511,7 +1511,7 @@ export default function Session() {
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                     <span className="text-xs uppercase tracking-wide text-gray-500">Cycle</span>
                     <select
-                      className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      className={`rounded-xl border-2 border-brand-300 bg-white px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200`}
                       value={cycle}
                       onChange={(event) => handleCycleChange(Number(event.target.value))}
                     >
@@ -1524,7 +1524,7 @@ export default function Session() {
                   <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
                     <span className="text-xs uppercase tracking-wide text-gray-500">Week</span>
                     <select
-                      className="rounded-xl border-2 border-brand-300 bg-white px-3 py-3 text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      className={`rounded-xl border-2 border-brand-300 bg-white px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200`}
                       value={week}
                       onChange={(event) => handleWeekChange(Number(event.target.value) as Week)}
                     >
@@ -1577,7 +1577,7 @@ export default function Session() {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className={isMobileDevice ? 'space-y-2' : 'space-y-4'}>
               {/* Warm-Up Sets */}
               <div className={`rounded-2xl border border-sky-100 bg-sky-50 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-sm`}>
                 {!isMobileDevice && (
@@ -1700,10 +1700,9 @@ export default function Session() {
 
             {/* Mobile: Combined AMRAP + Save Section */}
             {isMobileDevice ? (
-              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-4 shadow-lg space-y-4">
+              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-3 shadow-lg space-y-2">
                 <div className="text-center">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Last Set AMRAP</div>
-                  <div className="text-sm text-amber-800 mb-3">How many reps did you get on your final set?</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">Last Set AMRAP</div>
                   <div className="flex items-center justify-center gap-4">
                     <button
                       onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
@@ -1722,7 +1721,7 @@ export default function Session() {
                 </div>
                 
                 {amrapReps > 0 && (
-                  <div className={`rounded-xl p-3 text-center ${est ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
+                  <div className={`rounded-xl p-2 text-center ${est ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
                     <div className="text-xs uppercase tracking-wide opacity-80">Est. 1RM</div>
                     <div className="text-2xl font-bold">
                       {est ? `${est} ${unit}` : "—"}
@@ -1732,7 +1731,7 @@ export default function Session() {
                 )}
 
                 <button
-                  className="w-full py-4 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all"
+                  className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all"
                   onClick={save}
                   disabled={saving || !tm || amrapReps <= 0}
                 >
