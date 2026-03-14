@@ -1364,8 +1364,8 @@ export default function Session() {
 
       <div className={`grid ${isMobileDevice ? 'gap-3' : 'gap-6'} lg:grid-cols-3`}>
         <div className={`${isMobileDevice ? 'space-y-3' : 'space-y-6'} lg:col-span-2`}>
-          <div className={isMobileDevice ? 'rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-xl ring-1 ring-gray-100/80 space-y-3' : 'card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80'}>
-            <div className={`flex flex-col gap-3 border-b border-gray-100 ${isMobileDevice ? 'pb-3' : 'pb-4'}`}>
+          <div className={isMobileDevice ? 'rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl ring-1 ring-gray-100/80 space-y-2' : 'card space-y-6 bg-white/95 shadow-xl ring-1 ring-gray-100/80'}>
+            <div className={`flex flex-col gap-2 border-b border-gray-100 ${isMobileDevice ? 'pb-2' : 'pb-4'}`}>
               {/* Mobile: Combined header with lift name, stats, and toggle */}
               {isMobileDevice ? (
                 <div className="flex items-center justify-between gap-2">
@@ -1580,9 +1580,9 @@ export default function Session() {
               </div>
             )}
 
-            <div className={isMobileDevice ? 'space-y-2' : 'space-y-4'}>
+            <div className={isMobileDevice ? 'space-y-1.5' : 'space-y-4'}>
               {/* Warm-Up Sets */}
-              <div className={`rounded-2xl border border-sky-100 bg-sky-50 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-sm`}>
+              <div className={`rounded-2xl border border-sky-100 bg-sky-50 ${isMobileDevice ? 'p-2' : 'p-4'} shadow-sm`}>
                 {!isMobileDevice && (
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
@@ -1595,9 +1595,9 @@ export default function Session() {
                   </div>
                 )}
                 {isMobileDevice && (
-                  <div className="text-xs font-semibold text-sky-700 uppercase tracking-wide mb-2">Warm-Up</div>
+                  <div className="text-xs font-semibold text-sky-700 uppercase tracking-wide mb-1">Warm-Up</div>
                 )}
-                <div className={isMobileDevice ? "space-y-1.5" : "space-y-2"}>
+                <div className={isMobileDevice ? "space-y-1" : "space-y-2"}>
                   {warm.map((set, index) => (
                     <SetRow
                       key={`warm-${index}`}
@@ -1623,7 +1623,7 @@ export default function Session() {
               </div>
 
               {/* Work Sets */}
-              <div className={`rounded-2xl border border-brand-100 bg-brand-50 ${isMobileDevice ? 'p-3' : 'p-4'} shadow-sm`}>
+              <div className={`rounded-2xl border border-brand-100 bg-brand-50 ${isMobileDevice ? 'p-2' : 'p-4'} shadow-sm`}>
                 {!isMobileDevice && (
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
@@ -1636,21 +1636,21 @@ export default function Session() {
                   </div>
                 )}
                 {isMobileDevice && (
-                  <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-2">Work Sets</div>
+                  <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-1">Work Sets</div>
                 )}
-                <div className={isMobileDevice ? "space-y-1.5" : "space-y-2"}>
+                <div className={isMobileDevice ? "space-y-1" : "space-y-2"}>
                   {work.map((set, index) => {
                     const isAMRAPRow = index === work.length - 1;
                     if (isAMRAPRow) {
                       // Last work set is the AMRAP set — reps are captured in the section below
                       return isMobileDevice ? (
-                        <div key={`work-${index}`} className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-amber-900 w-6">{index + warm.length + 1}</span>
+                        <div key={`work-${index}`} className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-2 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-amber-900 w-5">{index + warm.length + 1}</span>
                             <button
                               type="button"
                               onClick={() => setPlateCalcTarget(set.weight)}
-                              className="text-base font-bold text-amber-900 hover:text-amber-700"
+                              className="text-sm font-bold text-amber-900 hover:text-amber-700"
                             >
                               {set.weight} <span className="font-normal text-amber-700">{unit}</span>
                             </button>
@@ -1703,38 +1703,38 @@ export default function Session() {
 
             {/* Mobile: Combined AMRAP + Save Section */}
             {isMobileDevice ? (
-              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-3 shadow-lg space-y-2">
-                <div className="text-center">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">Last Set AMRAP</div>
-                  <div className="flex items-center justify-center gap-4">
+              <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-2 shadow-lg space-y-2">
+                {/* AMRAP counter + Est 1RM in one row */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 whitespace-nowrap">AMRAP</div>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
-                      className="w-12 h-12 rounded-full bg-white border-2 border-amber-300 text-2xl font-bold text-amber-700 shadow-sm active:scale-95"
+                      className="w-9 h-9 rounded-full bg-white border-2 border-amber-300 text-xl font-bold text-amber-700 shadow-sm active:scale-95 flex items-center justify-center"
                     >
                       −
                     </button>
-                    <div className="text-5xl font-black text-amber-900 w-20 text-center">{amrapReps}</div>
+                    <div className="text-3xl font-black text-amber-900 w-10 text-center">{amrapReps}</div>
                     <button
                       onClick={() => setAmrapReps(prev => prev + 1)}
-                      className="w-12 h-12 rounded-full bg-white border-2 border-amber-300 text-2xl font-bold text-amber-700 shadow-sm active:scale-95"
+                      className="w-9 h-9 rounded-full bg-white border-2 border-amber-300 text-xl font-bold text-amber-700 shadow-sm active:scale-95 flex items-center justify-center"
                     >
                       +
                     </button>
                   </div>
-                </div>
-                
-                {amrapReps > 0 && (
-                  <div className={`rounded-xl p-2 text-center ${est ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
-                    <div className="text-xs uppercase tracking-wide opacity-80">Est. 1RM</div>
-                    <div className="text-2xl font-bold">
-                      {est ? `${est} ${unit}` : "—"}
-                      {prFlag && <span className="ml-2 text-yellow-300">🏆 PR!</span>}
+                  {amrapReps > 0 && est ? (
+                    <div className="rounded-lg px-2 py-1 bg-emerald-500 text-white text-center min-w-[64px]">
+                      <div className="text-[10px] uppercase tracking-wide opacity-80">Est. 1RM</div>
+                      <div className="text-sm font-bold leading-tight">
+                        {est} {unit}{prFlag && <span className="ml-1 text-yellow-300">🏆</span>}
+                      </div>
                     </div>
-                  </div>
-                )}
-
+                  ) : (
+                    <div className="min-w-[64px]" />
+                  )}
+                </div>
                 <button
-                  className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all"
+                  className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white font-bold text-base shadow-lg active:scale-[0.98] transition-all"
                   onClick={save}
                   disabled={saving || !tm || amrapReps <= 0}
                 >
@@ -1913,9 +1913,9 @@ function SetRow({
     const borderColor = phase === "Work" ? "border-brand-200" : "border-sky-200";
     const textColor = phase === "Work" ? "text-brand-900" : "text-sky-900";
     return (
-      <div className={`flex items-center justify-between gap-2 rounded-xl border ${borderColor} ${bgColor} px-3 py-2`}>
-        <div className="flex items-center gap-3">
-          <span className={`text-sm font-bold ${textColor} w-6`}>{index + 1}</span>
+      <div className={`flex items-center justify-between gap-2 rounded-xl border ${borderColor} ${bgColor} px-2 py-1.5`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${textColor} w-5`}>{index + 1}</span>
           <button
             type="button"
             onClick={() => onPlateCalc(set.weight)}
