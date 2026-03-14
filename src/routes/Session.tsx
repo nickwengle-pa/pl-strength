@@ -889,10 +889,31 @@ export default function Session() {
                   {Math.round(currentSet.pct * 100)}% of TM
                 </div>
                 {isAMRAPSet && (
-                  <div className="mt-4 mx-4 px-4 py-2 rounded-xl border-2 bg-red-500/20 border-red-400">
-                    <div className="text-xl font-bold text-red-300" style={{ textShadow: '0 0 15px rgba(248, 113, 113, 0.8)' }}>AMRAP SET!</div>
-                    <div className="text-xs mt-1">Leave 1-2 Reps In The Tank</div>
-                  </div>
+                  <>
+                    <div className="mt-4 mx-4 px-4 py-2 rounded-xl border-2 bg-red-500/20 border-red-400">
+                      <div className="text-xl font-bold text-red-300" style={{ textShadow: '0 0 15px rgba(248, 113, 113, 0.8)' }}>AMRAP SET!</div>
+                      <div className="text-xs mt-1">Leave 1-2 Reps In The Tank</div>
+                    </div>
+                    {/* AMRAP reps counter — in scroll area to keep bottom bar compact */}
+                    <div className="mt-4 mx-4 px-4 py-4 rounded-xl border border-white/20 bg-white/10 space-y-3">
+                      <div className="text-sm font-semibold uppercase tracking-wide opacity-80">Reps Completed</div>
+                      <div className="flex items-center justify-center gap-4">
+                        <button
+                          onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
+                          className="w-12 h-12 rounded-full bg-white/20 text-2xl font-bold active:bg-white/30"
+                        >
+                          −
+                        </button>
+                        <div className="text-5xl font-black w-20 text-center">{amrapReps}</div>
+                        <button
+                          onClick={() => setAmrapReps(prev => prev + 1)}
+                          className="w-12 h-12 rounded-full bg-white/20 text-2xl font-bold active:bg-white/30"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -919,29 +940,31 @@ export default function Session() {
         <div className="px-4 py-4 space-y-2 bg-gradient-to-t from-black/20 to-transparent flex-shrink-0 border-t border-white/10">
           {!timerActive && currentSet && (
             <>
-              {/* Rest Timer Shortcuts */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => startRestTimer(60)}
-                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
-                >
-                  1:00
-                </button>
-                <button
-                  onClick={() => startRestTimer(120)}
-                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
-                >
-                  2:00
-                </button>
-                <button
-                  onClick={() => startRestTimer(180)}
-                  className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
-                >
-                  3:00
-                </button>
-              </div>
+              {/* Rest Timer Shortcuts — hidden for AMRAP set to save space */}
+              {!isAMRAPSet && (
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => startRestTimer(60)}
+                    className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
+                  >
+                    1:00
+                  </button>
+                  <button
+                    onClick={() => startRestTimer(120)}
+                    className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
+                  >
+                    2:00
+                  </button>
+                  <button
+                    onClick={() => startRestTimer(180)}
+                    className="py-3 bg-blue-500/30 hover:bg-blue-500/40 rounded-xl font-semibold"
+                  >
+                    3:00
+                  </button>
+                </div>
+              )}
 
-              {/* Mark Success/Fail - or Save Session for last AMRAP set */}
+              {/* Mark Success/Fail (non-AMRAP sets) */}
               {!isAMRAPSet ? (
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -987,7 +1010,7 @@ export default function Session() {
                 </div>
               ) : null}
 
-              {/* Navigation - smaller and less prominent */}
+              {/* Navigation */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
@@ -1005,35 +1028,15 @@ export default function Session() {
                 </button>
               </div>
 
-              {/* AMRAP input and Save Session button (replaces Done/Failed for last set) */}
+              {/* Save Session button for AMRAP set */}
               {isAMRAPSet && (
-                <div className="space-y-3">
-                  <div className="text-center">
-                    <div className="text-sm opacity-80 mb-2">AMRAP Reps Completed</div>
-                    <div className="flex items-center justify-center gap-4">
-                      <button
-                        onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
-                        className="w-14 h-14 rounded-full bg-white/20 text-2xl font-bold"
-                      >
-                        −
-                      </button>
-                      <div className="text-6xl font-black w-24 text-center">{amrapReps}</div>
-                      <button
-                        onClick={() => setAmrapReps(prev => prev + 1)}
-                        className="w-14 h-14 rounded-full bg-white/20 text-2xl font-bold"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={save}
-                    disabled={saving || amrapReps <= 0}
-                    className="w-full py-5 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:opacity-50 rounded-xl font-bold text-xl shadow-lg"
-                  >
-                    {saving ? "Saving..." : amrapReps > 0 ? "✓ Save Session" : "Enter Reps Above"}
-                  </button>
-                </div>
+                <button
+                  onClick={save}
+                  disabled={saving || amrapReps <= 0}
+                  className="w-full py-4 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 disabled:opacity-50 rounded-xl font-bold text-xl shadow-lg"
+                >
+                  {saving ? "Saving..." : amrapReps > 0 ? "✓ Save Session" : "Set Reps Above ↑"}
+                </button>
               )}
             </>
           )}
