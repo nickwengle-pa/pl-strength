@@ -1636,7 +1636,10 @@ export default function Session() {
                   </div>
                 )}
                 {isMobileDevice && (
-                  <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide mb-1">Work Sets</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide">Work Sets</div>
+                    <span className="text-[10px] font-semibold text-brand-400 bg-brand-100 rounded-full px-1.5 py-0.5">{warm.length + work.length}/{warm.length + work.length}</span>
+                  </div>
                 )}
                 <div className={isMobileDevice ? "space-y-1" : "space-y-2"}>
                   {work.map((set, index) => {
@@ -1645,17 +1648,13 @@ export default function Session() {
                       // Last work set is the AMRAP set — reps are captured in the section below
                       return isMobileDevice ? (
                         <div key={`work-${index}`} className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-2 py-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-amber-900 w-5">{index + warm.length + 1}</span>
-                            <button
-                              type="button"
-                              onClick={() => setPlateCalcTarget(set.weight)}
-                              className="text-sm font-bold text-amber-900 hover:text-amber-700"
-                            >
-                              {set.weight} <span className="font-normal text-amber-700">{unit}</span>
-                            </button>
-                            <span className="text-sm font-medium text-amber-700">× {set.repsDisplay}</span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPlateCalcTarget(set.weight)}
+                            className="text-xs font-semibold text-amber-900 hover:text-amber-700"
+                          >
+                            {set.weight} {unit}
+                          </button>
                           <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">AMRAP ↓</span>
                         </div>
                       ) : (
@@ -1706,7 +1705,10 @@ export default function Session() {
               <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-amber-100 p-2 shadow-lg space-y-2">
                 {/* AMRAP counter + Est 1RM in one row */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 whitespace-nowrap">AMRAP</div>
+                  <div className="flex flex-col items-start">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 whitespace-nowrap">AMRAP</div>
+                    <div className="text-[10px] text-amber-600">{work.length > 0 ? Math.round((work[work.length - 1]?.pct ?? 0) * 100) : 0}% TM</div>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setAmrapReps(prev => Math.max(0, prev - 1))}
