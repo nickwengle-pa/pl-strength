@@ -1610,15 +1610,19 @@ export default function Roster() {
                               </div>
                               {isRemax ? (
                                 <>
+                                  <div className="font-semibold text-purple-700">Remax</div>
                                   <div>
+                                    Est 1RM:{" "}
                                     {latest.est1rm
                                       ? `${roundToPlate(latest.est1rm, latest.unit, latest.unit === "lb" ? 5 : 2.5)} ${latest.unit}`
                                       : "-"}
-                                    {(latest.amrap?.weight ?? 0) > 0 && (
-                                      <span className="text-gray-500">{" "}— {latest.amrap.weight} {latest.unit} × {latest.amrap.reps}</span>
-                                    )}
                                   </div>
-                                  <div className="font-semibold text-purple-700">Remax</div>
+                                  <div>
+                                    TM:{" "}
+                                    {latest.tm
+                                      ? `${latest.tm} ${latest.unit}`
+                                      : "-"}
+                                  </div>
                                 </>
                               ) : (
                                 <>
@@ -1893,6 +1897,11 @@ export default function Roster() {
                                   session.unit === "lb" ? 5 : 2.5
                                 )} ${session.unit}`
                               : "-"}
+                            {session.type === "remax" && session.tm ? (
+                              <div className="text-xs font-normal text-gray-500">
+                                TM: {session.tm} {session.unit}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="p-2 text-green-600">
                             {session.pr ? "PR" : "-"}
