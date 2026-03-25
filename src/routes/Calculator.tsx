@@ -416,7 +416,12 @@ export default function Calculator() {
     setSaving(true);
     try {
       await saveProfile(nextProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
-      await saveRemaxEvent(lift, trainingMax, nextOneRm, unit, getStoredTeamSelection() || undefined, targetUid);
+      await saveRemaxEvent(
+        lift, trainingMax, nextOneRm, unit,
+        getStoredTeamSelection() || undefined, targetUid,
+        useEstimator && estimatorWeight ? Number(estimatorWeight) : Number(nextOneRm),
+        useEstimator && estimatorReps ? Number(estimatorReps) : 1
+      );
       setProfile(nextProfile);
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
       setTargetWeight(trainingMax);

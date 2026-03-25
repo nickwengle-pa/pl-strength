@@ -4601,7 +4601,9 @@ export async function saveRemaxEvent(
   est1rm: number,
   unit: Unit,
   team?: Team,
-  targetUid?: string
+  targetUid?: string,
+  amrapWeight?: number,
+  amrapReps?: number
 ): Promise<void> {
   const handles = resolveHandles();
   const database = handles?.db;
@@ -4618,7 +4620,7 @@ export async function saveRemaxEvent(
     est1rm,
     warmups: [],
     work: [],
-    amrap: { weight: 0, reps: 0 },
+    amrap: { weight: amrapWeight ?? 0, reps: amrapReps ?? 0 },
     note: "",
     pr: false,
     ...(resolvedTeam ? { team: resolvedTeam } : {}),

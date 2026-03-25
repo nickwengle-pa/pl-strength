@@ -1609,7 +1609,17 @@ export default function Roster() {
                                   : "-"}
                               </div>
                               {isRemax ? (
-                                <div className="font-medium text-purple-700">New Max — Est 1RM: {latest.est1rm ?? 0} {latest.unit} / TM: {latest.tm ?? 0} {latest.unit}</div>
+                                <>
+                                  <div>
+                                    {latest.est1rm
+                                      ? `${roundToPlate(latest.est1rm, latest.unit, latest.unit === "lb" ? 5 : 2.5)} ${latest.unit}`
+                                      : "-"}
+                                    {(latest.amrap?.weight ?? 0) > 0 && (
+                                      <span className="text-gray-500">{" "}— {latest.amrap.weight} {latest.unit} × {latest.amrap.reps}</span>
+                                    )}
+                                  </div>
+                                  <div className="font-semibold text-purple-700">Remax</div>
+                                </>
                               ) : (
                                 <>
                                   <div>
@@ -1826,7 +1836,7 @@ export default function Roster() {
                               </div>
                             ) : session.type === "remax" ? (
                               <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
-                                New Max
+                                Remax
                               </span>
                             ) : (
                               `Cycle ${session.cycle ?? 1} / Week ${session.week}`
@@ -1834,7 +1844,9 @@ export default function Roster() {
                           </td>
                           <td className="p-2 text-xs">
                             {session.type === "remax" ? (
-                              "-"
+                              (session.amrap?.weight ?? 0) > 0
+                                ? `${session.amrap?.weight ?? 0} ${session.unit} × ${session.amrap?.reps ?? 0}`
+                                : "-"
                             ) : isEditing ? (
                               <div className="flex items-center gap-1">
                                 <input

@@ -1810,7 +1810,7 @@ export default function Session() {
                       <div className="flex items-center gap-2">
                         {isRemax ? (
                           <span className="inline-flex items-center rounded-lg border border-purple-200 bg-purple-100 px-2 py-0.5 text-[11px] font-bold text-purple-700">
-                            New Max
+                            Remax
                           </span>
                         ) : (
                           <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
@@ -1839,7 +1839,13 @@ export default function Session() {
                         </span>
                       ) : null}
                     </div>
-                    {!isRemax && (
+                    {isRemax ? (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {(session.amrap?.weight ?? 0) > 0
+                          ? `${session.amrap?.weight} ${session.unit} × ${session.amrap?.reps}`
+                          : `Est 1RM: ${roundToPlate(session.est1rm, session.unit, session.unit === "lb" ? 5 : 2.5)} ${session.unit}`}
+                      </div>
+                    ) : (
                       <div className="text-xs text-gray-500 mt-1">
                         AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
                       </div>
