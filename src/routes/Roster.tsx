@@ -1543,10 +1543,13 @@ export default function Roster() {
                     const draftWeek = liftWeekDraft[summary.lift] ?? 1;
                     const isSaving = tmSaving === summary.lift;
                     const latest = summary.latest;
+                    const isRemax = latest?.type === "remax";
                     const latestMeta = latest
-                      ? [`C${latest.cycle ?? 1} W${latest.week}`, latest.pr ? "PR" : ""]
-                          .filter(Boolean)
-                          .join(" / ")
+                      ? isRemax
+                        ? ""
+                        : [`C${latest.cycle ?? 1} W${latest.week}`, latest.pr ? "PR" : ""]
+                            .filter(Boolean)
+                            .join(" / ")
                       : "";
                     return (
                       <tr key={summary.lift} className="border-t">
@@ -1605,12 +1608,18 @@ export default function Roster() {
                                   ? new Date(latest.createdAt).toLocaleDateString()
                                   : "-"}
                               </div>
-                              <div>
-                                {latest.amrap?.weight ?? 0} {latest.unit} x{" "}
-                                {latest.amrap?.reps ?? 0}
-                              </div>
-                              {latestMeta && (
-                                <div className="text-gray-500">{latestMeta}</div>
+                              {isRemax ? (
+                                <div className="font-medium text-purple-700">New Max — Est 1RM: {latest.est1rm ?? 0} {latest.unit} / TM: {latest.tm ?? 0} {latest.unit}</div>
+                              ) : (
+                                <>
+                                  <div>
+                                    {latest.amrap?.weight ?? 0} {latest.unit} x{" "}
+                                    {latest.amrap?.reps ?? 0}
+                                  </div>
+                                  {latestMeta && (
+                                    <div className="text-gray-500">{latestMeta}</div>
+                                  )}
+                                </>
                               )}
                               <div className="text-gray-400">
                                 Logs: {summary.totalSessions}
@@ -1815,12 +1824,18 @@ export default function Roster() {
                                   ))}
                                 </select>
                               </div>
+                            ) : session.type === "remax" ? (
+                              <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                                New Max
+                              </span>
                             ) : (
                               `Cycle ${session.cycle ?? 1} / Week ${session.week}`
                             )}
                           </td>
                           <td className="p-2 text-xs">
-                            {isEditing ? (
+                            {session.type === "remax" ? (
+                              "-"
+                            ) : isEditing ? (
                               <div className="flex items-center gap-1">
                                 <input
                                   type="number"

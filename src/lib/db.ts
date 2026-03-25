@@ -4437,6 +4437,7 @@ export type SessionRecord = SessionPayload & {
   uid?: string;
   createdAt?: number | null;
   source?: "remote" | "local";
+  type?: "remax";
 };
 
 const SESSION_KEY = "pl.sessions.v1";
@@ -4531,6 +4532,7 @@ const normalizeSession = (
     note: raw.note || "",
     pr: !!raw.pr,
     createdAt,
+    ...(raw.type === "remax" ? { type: "remax" as const } : {}),
     ...overrides,
     team: resolvedTeam,
   };
@@ -4591,6 +4593,58 @@ export async function saveSession(
   });
 
   return { source: "remote" };
+}
+
+export async function saveRemaxEvent(
+  lift: Lift,
+  tm: number,
+  est1rm: number,
+  unit: Unit,
+  team?: Team,
+  targetUid?: string
+): Promise<void> {
+  const handles = resolveHandles();
+  const database = handles?.db;
+
+  const resolvedTeam = normalizeTeam(team) ?? (typeof window !== "undefined" ? normalizeTeam(getStoredTeamSelection()) : undefined);
+
+  const payload = {
+    type: "remax",
+    lift,
+    week: 1,
+    cycle: 1,
+    unit,
+    tm,
+    est1rm,
+    warmups: [],
+    work: [],
+    amrap: { weight: 0, reps: 0 },
+    note: "",
+    pr: false,
+    ...(resolvedTeam ? { team: resolvedTeam } : {}),
+    createdAt: serverTimestamp(),
+  };
+
+  if (targetUid) {
+    if (!database) return;
+    const col = collection(database, "athletes", targetUid, "sessions");
+    await addDoc(col, payload);
+    return;
+  }
+
+  let uid: string | null = null;
+  try { uid = await getUid(); } catch { /* offline */ }
+
+  if (!uid || !database) {
+    // Store locally so the athlete's own history still shows it
+    persistLocalSession(
+      normalizeSession({ ...payload, createdAt: Date.now() }, { source: "local", uid: uid ?? LOCAL_UID })
+    );
+    return;
+  }
+
+  const col = collection(database, "athletes", uid, "sessions");
+  await addDoc(col, payload);
 }
 
 export async function recentSessions(

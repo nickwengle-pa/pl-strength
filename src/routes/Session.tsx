@@ -250,7 +250,10 @@ export default function Session() {
           setTm(tmForLift ?? null);
           const nextWeek = resolveLiftWeek(p, lift);
           const nextCycle = resolveLiftCycle(p, lift);
-          if (!liftConfirmed) {
+          const hasExplicitLiftData =
+            typeof p.liftWeeks?.[lift] === "number" ||
+            typeof p.liftCycles?.[lift] === "number";
+          if (!liftConfirmed || hasExplicitLiftData) {
             setWeek(nextWeek);
             setCycle(nextCycle);
           }
@@ -277,7 +280,10 @@ export default function Session() {
           setTm(tmForLift ?? null);
           const nextWeek = resolveLiftWeek(p, lift);
           const nextCycle = resolveLiftCycle(p, lift);
-          if (!liftConfirmed) {
+          const hasExplicitLiftData =
+            typeof p.liftWeeks?.[lift] === "number" ||
+            typeof p.liftCycles?.[lift] === "number";
+          if (!liftConfirmed || hasExplicitLiftData) {
             setWeek(nextWeek);
             setCycle(nextCycle);
           }
@@ -1811,21 +1817,34 @@ export default function Session() {
                   3: "bg-amber-100 text-amber-700 border-amber-200",
                 };
                 const cycleLabel = session.cycle ?? 1;
+                const isRemax = session.type === "remax";
                 return (
                   <li key={index} className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
-                          C{cycleLabel} W{session.week}
-                        </span>
+                        {isRemax ? (
+                          <span className="inline-flex items-center rounded-lg border border-purple-200 bg-purple-100 px-2 py-0.5 text-[11px] font-bold text-purple-700">
+                            New Max
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
+                            C{cycleLabel} W{session.week}
+                          </span>
+                        )}
                         <span className="font-semibold text-gray-900">
-                          {session.est1rm
-                            ? `est1RM ${roundToPlate(
+                          {isRemax
+                            ? `TM: ${session.tm ?? 0} ${session.unit} / Est 1RM: ${roundToPlate(
                                 session.est1rm,
                                 session.unit,
                                 session.unit === "lb" ? 5 : 2.5
                               )} ${session.unit}`
-                            : "Logged"}
+                            : session.est1rm
+                              ? `est1RM ${roundToPlate(
+                                  session.est1rm,
+                                  session.unit,
+                                  session.unit === "lb" ? 5 : 2.5
+                                )} ${session.unit}`
+                              : "Logged"}
                         </span>
                       </div>
                       {session.pr ? (
@@ -1834,9 +1853,11 @@ export default function Session() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
-                    </div>
+                    {!isRemax && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        AMRAP {session.amrap?.weight} x {session.amrap?.reps} {session.unit}
+                      </div>
+                    )}
                   </li>
                 );
               })}

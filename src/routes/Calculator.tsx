@@ -7,6 +7,7 @@ import {
   loadProfileRemote,
   normalizeEquipment,
   saveProfile,
+  saveRemaxEvent,
   type BarOption,
   type EquipmentSettings,
   type Profile,
@@ -415,6 +416,7 @@ export default function Calculator() {
     setSaving(true);
     try {
       await saveProfile(nextProfile, { skipLocal: Boolean(targetUid), requireRemote: true });
+      await saveRemaxEvent(lift, trainingMax, nextOneRm, unit, getStoredTeamSelection() || undefined, targetUid);
       setProfile(nextProfile);
       setMeasured1rm(Number(nextOneRm.toFixed(1)));
       setTargetWeight(trainingMax);
