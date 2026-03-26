@@ -921,6 +921,7 @@ export default function Attendance() {
   const [showInlineAddDate, setShowInlineAddDate] = useState(false);
   const [expandedLiftDates, setExpandedLiftDates] = useState<Set<string>>(new Set());
   const [tableRangePreset, setTableRangePreset] = useState<TableRangePreset>("this_week");
+  const [liftDayRangePreset, setLiftDayRangePreset] = useState<TableRangePreset>("this_week");
   const [mergePreviewIds, setMergePreviewIds] = useState<{ primaryId: string; candidateId: string } | null>(null);
   const [addDateDraftDate, setAddDateDraftDate] = useState(() => formatDateInput(new Date()));
   const [addDateDraftSessions, setAddDateDraftSessions] = useState<AddDateSessionDraft[]>(() => [
@@ -1557,6 +1558,12 @@ export default function Attendance() {
     const { start, end } = resolveTablePresetRange(tableRangePreset);
     return selectedSheet.dates.filter((d) => d >= start && d <= end);
   }, [selectedSheet.dates, tableRangePreset]);
+
+  const liftDayVisibleDates = useMemo(() => {
+    if (liftDayRangePreset === "all_dates") return reportSourceDates;
+    const { start, end } = resolveTablePresetRange(liftDayRangePreset);
+    return reportSourceDates.filter((d) => d >= start && d <= end);
+  }, [reportSourceDates, liftDayRangePreset]);
 
   const reviewedDuplicatePairSet = useMemo(
     () => new Set(normalizeReviewedDuplicatePairKeys(selectedSheet.reviewedDuplicatePairKeys)),
@@ -3481,9 +3488,27 @@ export default function Attendance() {
 
         {/* Lift Day Cards */}
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-            Lift Days
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+              Lift Days
+            </h3>
+            <div className="flex flex-wrap items-center gap-1">
+              {TABLE_RANGE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setLiftDayRangePreset(opt.value)}
+                  className={
+                    liftDayRangePreset === opt.value
+                      ? "rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white transition"
+                      : "rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Inline Add Lift Day Form */}
           {showInlineAddDate && (
@@ -3575,7 +3600,10 @@ export default function Attendance() {
             </p>
           ) : (
             <div className="space-y-1">
-              {[...reportSourceDates].reverse().map((date) => {
+              {liftDayVisibleDates.length === 0 && (
+                <p className="text-xs text-slate-400 italic py-1">No lift days in this range.</p>
+              )}
+              {[...liftDayVisibleDates].reverse().map((date) => {
                 const isExpanded = expandedLiftDates.has(date);
                 const sessionsForDate = selectedSheet.sessionsByDate?.[date] ?? [];
                 const sessionLocksForDate = selectedSheet.sessionLocks?.[date] ?? {};
