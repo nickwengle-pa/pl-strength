@@ -15,7 +15,10 @@ import Exercises from "./routes/Exercises";
 import ProgramOutline from "./routes/ProgramOutline";
 import Attendance from "./routes/Attendance";
 import SignIn from "./routes/SignIn";
+import SignInV2 from "./routes/SignInV2";
 import Welcome from "./routes/Welcome";
+import WelcomeV2 from "./routes/WelcomeV2";
+import V2Switch from "./components/V2Switch";
 import Turf from "./routes/Turf";
 import Accessory from "./routes/Accessory";
 import FootballSimulator from "./routes/FootballSimulator";
@@ -48,7 +51,7 @@ export default function App() {
 
   // Welcome page is always accessible (NFC landing)
   if (isWelcomePage) {
-    return <Welcome />;
+    return <V2Switch v1={<Welcome />} v2={<WelcomeV2 />} />;
   }
 
   if (initializing || signingInWithLink) {
@@ -60,7 +63,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <SignIn />;
+    return <V2Switch v1={<SignIn />} v2={<SignInV2 />} />;
   }
 
   return (
