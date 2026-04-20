@@ -6,11 +6,13 @@ import Home from "./routes/Home";
 import Session from "./routes/Session";
 import Roster from "./routes/Roster";
 import Calculator from "./routes/Calculator";
+import CalculatorV2 from "./routes/CalculatorV2";
 import Summary from "./routes/Summary";
 import Progress from "./routes/Progress";
 import Sheets from "./routes/Sheets";
 import Admin from "./routes/Admin";
 import Profile from "./routes/Profile";
+import ProfileV2 from "./routes/ProfileV2";
 import Exercises from "./routes/Exercises";
 import ProgramOutline from "./routes/ProgramOutline";
 import Attendance from "./routes/Attendance";
@@ -80,7 +82,7 @@ export default function App() {
             <Route path="/session" element={<Session />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/progress" element={<Progress />} />
-            <Route path="/calculator" element={<Calculator />} />
+            <Route path="/calculator" element={<V2Switch v1={<Calculator />} v2={<CalculatorV2 />} />} />
             <Route path="/sheets" element={<Sheets />} />
             <Route path="/program-outline" element={<ProgramOutline />} />
             <Route path="/exercises" element={<Exercises />} />
@@ -90,7 +92,7 @@ export default function App() {
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/football" element={<FootballSimulator />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<V2Switch v1={<Profile />} v2={<ProfileV2 />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
