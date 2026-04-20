@@ -9,11 +9,13 @@ import Calculator from "./routes/Calculator";
 import CalculatorV2 from "./routes/CalculatorV2";
 import Summary from "./routes/Summary";
 import Progress from "./routes/Progress";
+import ProgressV2 from "./routes/ProgressV2";
 import Sheets from "./routes/Sheets";
 import Admin from "./routes/Admin";
 import Profile from "./routes/Profile";
 import ProfileV2 from "./routes/ProfileV2";
 import Exercises from "./routes/Exercises";
+import ExercisesV2 from "./routes/ExercisesV2";
 import ProgramOutline from "./routes/ProgramOutline";
 import Attendance from "./routes/Attendance";
 import SignIn from "./routes/SignIn";
@@ -22,7 +24,9 @@ import Welcome from "./routes/Welcome";
 import WelcomeV2 from "./routes/WelcomeV2";
 import V2Switch from "./components/V2Switch";
 import Turf from "./routes/Turf";
+import TurfV2 from "./routes/TurfV2";
 import Accessory from "./routes/Accessory";
+import AccessoryV2 from "./routes/AccessoryV2";
 import FootballSimulator from "./routes/FootballSimulator";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
@@ -81,13 +85,13 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/session" element={<Session />} />
             <Route path="/summary" element={<Summary />} />
-            <Route path="/progress" element={<Progress />} />
+            <Route path="/progress" element={<V2Switch v1={<Progress />} v2={<ProgressV2 />} />} />
             <Route path="/calculator" element={<V2Switch v1={<Calculator />} v2={<CalculatorV2 />} />} />
             <Route path="/sheets" element={<Sheets />} />
             <Route path="/program-outline" element={<ProgramOutline />} />
-            <Route path="/exercises" element={<Exercises />} />
-            <Route path="/turf" element={<Turf />} />
-            <Route path="/accessory" element={<Accessory />} />
+            <Route path="/exercises" element={<V2Switch v1={<Exercises />} v2={<ExercisesV2 />} />} />
+            <Route path="/turf" element={<V2Switch v1={<Turf />} v2={<TurfV2 />} />} />
+            <Route path="/accessory" element={<V2Switch v1={<Accessory />} v2={<AccessoryV2 />} />} />
             <Route path="/roster" element={<Roster />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/admin" element={<Admin />} />
