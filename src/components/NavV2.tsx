@@ -373,16 +373,40 @@ export default function NavV2() {
       ? "bg-v2-warn-500 animate-pulse"
       : "bg-v2-danger-500";
 
-  const renderStatusIndicator = () => (
-    <span
-      className="inline-flex items-center gap-2 text-v2-xs uppercase tracking-[0.18em] text-v2-ink-400"
-      aria-label={statusLabel}
-      title={statusLabel}
-    >
-      <span className={`h-2 w-2 rounded-full ${statusDotClass}`} aria-hidden="true" />
-      <span className="hidden md:inline">{statusLabel}</span>
-    </span>
-  );
+  const renderStatusIndicator = () => {
+    if (status === "connected") {
+      return (
+        <span
+          className="inline-flex h-3 w-3 items-center justify-center"
+          aria-label="Connected To Firebase"
+          title="Connected To Firebase"
+        >
+          <span className="h-2.5 w-2.5 rounded-full bg-v2-success-500" aria-hidden="true" />
+        </span>
+      );
+    }
+    if (status === "syncing") {
+      return (
+        <span
+          className="inline-flex h-3 w-3 items-center justify-center"
+          aria-label="Syncing..."
+          title="Syncing data..."
+        >
+          <span className="h-2.5 w-2.5 rounded-full bg-v2-warn-500 animate-pulse" aria-hidden="true" />
+        </span>
+      );
+    }
+    return (
+      <span
+        className="inline-flex items-center gap-2 text-v2-xs uppercase tracking-[0.18em] text-v2-ink-400"
+        aria-label={statusLabel}
+        title={statusLabel}
+      >
+        <span className={`h-2 w-2 rounded-full ${statusDotClass}`} aria-hidden="true" />
+        <span>{statusLabel}</span>
+      </span>
+    );
+  };
 
   const athleteLinks = [
     { to: "/program-outline", label: "Daily Lifts" },
