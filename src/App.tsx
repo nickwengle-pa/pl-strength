@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Nav from "./components/Nav";
+import NavV2 from "./components/NavV2";
 import ActiveAthleteBanner from "./components/ActiveAthleteBanner";
 import Home from "./routes/Home";
 import HomeV2 from "./routes/HomeV2";
@@ -82,7 +83,7 @@ export default function App() {
     <ActiveAthleteProvider>
       <div className="min-h-full flex flex-col">
         <div className="print:hidden">
-          <Nav />
+          <V2Switch v1={<Nav />} v2={<NavV2 />} />
           <ActiveAthleteBanner />
         </div>
         <main className="flex-1">
