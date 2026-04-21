@@ -4,6 +4,7 @@ import Nav from "./components/Nav";
 import ActiveAthleteBanner from "./components/ActiveAthleteBanner";
 import Home from "./routes/Home";
 import Session from "./routes/Session";
+import SessionV2 from "./routes/SessionV2";
 import Roster from "./routes/Roster";
 import Calculator from "./routes/Calculator";
 import CalculatorV2 from "./routes/CalculatorV2";
@@ -83,7 +84,7 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/session" element={<Session />} />
+            <Route path="/session" element={<V2Switch v1={<Session />} v2={<SessionV2 />} />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/progress" element={<V2Switch v1={<Progress />} v2={<ProgressV2 />} />} />
             <Route path="/calculator" element={<V2Switch v1={<Calculator />} v2={<CalculatorV2 />} />} />
