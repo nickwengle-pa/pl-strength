@@ -1234,7 +1234,7 @@ export default function NavV2() {
           {isMobile ? (
             <>
               {friendlyName && (
-                <span className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-v2-xs font-semibold uppercase tracking-[0.18em] ${rolePillClass}`}>
+                <span className="hidden sm:inline-flex items-center rounded-full border border-v2-surface-800 bg-v2-surface-900 px-2 py-0.5 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-200">
                   {friendlyName}
                 </span>
               )}
@@ -1286,17 +1286,6 @@ export default function NavV2() {
                   {label}
                 </NavLink>
               ))}
-              {friendlyName && (
-                <span className={`hidden lg:inline-flex items-center rounded-full px-2.5 py-0.5 text-v2-xs font-semibold uppercase tracking-[0.18em] ${rolePillClass}`}>
-                  <span className="mr-1 opacity-80">{roleLabel}</span>
-                  <span className="opacity-60">&middot;</span>
-                  <span className="ml-1">{friendlyName}</span>
-                </span>
-              )}
-              {renderTeamPicker("desktop") && (
-                <div className="hidden lg:block">{renderTeamPicker("desktop")}</div>
-              )}
-              {renderThemeToggle("desktop")}
               <button
                 className="min-h-touch inline-flex items-center gap-2 rounded-v2-sm border border-v2-surface-800 bg-v2-surface-900 px-3 py-1.5 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-300 transition hover:border-v2-danger-600 hover:text-v2-danger-300 focus:outline-none focus:ring-2 focus:ring-v2-accent-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950"
                 type="button"
@@ -1393,10 +1382,8 @@ export default function NavV2() {
               </nav>
               <div className="flex flex-col gap-2 border-t border-v2-surface-800 pt-3">
                 {friendlyName && (
-                  <span className={`inline-flex self-start items-center rounded-full px-2.5 py-0.5 text-v2-xs font-semibold uppercase tracking-[0.18em] ${rolePillClass}`}>
-                    <span className="mr-1 opacity-80">{roleLabel}</span>
-                    <span className="opacity-60">&middot;</span>
-                    <span className="ml-1">{friendlyName}</span>
+                  <span className="inline-flex self-start items-center rounded-full border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-0.5 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-200">
+                    {friendlyName}
                   </span>
                 )}
                 {renderThemeToggle("mobile")}
