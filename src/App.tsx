@@ -3,21 +3,25 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import Nav from "./components/Nav";
 import ActiveAthleteBanner from "./components/ActiveAthleteBanner";
 import Home from "./routes/Home";
+import HomeV2 from "./routes/HomeV2";
 import Session from "./routes/Session";
 import SessionV2 from "./routes/SessionV2";
 import Roster from "./routes/Roster";
 import Calculator from "./routes/Calculator";
 import CalculatorV2 from "./routes/CalculatorV2";
 import Summary from "./routes/Summary";
+import SummaryV2 from "./routes/SummaryV2";
 import Progress from "./routes/Progress";
 import ProgressV2 from "./routes/ProgressV2";
 import Sheets from "./routes/Sheets";
+import SheetsV2 from "./routes/SheetsV2";
 import Admin from "./routes/Admin";
 import Profile from "./routes/Profile";
 import ProfileV2 from "./routes/ProfileV2";
 import Exercises from "./routes/Exercises";
 import ExercisesV2 from "./routes/ExercisesV2";
 import ProgramOutline from "./routes/ProgramOutline";
+import ProgramOutlineV2 from "./routes/ProgramOutlineV2";
 import Attendance from "./routes/Attendance";
 import SignIn from "./routes/SignIn";
 import SignInV2 from "./routes/SignInV2";
@@ -83,13 +87,13 @@ export default function App() {
         </div>
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<V2Switch v1={<Home />} v2={<HomeV2 />} />} />
             <Route path="/session" element={<V2Switch v1={<Session />} v2={<SessionV2 />} />} />
-            <Route path="/summary" element={<Summary />} />
+            <Route path="/summary" element={<V2Switch v1={<Summary />} v2={<SummaryV2 />} />} />
             <Route path="/progress" element={<V2Switch v1={<Progress />} v2={<ProgressV2 />} />} />
             <Route path="/calculator" element={<V2Switch v1={<Calculator />} v2={<CalculatorV2 />} />} />
-            <Route path="/sheets" element={<Sheets />} />
-            <Route path="/program-outline" element={<ProgramOutline />} />
+            <Route path="/sheets" element={<V2Switch v1={<Sheets />} v2={<SheetsV2 />} />} />
+            <Route path="/program-outline" element={<V2Switch v1={<ProgramOutline />} v2={<ProgramOutlineV2 />} />} />
             <Route path="/exercises" element={<V2Switch v1={<Exercises />} v2={<ExercisesV2 />} />} />
             <Route path="/turf" element={<V2Switch v1={<Turf />} v2={<TurfV2 />} />} />
             <Route path="/accessory" element={<V2Switch v1={<Accessory />} v2={<AccessoryV2 />} />} />
