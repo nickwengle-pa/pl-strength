@@ -603,24 +603,24 @@ const applyPendingCheckinsToSheet = (
 
 const SESSION_COLOR_STYLES = [
   {
-    badge: "border-rose-200 bg-rose-100 text-rose-700",
-    active: "border-rose-600 bg-rose-500 text-white",
-    idle: "border-rose-300 bg-white text-rose-700 hover:bg-rose-50",
+    badge: "border-v2-danger-700 bg-v2-danger-900/60 text-v2-danger-300",
+    active: "border-rose-600 bg-rose-500 text-v2-ink-50",
+    idle: "border-v2-danger-700 bg-v2-surface-900 text-v2-danger-300 hover:bg-v2-danger-900/40",
   },
   {
-    badge: "border-blue-200 bg-blue-100 text-blue-700",
-    active: "border-blue-600 bg-blue-500 text-white",
-    idle: "border-blue-300 bg-white text-blue-700 hover:bg-blue-50",
+    badge: "border-v2-info-600 bg-v2-info-900/60 text-v2-info-300",
+    active: "border-blue-600 bg-blue-500 text-v2-ink-50",
+    idle: "border-v2-info-600 bg-v2-surface-900 text-v2-info-300 hover:bg-v2-info-900/30",
   },
   {
-    badge: "border-emerald-200 bg-emerald-100 text-emerald-700",
-    active: "border-emerald-600 bg-emerald-500 text-white",
-    idle: "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50",
+    badge: "border-v2-success-700 bg-v2-success-900/60 text-v2-success-300",
+    active: "border-emerald-600 bg-emerald-500 text-v2-ink-50",
+    idle: "border-v2-success-700 bg-v2-surface-900 text-v2-success-300 hover:bg-v2-success-900/30",
   },
   {
-    badge: "border-amber-200 bg-amber-100 text-amber-700",
-    active: "border-amber-600 bg-amber-500 text-white",
-    idle: "border-amber-300 bg-white text-amber-700 hover:bg-amber-50",
+    badge: "border-v2-warn-600 bg-v2-warn-900/60 text-v2-warn-300",
+    active: "border-amber-600 bg-amber-500 text-v2-ink-50",
+    idle: "border-v2-warn-600 bg-v2-surface-900 text-v2-warn-300 hover:bg-v2-warn-900/30",
   },
 ] as const;
 
@@ -691,9 +691,9 @@ const tierFromPercent = (pct: number): AttendanceTier => {
 };
 
 const tierBadgeClass = (tier: AttendanceTier): string => {
-  if (tier === "high") return "bg-emerald-100 text-emerald-700";
-  if (tier === "low") return "bg-rose-100 text-rose-700";
-  return "bg-amber-100 text-amber-700";
+  if (tier === "high") return "bg-v2-success-900/60 text-v2-success-300";
+  if (tier === "low") return "bg-v2-danger-900/60 text-v2-danger-300";
+  return "bg-v2-warn-900/60 text-v2-warn-300";
 };
 
 const tierLabel = (tier: AttendanceTier): string => {
@@ -703,9 +703,9 @@ const tierLabel = (tier: AttendanceTier): string => {
 };
 
 const weekCellClass = (pct: number): string => {
-  if (pct >= HIGH_ATTENDANCE_THRESHOLD) return "bg-emerald-50 text-emerald-700";
-  if (pct < LOW_ATTENDANCE_THRESHOLD) return "bg-rose-50 text-rose-700";
-  return "bg-amber-50 text-amber-700";
+  if (pct >= HIGH_ATTENDANCE_THRESHOLD) return "bg-v2-success-900/30 text-v2-success-300";
+  if (pct < LOW_ATTENDANCE_THRESHOLD) return "bg-v2-danger-900/40 text-v2-danger-300";
+  return "bg-v2-warn-900/30 text-v2-warn-300";
 };
 
 const csvEscape = (value: string | number): string => {
@@ -3179,10 +3179,10 @@ export default function AttendanceV2() {
                 type="button"
                 onClick={() => setSelectedTeam(team)}
                 className={[
-                  "whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
+                  "whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight transition sm:rounded-v2-md sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
                   selectedTeam === team
-                    ? "bg-brand-600 text-white shadow-sm"
-                    : "border border-gray-200 bg-white text-gray-700 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
+                    ? "bg-v2-accent-700 text-v2-ink-50 shadow-v2-elev-1 hover:bg-v2-accent-800"
+                    : "border border-v2-surface-800 bg-v2-surface-900 text-v2-ink-200 hover:border-v2-accent-700 hover:bg-v2-accent-900/40 hover:text-v2-accent-300",
                 ].join(" ")}
               >
                 {formatTeamLabel(team)}
@@ -3192,23 +3192,23 @@ export default function AttendanceV2() {
         </div>
 
         {loadError && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+          <div className="rounded-v2-md border border-v2-danger-700 bg-v2-danger-900/40 px-4 py-2 text-sm text-v2-danger-300">
             {loadError}
           </div>
         )}
         {flash && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+          <div className="rounded-v2-md border border-v2-success-700 bg-v2-success-900/30 px-4 py-2 text-sm text-v2-success-300">
             {flash}
           </div>
         )}
         {selectedError && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          <div className="rounded-v2-md border border-v2-warn-600 bg-v2-warn-900/30 px-4 py-2 text-sm text-v2-warn-300">
             {selectedError}
           </div>
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white/95 shadow-sm">
+      <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-1">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
@@ -3216,33 +3216,33 @@ export default function AttendanceV2() {
           aria-expanded={!isAddAthleteCollapsed}
         >
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-v2-accent-700 text-xs font-bold text-v2-ink-50">
               +
             </span>
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-100">
                 Quick Add Athlete
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-v2-ink-400">
                 Name Is Required. Everything Else Is Optional.
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-ink-200">
             {isAddAthleteCollapsed ? "Show" : "Hide"}
           </span>
         </button>
 
         {!isAddAthleteCollapsed && (
           <form
-            className="border-t border-slate-200 p-3 space-y-3"
+            className="border-t border-v2-surface-800 p-3 space-y-3"
             onSubmit={handleAddAthlete}
           >
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.2fr_.8fr_.8fr_1fr_auto]">
               <label className="sr-only" htmlFor="attendance-first-name">First Name</label>
               <input
                 id="attendance-first-name"
-                className="field h-10 bg-slate-50"
+                className="field-v2 h-10"
                 value={formDraft.firstName}
                 onChange={(event) =>
                   setFormDraft((prev) => ({ ...prev, firstName: event.target.value }))
@@ -3253,7 +3253,7 @@ export default function AttendanceV2() {
               <label className="sr-only" htmlFor="attendance-last-name">Last Name</label>
               <input
                 id="attendance-last-name"
-                className="field h-10 bg-slate-50"
+                className="field-v2 h-10"
                 value={formDraft.lastName}
                 onChange={(event) =>
                   setFormDraft((prev) => ({ ...prev, lastName: event.target.value }))
@@ -3264,7 +3264,7 @@ export default function AttendanceV2() {
               <label className="sr-only" htmlFor="attendance-jersey">Jersey Number</label>
               <input
                 id="attendance-jersey"
-                className="field h-10 bg-slate-50"
+                className="field-v2 h-10"
                 value={formDraft.number}
                 onChange={(event) =>
                   setFormDraft((prev) => ({ ...prev, number: event.target.value }))
@@ -3275,7 +3275,7 @@ export default function AttendanceV2() {
               <label className="sr-only" htmlFor="attendance-grade">Grade</label>
               <input
                 id="attendance-grade"
-                className="field h-10 bg-slate-50"
+                className="field-v2 h-10"
                 value={formDraft.grade}
                 onChange={(event) =>
                   setFormDraft((prev) => ({ ...prev, grade: event.target.value }))
@@ -3286,7 +3286,7 @@ export default function AttendanceV2() {
               <label className="sr-only" htmlFor="attendance-level">Level</label>
               <select
                 id="attendance-level"
-                className="field h-10 bg-slate-50"
+                className="field-v2 h-10"
                 value={formDraft.level}
                 onChange={(event) =>
                   setFormDraft((prev) => ({
@@ -3307,15 +3307,15 @@ export default function AttendanceV2() {
               </button>
             </div>
 
-            <details className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2">
-              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            <details className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                 Optional Details
               </summary>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <label className="sr-only" htmlFor="attendance-height">Height</label>
                 <input
                   id="attendance-height"
-                  className="field h-10 bg-white"
+                  className="field-v2 h-10"
                   value={formDraft.height}
                   onChange={(event) =>
                     setFormDraft((prev) => ({ ...prev, height: event.target.value }))
@@ -3326,7 +3326,7 @@ export default function AttendanceV2() {
                 <label className="sr-only" htmlFor="attendance-weight">Weight</label>
                 <input
                   id="attendance-weight"
-                  className="field h-10 bg-white"
+                  className="field-v2 h-10"
                   value={formDraft.weight}
                   onChange={(event) =>
                     setFormDraft((prev) => ({ ...prev, weight: event.target.value }))
@@ -3339,22 +3339,22 @@ export default function AttendanceV2() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white/95 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
+      <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-v2-surface-800 px-3 py-2">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-100">
               Current Roster
             </h3>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-v2-ink-400">
               Remove Athletes Here Without Cluttering Daily Attendance Checks.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-ink-200">
             {visibleAthletes.length} Athlete{visibleAthletes.length !== 1 ? "s" : ""}
           </span>
         </div>
         {visibleAthletes.length === 0 ? (
-          <div className="px-3 py-3 text-sm text-slate-500">
+          <div className="px-3 py-3 text-sm text-v2-ink-400">
             No Athletes In The Current Team Roster Yet.
           </div>
         ) : (
@@ -3367,19 +3367,19 @@ export default function AttendanceV2() {
               return (
                 <div
                   key={`roster-manager-${athlete.id}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-800">
+                    <p className="truncate text-sm font-semibold text-v2-ink-100">
                       {athleteName || "Unknown Athlete"}
                     </p>
-                    <p className="truncate text-[11px] text-slate-500">
+                    <p className="truncate text-[11px] text-v2-ink-400">
                       Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="shrink-0 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                    className="shrink-0 rounded-lg border border-v2-danger-700 bg-v2-surface-900 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-60"
                     onClick={() => handleRemoveAthlete(selectedTeam, athlete.id, [athlete.firstName, athlete.lastName].filter(Boolean).join(" ") || undefined)}
                     disabled={selectedSaving}
                   >
@@ -3392,16 +3392,16 @@ export default function AttendanceV2() {
         )}
       </div>
 
-      <div className="card space-y-4">
+      <div className="bg-v2-surface-900 border border-v2-surface-800 rounded-v2-md p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-gray-800">
+          <h2 className="text-lg font-semibold text-v2-ink-100">
             {formatTeamLabel(selectedTeam)} Attendance Sheet
           </h2>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {isMobileCoachBrowser && (
               <button
                 type="button"
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                className="rounded-v2-md border border-v2-surface-700 bg-v2-surface-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-v2-ink-200 transition hover:border-v2-surface-700 hover:bg-v2-surface-800"
                 onClick={() => setShowDesktopTableOnMobile((prev) => !prev)}
               >
                 {showDesktopTableOnMobile ? "Mobile Athlete View" : "Desktop Table View"}
@@ -3410,7 +3410,7 @@ export default function AttendanceV2() {
             {isMobileCoachBrowser && (
               <button
                 type="button"
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-60"
+                className="rounded-v2-md border border-v2-surface-700 bg-v2-surface-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-v2-ink-200 transition hover:border-v2-surface-700 hover:bg-v2-surface-800 disabled:opacity-60"
                 onClick={handleJumpToReview}
                 disabled={!canJumpToReview}
               >
@@ -3419,7 +3419,7 @@ export default function AttendanceV2() {
             )}
             <button
               type="button"
-              className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-900 disabled:opacity-60"
+              className="rounded-v2-md bg-v2-accent-700 px-4 py-2 text-sm font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800 disabled:opacity-60"
               onClick={() => handleOpenInlineAddDate(selectedTeam)}
               disabled={selectedSaving || showInlineAddDate}
             >
@@ -3428,10 +3428,10 @@ export default function AttendanceV2() {
             <button
               type="button"
               className={[
-                "rounded-xl px-4 py-2 text-sm font-semibold uppercase tracking-wide transition",
+                "rounded-v2-md px-4 py-2 text-sm font-semibold uppercase tracking-wide transition",
                 selectedDirty
-                  ? "bg-rose-600 text-white shadow-lg shadow-rose-300/50 ring-2 ring-rose-300 hover:bg-rose-700"
-                  : "bg-slate-200 text-slate-500",
+                  ? "bg-rose-600 text-v2-ink-50 shadow-lg shadow-rose-900/50 ring-2 ring-v2-danger-700 hover:bg-rose-700"
+                  : "bg-v2-surface-800 text-v2-ink-400",
               ].join(" ")}
               onClick={() => handleSave(selectedTeam)}
               disabled={!selectedDirty || selectedSaving}
@@ -3443,13 +3443,13 @@ export default function AttendanceV2() {
 
         {/* Unsaved changes reminder */}
         {selectedDirty && !selectedSaving && (
-          <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-rose-800">
+          <div className="rounded-v2-md border border-v2-danger-700 bg-v2-danger-900/40 px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-v2-danger-300">
               Unsaved Changes. Save Attendance Before You Leave This Page.
             </p>
             <button
               type="button"
-              className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+              className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-v2-ink-50 transition hover:bg-rose-700"
               onClick={() => handleSave(selectedTeam)}
             >
               Save Attendance Now
@@ -3459,14 +3459,14 @@ export default function AttendanceV2() {
 
         {selectedDirty && !selectedSaving && !isMobileCoachBrowser && (
           <div className="fixed inset-x-3 bottom-3 z-40">
-            <div className="rounded-2xl border border-rose-300 bg-white/95 shadow-2xl backdrop-blur">
+            <div className="rounded-v2-lg border border-v2-danger-700 bg-v2-surface-900 shadow-v2-elev-3 backdrop-blur">
               <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-800">
+                <p className="text-sm font-semibold text-v2-ink-100">
                   You Have Unsaved Attendance Changes
                 </p>
                 <button
                   type="button"
-                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                  className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-v2-ink-50 transition hover:bg-rose-700"
                   onClick={() => handleSave(selectedTeam)}
                 >
                   Save Now
@@ -3478,11 +3478,11 @@ export default function AttendanceV2() {
 
         {showMobileQuickActionBar && (
           <div className="fixed inset-x-3 bottom-3 z-40 sm:hidden">
-            <div className="rounded-2xl border border-slate-300 bg-white/95 shadow-2xl backdrop-blur">
+            <div className="rounded-v2-lg border border-v2-surface-700 bg-v2-surface-900 shadow-v2-elev-3 backdrop-blur">
               <div className="flex items-center gap-2 px-3 py-3">
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-v2-ink-200 transition hover:bg-v2-surface-800 disabled:opacity-60"
                   onClick={handleJumpToReview}
                   disabled={!canJumpToReview}
                 >
@@ -3490,7 +3490,7 @@ export default function AttendanceV2() {
                 </button>
                 <button
                   type="button"
-                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-v2-ink-50 transition hover:bg-rose-700 disabled:opacity-60"
                   onClick={() => handleSave(selectedTeam)}
                   disabled={!selectedDirty || selectedSaving}
                 >
@@ -3498,7 +3498,7 @@ export default function AttendanceV2() {
                 </button>
               </div>
               {selectedDirty && (
-                <div className="border-t border-slate-200 px-3 pb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
+                <div className="border-t border-v2-surface-800 px-3 pb-2 text-[11px] font-medium uppercase tracking-wide text-v2-danger-300">
                   Unsaved Attendance Changes
                 </div>
               )}
@@ -3507,9 +3507,9 @@ export default function AttendanceV2() {
         )}
 
         {/* Lift Day Cards */}
-        <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 space-y-2">
+        <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-200">
               Lift Days
             </h3>
             <div className="flex flex-wrap items-center gap-1">
@@ -3520,8 +3520,8 @@ export default function AttendanceV2() {
                   onClick={() => setLiftDayRangePreset(opt.value)}
                   className={
                     liftDayRangePreset === opt.value
-                      ? "rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white transition"
-                      : "rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                      ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
+                      : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                   }
                 >
                   {opt.label}
@@ -3532,24 +3532,24 @@ export default function AttendanceV2() {
 
           {/* Inline Add Lift Day Form */}
           {showInlineAddDate && (
-            <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 space-y-2">
-              <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            <div className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 p-3 space-y-2">
+              <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
                 <input
                   type="date"
-                  className="field h-10 bg-white"
+                  className="field-v2 h-10"
                   value={addDateDraftDate}
                   onChange={(event) => setAddDateDraftDate(event.target.value)}
                 />
               </label>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                     Sessions
                   </span>
                   <button
                     type="button"
-                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                    className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                     onClick={handleAddDateDraftSession}
                   >
                     + Add Session
@@ -3563,13 +3563,13 @@ export default function AttendanceV2() {
                 {addDateDraftSessions.map((session, index) => (
                   <div
                     key={session.id}
-                    className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2 py-2"
                   >
-                    <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                    <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-[10px] font-semibold text-v2-ink-200">
                       {index + 1}
                     </span>
                     <input
-                      className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                      className="field-v2 h-9 min-w-44 flex-1 text-xs"
                       value={session.label}
                       list="attendance-session-name-options"
                       onChange={(event) =>
@@ -3579,7 +3579,7 @@ export default function AttendanceV2() {
                     />
                     <button
                       type="button"
-                      className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                      className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                       onClick={() => handleRemoveDateDraftSession(session.id)}
                       disabled={addDateDraftSessions.length <= 1}
                     >
@@ -3589,21 +3589,21 @@ export default function AttendanceV2() {
                 ))}
               </div>
               {selectedError && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                <div className="rounded-lg border border-v2-danger-700 bg-v2-danger-900/40 px-3 py-2 text-xs text-v2-danger-300">
                   {selectedError}
                 </div>
               )}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-4 py-2 text-xs font-semibold text-v2-ink-200 transition hover:bg-v2-surface-800"
                   onClick={handleCloseInlineAddDate}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-v2-ink-50 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={() => handleSaveDateSetup(selectedTeam)}
                   disabled={selectedSaving}
                 >
@@ -3615,13 +3615,13 @@ export default function AttendanceV2() {
 
           {/* Existing date cards */}
           {reportSourceDates.length === 0 && !showInlineAddDate ? (
-            <p className="text-xs text-slate-500 py-1">
+            <p className="text-xs text-v2-ink-400 py-1">
               No lift days added yet. Click "+ Add Lift Day" to get started.
             </p>
           ) : (
             <div className="space-y-1">
               {liftDayVisibleDates.length === 0 && (
-                <p className="text-xs text-slate-400 italic py-1">No lift days in this range.</p>
+                <p className="text-xs text-v2-ink-500 italic py-1">No lift days in this range.</p>
               )}
               {[...liftDayVisibleDates].reverse().map((date) => {
                 const isExpanded = expandedLiftDates.has(date);
@@ -3636,8 +3636,8 @@ export default function AttendanceV2() {
                     className={[
                       "rounded-lg border transition",
                       isNewest
-                        ? "border-amber-200 bg-amber-50/40"
-                        : "border-slate-200 bg-white",
+                        ? "border-v2-warn-600 bg-v2-warn-900/30"
+                        : "border-v2-surface-800 bg-v2-surface-900",
                     ].join(" ")}
                   >
                     {/* Card header row */}
@@ -3656,26 +3656,26 @@ export default function AttendanceV2() {
                         });
                       }}
                     >
-                      <span className="text-[11px] text-slate-500 select-none">
+                      <span className="text-[11px] text-v2-ink-400 select-none">
                         {isExpanded ? "▼" : "►"}
                       </span>
-                      <span className="text-sm font-semibold text-slate-800">
+                      <span className="text-sm font-semibold text-v2-ink-100">
                         {formatDateLabel(date)}
                       </span>
                       {isNewest && (
-                        <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                        <span className="rounded-full bg-v2-warn-900/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-v2-warn-300">
                           Latest
                         </span>
                       )}
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-v2-ink-400">
                         {sessionsForDate.length || 1} Session{sessionsForDate.length !== 1 ? "s" : ""}
                       </span>
                       <span
                         className={[
                           "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                           dateLocked
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-emerald-100 text-emerald-700",
+                            ? "bg-v2-warn-900/60 text-v2-warn-300"
+                            : "bg-v2-success-900/60 text-v2-success-300",
                         ].join(" ")}
                       >
                         {dateLocked ? "Locked" : "Open"}
@@ -3686,8 +3686,8 @@ export default function AttendanceV2() {
                           className={[
                             "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
                             dateLocked
-                              ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                              ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
+                              : "bg-v2-surface-800 text-v2-ink-200 hover:bg-v2-surface-700",
                           ].join(" ")}
                           onClick={() => handleToggleDateLock(selectedTeam, date, !dateLocked)}
                           disabled={selectedSaving || lockingDate === date}
@@ -3696,7 +3696,7 @@ export default function AttendanceV2() {
                         </button>
                         <button
                           type="button"
-                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                           onClick={() => handleRemoveDate(selectedTeam, date)}
                           disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                         >
@@ -3707,14 +3707,14 @@ export default function AttendanceV2() {
 
                     {/* Expanded session management */}
                     {isExpanded && (
-                      <div className="border-t border-slate-100 px-3 pb-3 pt-2 space-y-2">
+                      <div className="border-t border-v2-surface-800 px-3 pb-3 pt-2 space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                             Sessions
                           </span>
                           <button
                             type="button"
-                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                            className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                             onClick={() => handleAddSessionToDate(selectedTeam, date)}
                             disabled={selectedSaving}
                           >
@@ -3727,13 +3727,13 @@ export default function AttendanceV2() {
                           return (
                             <div
                               key={`${date}-${session.key}`}
-                              className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2"
+                              className="flex flex-wrap items-center gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2 py-2"
                             >
-                              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                              <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-[10px] font-semibold text-v2-ink-200">
                                 {index + 1}
                               </span>
                               <input
-                                className="field h-9 min-w-44 flex-1 bg-white text-xs"
+                                className="field-v2 h-9 min-w-44 flex-1 text-xs"
                                 value={session.label}
                                 onChange={(event) =>
                                   handleSessionLabelChange(
@@ -3750,8 +3750,8 @@ export default function AttendanceV2() {
                                 className={[
                                   "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
                                   locked
-                                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200",
+                                    ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
+                                    : "bg-v2-success-900/60 text-v2-success-300 hover:bg-v2-success-900/30",
                                 ].join(" ")}
                                 onClick={() =>
                                   handleToggleSessionLock(selectedTeam, date, session.key, !locked)
@@ -3766,7 +3766,7 @@ export default function AttendanceV2() {
                               </button>
                               <button
                                 type="button"
-                                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                                 onClick={() =>
                                   handleRemoveSessionFromDate(selectedTeam, date, session.key)
                                 }
@@ -3777,7 +3777,7 @@ export default function AttendanceV2() {
                             </div>
                           );
                         })}
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-v2-ink-400">
                           Athletes auto-assigned to the first unlocked session. One check-in per date.
                         </p>
                       </div>
@@ -3791,19 +3791,19 @@ export default function AttendanceV2() {
 
         {/* Potential Duplicates Panel */}
         {potentialDuplicatePairs.length > 0 && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3 space-y-3">
+          <div className="rounded-v2-md border border-v2-warn-600 bg-v2-warn-900/30 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-v2-warn-300">
                   Potential Duplicates
                 </h4>
-                <p className="text-[11px] text-amber-700">
+                <p className="text-[11px] text-v2-warn-300">
                   {potentialDuplicatePairs.length} pair{potentialDuplicatePairs.length !== 1 ? "s" : ""} share the same last name — review and merge, or skip.
                 </p>
               </div>
               <button
                 type="button"
-                className="rounded-lg border border-amber-300 bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-200"
+                className="rounded-lg border border-v2-warn-600 bg-v2-warn-900/60 px-2.5 py-1 text-[11px] font-semibold text-v2-warn-300 transition hover:bg-v2-warn-900/30"
                 onClick={() =>
                   markDuplicatePairsReviewed(
                     selectedTeam,
@@ -3824,25 +3824,25 @@ export default function AttendanceV2() {
                 const suggestedPrimary = aDateCount >= bDateCount ? athleteA : athleteB;
                 const suggestedCandidate = suggestedPrimary.id === athleteA.id ? athleteB : athleteA;
                 return (
-                  <div key={pairKey} className="rounded-lg border border-amber-200 bg-white px-3 py-2 space-y-2">
+                  <div key={pairKey} className="rounded-lg border border-v2-warn-600 bg-v2-surface-900 px-3 py-2 space-y-2">
                     {[athleteA, athleteB].map((athlete) => {
                       const dateCount = Object.values(selectedSheet.records[athlete.id] ?? {}).filter(Boolean).length;
                       return (
-                        <div key={athlete.id} className="flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                        <div key={athlete.id} className="flex flex-wrap items-center gap-2 text-xs text-v2-ink-200">
                           <span className="font-semibold">{athlete.firstName} {athlete.lastName}</span>
-                          {athlete.number && <span className="text-slate-500">#{athlete.number}</span>}
-                          {athlete.grade && <span className="text-slate-500">Gr.{athlete.grade}</span>}
-                          <span className={["rounded-full px-1.5 py-0.5 text-[10px] font-semibold", athlete.uid ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"].join(" ")}>
+                          {athlete.number && <span className="text-v2-ink-400">#{athlete.number}</span>}
+                          {athlete.grade && <span className="text-v2-ink-400">Gr.{athlete.grade}</span>}
+                          <span className={["rounded-full px-1.5 py-0.5 text-[10px] font-semibold", athlete.uid ? "bg-v2-success-900/60 text-v2-success-300" : "bg-v2-surface-800 text-v2-ink-400"].join(" ")}>
                             {athlete.uid ? "✓ linked" : "unlinked"}
                           </span>
-                          <span className="text-slate-500">{dateCount} date{dateCount !== 1 ? "s" : ""}</span>
+                          <span className="text-v2-ink-400">{dateCount} date{dateCount !== 1 ? "s" : ""}</span>
                         </div>
                       );
                     })}
                     <div className="flex gap-2 pt-1">
                       <button
                         type="button"
-                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-amber-700"
+                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-amber-700"
                         onClick={() =>
                           setMergePreviewIds({
                             primaryId: suggestedPrimary.id,
@@ -3854,7 +3854,7 @@ export default function AttendanceV2() {
                       </button>
                       <button
                         type="button"
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                        className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-3 py-1.5 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                         onClick={() => markDuplicatePairsReviewed(selectedTeam, [pairKey])}
                       >
                         Not the Same Person — Skip
@@ -3879,86 +3879,86 @@ export default function AttendanceV2() {
           );
           return (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-v2-surface-950/70 p-4"
               onClick={() => setMergePreviewIds(null)}
             >
               <div
-                className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl"
+                className="w-full max-w-lg rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-3"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="border-b border-slate-200 px-4 py-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                <div className="border-b border-v2-surface-800 px-4 py-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-v2-ink-100">
                     Merge Preview
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-v2-ink-400">
                     Review what will change before confirming.
                   </p>
                 </div>
                 <div className="space-y-4 p-4 text-sm">
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                       Profile Result
                     </p>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs space-y-1">
+                    <div className="rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-3 py-2 text-xs space-y-1">
                       <div className="flex gap-2">
-                        <span className="w-20 text-slate-500">Name:</span>
+                        <span className="w-20 text-v2-ink-400">Name:</span>
                         <span className="font-medium">{primary.firstName} {primary.lastName}</span>
-                        <span className="text-slate-400">(from primary)</span>
+                        <span className="text-v2-ink-500">(from primary)</span>
                       </div>
                       {(primary.number || candidate.number) && (
                         <div className="flex gap-2">
-                          <span className="w-20 text-slate-500">Jersey #:</span>
+                          <span className="w-20 text-v2-ink-400">Jersey #:</span>
                           <span className="font-medium">{primary.number ?? candidate.number}</span>
-                          <span className="text-slate-400">{primary.number ? "(from primary)" : "(from linked entry)"}</span>
+                          <span className="text-v2-ink-500">{primary.number ? "(from primary)" : "(from linked entry)"}</span>
                         </div>
                       )}
                       <div className="flex gap-2">
-                        <span className="w-20 text-slate-500">Login:</span>
+                        <span className="w-20 text-v2-ink-400">Login:</span>
                         {(primary.uid ?? candidate.uid) ? (
-                          <span className="font-medium text-emerald-700">✓ linked</span>
+                          <span className="font-medium text-v2-success-300">✓ linked</span>
                         ) : (
-                          <span className="text-slate-400">unlinked</span>
+                          <span className="text-v2-ink-500">unlinked</span>
                         )}
                         {!primary.uid && candidate.uid && (
-                          <span className="text-slate-400">(added from linked entry)</span>
+                          <span className="text-v2-ink-500">(added from linked entry)</span>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                       Attendance Records
                     </p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-v2-ink-400">
                       OR logic — any date where either entry was present will be kept as present.
                     </p>
                     {conflictDates.length > 0 ? (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
-                        <p className="font-semibold text-amber-800 mb-1">
+                      <div className="rounded-lg border border-v2-warn-600 bg-v2-warn-900/30 px-3 py-2 text-xs">
+                        <p className="font-semibold text-v2-warn-300 mb-1">
                           {conflictDates.length} date{conflictDates.length !== 1 ? "s" : ""} where only the merged entry was present — will be added:
                         </p>
-                        <p className="text-amber-700">
+                        <p className="text-v2-warn-300">
                           {conflictDates.map((d) => formatDateLabel(d)).join(", ")}
                         </p>
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500 italic">
+                      <p className="text-xs text-v2-ink-400 italic">
                         No conflicting dates — records are compatible.
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+                <div className="flex gap-2 border-t border-v2-surface-800 px-4 py-3">
                   <button
                     type="button"
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-4 py-2 text-xs font-semibold text-v2-ink-200 transition hover:bg-v2-surface-800"
                     onClick={() => setMergePreviewIds(null)}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    className="flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                    className="flex-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-v2-ink-50 transition hover:bg-amber-700 disabled:opacity-60"
                     disabled={selectedSaving}
                     onClick={() =>
                       handleConfirmMergeAthletes(mergePreviewIds.primaryId, mergePreviewIds.candidateId)
@@ -3973,15 +3973,15 @@ export default function AttendanceV2() {
         })()}
 
         {useCompactMobileAthleteLayout ? (
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+          <div className="space-y-3 rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-200">
                 Athlete Attendance
               </h3>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
                 <select
-                  className="field min-w-40 bg-white text-xs"
+                  className="field-v2 min-w-40 text-xs"
                   value={mobileAthleteDate}
                   onChange={(event) => setReviewDate(event.target.value)}
                   disabled={reportSourceDates.length === 0}
@@ -4000,11 +4000,11 @@ export default function AttendanceV2() {
             </div>
 
             {visibleAthletes.length === 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
+              <div className="rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 text-sm text-v2-ink-400">
                 No Athletes Added Yet. Use The Form Above To Add Someone.
               </div>
             ) : !mobileAthleteDate ? (
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
+              <div className="rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 text-sm text-v2-ink-400">
                 Add Or Select An Attendance Date To Mark Athletes.
               </div>
             ) : (
@@ -4033,16 +4033,16 @@ export default function AttendanceV2() {
                     return (
                       <div
                         key={`mobile-athlete-${athlete.id}`}
-                        className={`rounded-lg border border-slate-200 bg-white px-2.5 py-2 ${
+                        className={`rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-2 ${
                           mobileAthleteDateLocked ? "grayscale opacity-60" : ""
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-slate-800">
+                            <div className="truncate text-sm font-semibold text-v2-ink-100">
                               {athleteName || "Unknown Athlete"}
                             </div>
-                            <div className="truncate text-[11px] text-slate-500">
+                            <div className="truncate text-[11px] text-v2-ink-400">
                               Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
                             </div>
                           </div>
@@ -4091,7 +4091,7 @@ export default function AttendanceV2() {
           <div className="space-y-2">
           {/* Date range filter bar */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-400">
               Show:
             </span>
             {TABLE_RANGE_OPTIONS.map((opt) => (
@@ -4101,25 +4101,25 @@ export default function AttendanceV2() {
                 onClick={() => setTableRangePreset(opt.value)}
                 className={
                   tableRangePreset === opt.value
-                    ? "rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-white transition"
-                    : "rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                    ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
+                    : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                 }
               >
                 {opt.label}
               </button>
             ))}
             {tableVisibleDates.length === 0 && tableRangePreset !== "all_dates" && (
-              <span className="text-[11px] text-slate-400 italic">
+              <span className="text-[11px] text-v2-ink-500 italic">
                 No dates in this range
               </span>
             )}
           </div>
           <div className="overflow-x-auto">
-          <table className="w-max table-auto divide-y divide-gray-200 text-sm">
+          <table className="w-max table-auto divide-y divide-v2-surface-800 text-sm">
             <thead>
-              <tr className="bg-gray-50">
+              <tr className="bg-v2-surface-800">
                 <th
-                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-v2-ink-300 cursor-pointer hover:bg-v2-surface-700 select-none"
                   onClick={() => handleSort('number')}
                 >
                   <div className="flex items-center gap-1">
@@ -4130,7 +4130,7 @@ export default function AttendanceV2() {
                   </div>
                 </th>
                 <th
-                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-v2-ink-200 cursor-pointer hover:bg-v2-surface-700 select-none"
                   onClick={() => handleSort('firstName')}
                 >
                   <div className="flex items-center gap-1">
@@ -4141,7 +4141,7 @@ export default function AttendanceV2() {
                   </div>
                 </th>
                 <th
-                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-gray-700 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left font-medium text-v2-ink-200 cursor-pointer hover:bg-v2-surface-700 select-none"
                   onClick={() => handleSort('lastName')}
                 >
                   <div className="flex items-center gap-1">
@@ -4152,7 +4152,7 @@ export default function AttendanceV2() {
                   </div>
                 </th>
                 <th
-                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-v2-ink-300 cursor-pointer hover:bg-v2-surface-700 select-none"
                   onClick={() => handleSort('grade')}
                 >
                   <div className="flex items-center gap-1">
@@ -4163,7 +4163,7 @@ export default function AttendanceV2() {
                   </div>
                 </th>
                 <th
-                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                  className="px-3 py-2 whitespace-nowrap text-left text-xs font-semibold text-v2-ink-300 cursor-pointer hover:bg-v2-surface-700 select-none"
                   onClick={() => handleSort('lastWorkout')}
                 >
                   <div className="flex items-center gap-1">
@@ -4178,18 +4178,18 @@ export default function AttendanceV2() {
                   const sessionCountsForDate = sessionCountsByDate[date] ?? {};
                   const isNewestDate = date === selectedSheet.dates[selectedSheet.dates.length - 1];
                   return (
-                  <th key={date} className={["px-2 py-2 text-center text-xs font-semibold text-gray-600", isNewestDate ? "bg-amber-50" : ""].join(" ")}>
+                  <th key={date} className={["px-2 py-2 text-center text-xs font-semibold text-v2-ink-300", isNewestDate ? "bg-v2-warn-900/30" : ""].join(" ")}>
                     <div className="flex flex-col items-center gap-1">
                       {selectedSheet.lockedDates?.[date] ? (
-                        <span className="rounded-full bg-rose-100 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+                        <span className="rounded-full bg-v2-danger-900/60 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300">
                           Locked
                         </span>
                       ) : (
-                        <span className="rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                        <span className="rounded-full bg-v2-success-900/60 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-v2-success-300">
                           Open
                         </span>
                       )}
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-v2-ink-400">
                         {sessionsForDate.length || 1} Sessions
                       </span>
                       {sessionsForDate.length > 0 && (
@@ -4220,15 +4220,15 @@ export default function AttendanceV2() {
                           handleDateChange(selectedTeam, selectedSheet.dates.indexOf(date), event.target.value)
                         }
                         disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
-                        className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                        className="w-28 rounded-lg border border-v2-surface-800 bg-v2-surface-900 text-v2-ink-100 px-2 py-1 text-xs"
                       />
                       <button
                         type="button"
                         className={[
                           "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
                           selectedSheet.lockedDates?.[date]
-                            ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                            : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                            ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
+                            : "bg-v2-surface-800 text-v2-ink-200 hover:bg-v2-surface-700",
                         ].join(" ")}
                         onClick={() =>
                           handleToggleDateLock(
@@ -4247,7 +4247,7 @@ export default function AttendanceV2() {
                       </button>
                       <button
                         type="button"
-                        className="text-xs text-rose-500 hover:text-rose-600"
+                        className="text-xs text-v2-danger-300 hover:text-v2-danger-200"
                         onClick={() => handleRemoveDate(selectedTeam, date)}
                         disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                       >
@@ -4259,36 +4259,36 @@ export default function AttendanceV2() {
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-v2-surface-800">
               {visibleAthletes.length === 0 ? (
                 <tr>
                   <td
                     colSpan={selectedSheet.dates.length + 5}
-                    className="px-3 py-5 text-center text-sm text-gray-500"
+                    className="px-3 py-5 text-center text-sm text-v2-ink-400"
                   >
                     No Athletes Added Yet. Use The Form Above To Add Someone.
                   </td>
                 </tr>
               ) : (
                 visibleAthletes.map((athlete) => (
-                  <tr key={athlete.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-xs text-gray-600">
+                  <tr key={athlete.id} className="hover:bg-v2-surface-800">
+                    <td className="px-3 py-2 text-xs text-v2-ink-300">
                       {athlete.number || "-"}
                     </td>
-                    <td className="px-3 py-2 text-sm font-medium text-gray-800">
+                    <td className="px-3 py-2 text-sm font-medium text-v2-ink-100">
                       {athlete.firstName || "-"}
                     </td>
-                    <td className="px-3 py-2 text-sm font-medium text-gray-800">
+                    <td className="px-3 py-2 text-sm font-medium text-v2-ink-100">
                       {athlete.lastName || "-"}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">
+                    <td className="px-3 py-2 text-xs text-v2-ink-300">
                       {athlete.grade || "-"}
                     </td>
                     <td className="px-3 py-2 text-xs">
                       {(() => {
                         const { text, isRecent } = formatLastWorkout(lastWorkoutDates[athlete.id]);
                         return (
-                          <span className={isRecent ? "font-semibold text-green-600" : "text-gray-500"}>
+                          <span className={isRecent ? "font-semibold text-v2-success-300" : "text-v2-ink-400"}>
                             {text}
                           </span>
                         );
@@ -4349,7 +4349,7 @@ export default function AttendanceV2() {
                               })}
                             </div>
                           ) : (
-                            <span className="text-[10px] text-slate-400">-</span>
+                            <span className="text-[10px] text-v2-ink-500">-</span>
                           )}
                         </td>
                       );
@@ -4365,23 +4365,23 @@ export default function AttendanceV2() {
 
         <div
           ref={reviewSectionRef}
-          className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3"
+          className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-4 space-y-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-v2-ink-100">
                 Athlete Check-In Review
               </h3>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-v2-ink-300">
                 Athletes Can Check In For Open Dates. Coaches Approve/Reject, Then Lock The Day.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
               </label>
               <select
-                className="field min-w-44 bg-white text-sm"
+                className="field-v2 min-w-44 text-sm"
                 value={reviewDate}
                 onChange={(event) => setReviewDate(event.target.value)}
                 disabled={reportSourceDates.length === 0}
@@ -4400,10 +4400,10 @@ export default function AttendanceV2() {
                 <button
                   type="button"
                   className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm transition",
+                    "rounded-v2-md px-3 py-2 text-xs font-semibold text-v2-ink-50 shadow-v2-elev-1 transition",
                     reviewDateLocked
                       ? "bg-amber-600 hover:bg-amber-700"
-                      : "bg-slate-800 hover:bg-slate-900",
+                      : "bg-v2-accent-700 hover:bg-v2-accent-800",
                   ].join(" ")}
                   onClick={() =>
                     handleToggleDateLock(selectedTeam, reviewDate, !reviewDateLocked)
@@ -4422,19 +4422,19 @@ export default function AttendanceV2() {
 
           {reviewDate ? (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center rounded-lg bg-amber-100 px-2 py-1 font-medium text-amber-700">
+              <span className="inline-flex items-center rounded-lg bg-v2-warn-900/60 px-2 py-1 font-medium text-v2-warn-300">
                 Pending {pendingReviewCheckins.length}
               </span>
               <button
                 type="button"
-                className="inline-flex items-center rounded-lg bg-emerald-100 px-2 py-1 font-medium text-emerald-700 transition hover:bg-emerald-200"
+                className="inline-flex items-center rounded-lg bg-v2-success-900/60 px-2 py-1 font-medium text-v2-success-300 transition hover:bg-v2-success-900/30"
                 onClick={() => setReviewStatusModal("approved")}
               >
                 Approved {approvedReviewCount}
               </button>
               <button
                 type="button"
-                className="inline-flex items-center rounded-lg bg-rose-100 px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-200"
+                className="inline-flex items-center rounded-lg bg-v2-danger-900/60 px-2 py-1 font-medium text-v2-danger-300 transition hover:bg-v2-danger-900/40"
                 onClick={() => setReviewStatusModal("rejected")}
               >
                 Rejected {rejectedReviewCount}
@@ -4443,15 +4443,15 @@ export default function AttendanceV2() {
                 className={[
                   "inline-flex items-center rounded-lg px-2 py-1 font-medium",
                   reviewDateLocked
-                    ? "bg-rose-100 text-rose-700"
-                    : "bg-emerald-100 text-emerald-700",
+                    ? "bg-v2-danger-900/60 text-v2-danger-300"
+                    : "bg-v2-success-900/60 text-v2-success-300",
                 ].join(" ")}
               >
                 {reviewDateLocked ? "Date Locked" : "Date Open"}
               </span>
             </div>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+            <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2 text-xs text-v2-ink-300">
               Add An Attendance Date To Start Athlete Check-Ins.
             </div>
           )}
@@ -4459,11 +4459,11 @@ export default function AttendanceV2() {
           {reviewDate && (
             <>
               {loadingReviewCheckins ? (
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+                <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 text-sm text-v2-ink-300">
                   Loading Check-Ins...
                 </div>
               ) : pendingReviewCheckins.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+                <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 text-sm text-v2-ink-300">
                   No Pending Check-Ins For This Date.
                 </div>
               ) : (
@@ -4484,23 +4484,23 @@ export default function AttendanceV2() {
                     return (
                       <div
                         key={checkin.id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1.5"
                       >
-                        <div className="min-w-0 flex items-center gap-2 text-xs text-slate-600">
-                          <span className="truncate text-sm font-semibold text-slate-800">
+                        <div className="min-w-0 flex items-center gap-2 text-xs text-v2-ink-300">
+                          <span className="truncate text-sm font-semibold text-v2-ink-100">
                             {athleteName || "Unknown Athlete"}
                           </span>
-                          <span className="hidden text-slate-300 sm:inline">•</span>
-                          <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                          <span className="hidden text-v2-ink-500 sm:inline">•</span>
+                          <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-v2-ink-400">
                             {checkin.sessionLabel || "Session"}
                           </span>
-                          <span className="hidden text-slate-300 sm:inline">•</span>
-                          <span className="shrink-0 text-[11px] text-slate-500">{submittedLabel}</span>
+                          <span className="hidden text-v2-ink-500 sm:inline">•</span>
+                          <span className="shrink-0 text-[11px] text-v2-ink-400">{submittedLabel}</span>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
                             type="button"
-                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "approved")}
                             disabled={disabledAction}
                           >
@@ -4508,7 +4508,7 @@ export default function AttendanceV2() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "rejected")}
                             disabled={disabledAction}
                           >
@@ -4526,27 +4526,27 @@ export default function AttendanceV2() {
 
         {reviewStatusModal && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-v2-surface-950/70 p-4"
             onClick={() => setReviewStatusModal(null)}
           >
             <div
-              className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl"
+              className="w-full max-w-xl rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-3"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-v2-surface-800 px-4 py-3">
                 <div>
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-v2-ink-100">
                     {reviewStatusModal === "approved"
                       ? "Approved Check-Ins"
                       : "Rejected Check-Ins"}
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-v2-ink-400">
                     {reviewDate ? formatDateLabel(reviewDate) : "Selected Date"}
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                  className="rounded-lg bg-v2-surface-800 px-3 py-1.5 text-xs font-semibold text-v2-ink-200 transition hover:bg-v2-surface-700"
                   onClick={() => setReviewStatusModal(null)}
                 >
                   Close
@@ -4554,7 +4554,7 @@ export default function AttendanceV2() {
               </div>
               <div className="max-h-[62vh] overflow-y-auto p-3">
                 {reviewStatusModalRows.length === 0 ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                  <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-3 text-sm text-v2-ink-300">
                     No check-ins in this status.
                   </div>
                 ) : (
@@ -4571,12 +4571,12 @@ export default function AttendanceV2() {
                       return (
                         <div
                           key={`status-modal-${row.id}`}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                          className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2"
                         >
-                          <div className="text-sm font-semibold text-slate-800">
+                          <div className="text-sm font-semibold text-v2-ink-100">
                             {athleteName || "Unknown Athlete"}
                           </div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[11px] text-v2-ink-400">
                             {(row.sessionLabel || "Session") + " - " + timeLabel}
                           </div>
                         </div>
@@ -4590,7 +4590,7 @@ export default function AttendanceV2() {
         )}
 
         {/* Attendance Report Section */}
-        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 p-5 space-y-4">
+        <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-5 space-y-4">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-2 text-left"
@@ -4598,14 +4598,14 @@ export default function AttendanceV2() {
             aria-expanded={!isReportSectionCollapsed}
           >
             <div>
-              <h3 className="text-sm font-semibold tracking-wide text-slate-800">
+              <h3 className="text-sm font-semibold tracking-wide text-v2-ink-100">
                 Attendance Report
               </h3>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-v2-ink-300">
                 {reportRangeLabel} • {reportPresetLabel}
               </p>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+            <span className="rounded-full bg-v2-surface-800 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-200">
               {isReportSectionCollapsed ? "Show" : "Hide"}
             </span>
           </button>
@@ -4614,18 +4614,18 @@ export default function AttendanceV2() {
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 pt-2">
                 <div>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-v2-ink-300">
                     Quick Coach Snapshot With Weekly Breakdown And Export Options.
                   </p>
-                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-400">
                     Active Range: {reportRangeLabel}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                     Preset
                     <select
-                      className="field bg-white min-w-44"
+                      className="field-v2 min-w-44"
                       value={reportRangePreset}
                       onChange={(event) =>
                         setReportRangePreset(event.target.value as ReportRangePreset)
@@ -4638,10 +4638,10 @@ export default function AttendanceV2() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                     Session
                     <select
-                      className="field bg-white min-w-44"
+                      className="field-v2 min-w-44"
                       value={reportSessionFilter}
                       onChange={(event) => setReportSessionFilter(event.target.value)}
                     >
@@ -4653,11 +4653,11 @@ export default function AttendanceV2() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                     From
                     <input
                       type="date"
-                      className="field bg-white min-w-36"
+                      className="field-v2 min-w-36"
                       value={reportStartDate}
                       onChange={(event) => {
                         setReportRangePreset("custom");
@@ -4665,11 +4665,11 @@ export default function AttendanceV2() {
                       }}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
                     To
                     <input
                       type="date"
-                      className="field bg-white min-w-36"
+                      className="field-v2 min-w-36"
                       value={reportEndDate}
                       onChange={(event) => {
                         setReportRangePreset("custom");
@@ -4700,14 +4700,14 @@ export default function AttendanceV2() {
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-900"
+                    className="rounded-v2-md bg-v2-accent-700 px-3 py-2 text-xs font-semibold text-v2-ink-50 shadow-v2-elev-1 transition hover:bg-v2-accent-800"
                     onClick={() => handleExportSocialPng("hype")}
                   >
                     Export Hype PNG
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700"
+                    className="rounded-v2-md bg-rose-600 px-3 py-2 text-xs font-semibold text-v2-ink-50 shadow-v2-elev-1 transition hover:bg-rose-700"
                     onClick={() => handleExportSocialPng("alert")}
                   >
                     Export Alert PNG
@@ -4716,63 +4716,63 @@ export default function AttendanceV2() {
               </div>
 
           {reportRows.length === 0 || reportDates.length === 0 ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <div className="rounded-v2-lg border border-v2-warn-600 bg-v2-warn-900/30 px-4 py-3 text-sm text-v2-warn-300">
               No Attendance Data In This Range. Add Sessions Or Widen The Date Range.
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
-                    Players <strong className="text-slate-900">{reportSummary.playerCount}</strong>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-v2-surface-800 px-2 py-1 font-medium text-v2-ink-200">
+                    Players <strong className="text-v2-ink-50">{reportSummary.playerCount}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
-                    Sessions <strong className="text-slate-900">{reportSummary.sessionCount}</strong>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-v2-surface-800 px-2 py-1 font-medium text-v2-ink-200">
+                    Sessions <strong className="text-v2-ink-50">{reportSummary.sessionCount}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 font-medium text-slate-700">
-                    Team Avg <strong className="text-slate-900">{reportSummary.teamAveragePct.toFixed(1)}%</strong>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-v2-surface-800 px-2 py-1 font-medium text-v2-ink-200">
+                    Team Avg <strong className="text-v2-ink-50">{reportSummary.teamAveragePct.toFixed(1)}%</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 font-medium text-emerald-700">
-                    High Att <strong className="text-emerald-800">{reportSummary.highCount}</strong>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-v2-success-900/30 px-2 py-1 font-medium text-v2-success-300">
+                    High Att <strong className="text-v2-success-300">{reportSummary.highCount}</strong>
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 font-medium text-rose-700">
-                    At Risk <strong className="text-rose-800">{reportSummary.lowCount}</strong>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-v2-danger-900/40 px-2 py-1 font-medium text-v2-danger-300">
+                    At Risk <strong className="text-v2-danger-300">{reportSummary.lowCount}</strong>
                   </span>
                 </div>
               </div>
 
               <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Top Attendance</h4>
+                <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-200">Top Attendance</h4>
                   <div className="mt-3 space-y-2">
                     {reportSummary.topAthletes.map((row) => (
                       <div
                         key={`top-${row.athlete.id}`}
-                        className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs"
+                        className="flex items-center justify-between rounded-lg bg-v2-success-900/30 px-3 py-2 text-xs"
                       >
-                        <span className="font-medium text-slate-800">
+                        <span className="font-medium text-v2-ink-100">
                           {row.athlete.number ? `#${row.athlete.number} ` : ""}
                           {row.athlete.firstName} {row.athlete.lastName}
                         </span>
-                        <span className="font-semibold text-emerald-700">{row.pct.toFixed(1)}%</span>
+                        <span className="font-semibold text-v2-success-300">{row.pct.toFixed(1)}%</span>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Needs Attention</h4>
+                <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-200">Needs Attention</h4>
                   <div className="mt-3 space-y-2">
                     {reportSummary.atRiskAthletes.length > 0 ? (
                       reportSummary.atRiskAthletes.map((row) => (
                         <div
                           key={`risk-${row.athlete.id}`}
-                          className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 text-xs"
+                          className="flex items-center justify-between rounded-lg bg-v2-danger-900/40 px-3 py-2 text-xs"
                         >
-                          <span className="font-medium text-slate-800">
+                          <span className="font-medium text-v2-ink-100">
                             {row.athlete.number ? `#${row.athlete.number} ` : ""}
                             {row.athlete.firstName} {row.athlete.lastName}
                           </span>
-                          <span className="font-semibold text-rose-700">
+                          <span className="font-semibold text-v2-danger-300">
                             {row.pct.toFixed(1)}% • {row.missedStreak} Missed In A Row
                           </span>
                         </div>
@@ -4781,19 +4781,19 @@ export default function AttendanceV2() {
                       reportSummary.watchAthletes.map((row) => (
                         <div
                           key={`watch-${row.athlete.id}`}
-                          className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs"
+                          className="flex items-center justify-between rounded-lg bg-v2-warn-900/30 px-3 py-2 text-xs"
                         >
-                          <span className="font-medium text-slate-800">
+                          <span className="font-medium text-v2-ink-100">
                             {row.athlete.number ? `#${row.athlete.number} ` : ""}
                             {row.athlete.firstName} {row.athlete.lastName}
                           </span>
-                          <span className="font-semibold text-amber-700">
+                          <span className="font-semibold text-v2-warn-300">
                             {row.pct.toFixed(1)}% • Watch
                           </span>
                         </div>
                       ))
                     ) : (
-                      <div className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                      <div className="rounded-lg bg-v2-success-900/30 px-3 py-2 text-xs font-medium text-v2-success-300">
                         No At-Risk Athletes In This Range.
                       </div>
                     )}
@@ -4801,42 +4801,42 @@ export default function AttendanceV2() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-                <table className="min-w-full divide-y divide-slate-200 text-xs">
+              <div className="overflow-x-auto rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900">
+                <table className="min-w-full divide-y divide-v2-surface-800 text-xs">
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Jersey #</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600">First</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Last</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Grade</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600">Session Mix</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Att</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Miss</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Att %</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Last 6 %</th>
-                      <th className="px-3 py-2 text-center font-semibold text-slate-600">Status</th>
+                    <tr className="bg-v2-surface-800">
+                      <th className="px-3 py-2 text-left font-semibold text-v2-ink-300">Jersey #</th>
+                      <th className="px-3 py-2 text-left font-semibold text-v2-ink-300">First</th>
+                      <th className="px-3 py-2 text-left font-semibold text-v2-ink-300">Last</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Grade</th>
+                      <th className="px-3 py-2 text-left font-semibold text-v2-ink-300">Session Mix</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Att</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Miss</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Att %</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Last 6 %</th>
+                      <th className="px-3 py-2 text-center font-semibold text-v2-ink-300">Status</th>
                       {reportWeeks.map((week) => (
                         <th
                           key={week.key}
-                          className="px-2 py-2 whitespace-nowrap text-center font-semibold text-slate-600"
+                          className="px-2 py-2 whitespace-nowrap text-center font-semibold text-v2-ink-300"
                         >
                           {week.label}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-v2-surface-800">
                     {reportRows.map((row) => (
-                      <tr key={`report-${row.athlete.id}`} className="hover:bg-slate-50">
-                        <td className="px-3 py-2 text-slate-700">{row.athlete.number || "-"}</td>
-                        <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.firstName || "-"}</td>
-                        <td className="px-3 py-2 font-medium text-slate-800">{row.athlete.lastName || "-"}</td>
-                        <td className="px-3 py-2 text-center text-slate-700">{row.athlete.grade || "-"}</td>
-                        <td className="px-3 py-2 text-[11px] text-slate-700">{row.sessionMix}</td>
-                        <td className="px-3 py-2 text-center text-slate-700">{row.attended}</td>
-                        <td className="px-3 py-2 text-center text-slate-700">{row.missed}</td>
-                        <td className="px-3 py-2 text-center font-semibold text-slate-800">{row.pct.toFixed(1)}%</td>
-                        <td className="px-3 py-2 text-center text-slate-700">{row.lastSixPct.toFixed(1)}%</td>
+                      <tr key={`report-${row.athlete.id}`} className="hover:bg-v2-surface-800">
+                        <td className="px-3 py-2 text-v2-ink-200">{row.athlete.number || "-"}</td>
+                        <td className="px-3 py-2 font-medium text-v2-ink-100">{row.athlete.firstName || "-"}</td>
+                        <td className="px-3 py-2 font-medium text-v2-ink-100">{row.athlete.lastName || "-"}</td>
+                        <td className="px-3 py-2 text-center text-v2-ink-200">{row.athlete.grade || "-"}</td>
+                        <td className="px-3 py-2 text-[11px] text-v2-ink-200">{row.sessionMix}</td>
+                        <td className="px-3 py-2 text-center text-v2-ink-200">{row.attended}</td>
+                        <td className="px-3 py-2 text-center text-v2-ink-200">{row.missed}</td>
+                        <td className="px-3 py-2 text-center font-semibold text-v2-ink-100">{row.pct.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-center text-v2-ink-200">{row.lastSixPct.toFixed(1)}%</td>
                         <td className="px-3 py-2 text-center">
                           <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${tierBadgeClass(row.tier)}`}>
                             {tierLabel(row.tier)}
@@ -4865,12 +4865,12 @@ export default function AttendanceV2() {
         </div>
 
         {/* CSV Import Section */}
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-blue-900">Import From CSV/Excel</h3>
-          <p className="text-xs text-blue-700">
+        <div className="rounded-v2-lg border border-v2-info-600 bg-v2-info-900/30 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-v2-info-300">Import From CSV/Excel</h3>
+          <p className="text-xs text-v2-info-300">
             Upload A CSV File With Columns: <strong>Number, FirstName, LastName, Grade, Team, Height, Weight, Position, Letter</strong>
           </p>
-          <p className="text-xs text-blue-600 italic">
+          <p className="text-xs text-v2-info-300 italic">
             💡 Re-importing the full roster will update existing athletes instead of creating duplicates, making it easy to add new players.
           </p>
           <div className="flex items-center gap-3">
@@ -4883,13 +4883,13 @@ export default function AttendanceV2() {
                 className="hidden"
               />
             </label>
-            <span className="text-xs text-blue-600">
+            <span className="text-xs text-v2-info-300">
               Supports Comma Or Tab-Separated Values
             </span>
           </div>
-          <details className="text-xs text-blue-700">
+          <details className="text-xs text-v2-info-300">
             <summary className="cursor-pointer font-medium">Example CSV Format</summary>
-            <pre className="mt-2 bg-white p-2 rounded border border-blue-200 text-[10px] overflow-x-auto">
+            <pre className="mt-2 bg-v2-surface-900 p-2 rounded border border-v2-info-600 text-v2-ink-100 text-[10px] overflow-x-auto">
 Number,FirstName,LastName,Grade,Team,Height,Weight,Position,Letter
 12,John,Smith,12,varsity-football-coed,6'2",185,QB,V
 45,Jane,Doe,9,jh-football-coed,5'8",140,RB,JV
