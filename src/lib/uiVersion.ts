@@ -20,7 +20,7 @@ const KILLSWITCH: UiVersion | null = null;
  * The default UI version when no URL param or localStorage opt-in is
  * present. Flip from "v1" to "v2" to make v2 the default.
  */
-const DEFAULT_VERSION: UiVersion = "v1";
+const DEFAULT_VERSION: UiVersion = "v2";
 
 function resolve(): UiVersion {
   // Killswitch wins over everything — URL, localStorage, default.

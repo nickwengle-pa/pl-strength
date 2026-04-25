@@ -43,7 +43,7 @@ import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 import { ToastProvider } from "./context/ToastContext";
 
 // App version - keep in sync with main.tsx
-export const APP_VERSION = '2.3.0';
+export const APP_VERSION = '3.0.0';
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
