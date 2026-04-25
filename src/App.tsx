@@ -8,6 +8,7 @@ import HomeV2 from "./routes/HomeV2";
 import Session from "./routes/Session";
 import SessionV2 from "./routes/SessionV2";
 import Roster from "./routes/Roster";
+import RosterV2 from "./routes/RosterV2";
 import Calculator from "./routes/Calculator";
 import CalculatorV2 from "./routes/CalculatorV2";
 import Summary from "./routes/Summary";
@@ -17,6 +18,7 @@ import ProgressV2 from "./routes/ProgressV2";
 import Sheets from "./routes/Sheets";
 import SheetsV2 from "./routes/SheetsV2";
 import Admin from "./routes/Admin";
+import AdminV2 from "./routes/AdminV2";
 import Profile from "./routes/Profile";
 import ProfileV2 from "./routes/ProfileV2";
 import Exercises from "./routes/Exercises";
@@ -24,6 +26,7 @@ import ExercisesV2 from "./routes/ExercisesV2";
 import ProgramOutline from "./routes/ProgramOutline";
 import ProgramOutlineV2 from "./routes/ProgramOutlineV2";
 import Attendance from "./routes/Attendance";
+import AttendanceV2 from "./routes/AttendanceV2";
 import SignIn from "./routes/SignIn";
 import SignInV2 from "./routes/SignInV2";
 import Welcome from "./routes/Welcome";
@@ -34,6 +37,7 @@ import TurfV2 from "./routes/TurfV2";
 import Accessory from "./routes/Accessory";
 import AccessoryV2 from "./routes/AccessoryV2";
 import FootballSimulator from "./routes/FootballSimulator";
+import FootballSimulatorV2 from "./routes/FootballSimulatorV2";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -98,10 +102,10 @@ export default function App() {
             <Route path="/exercises" element={<V2Switch v1={<Exercises />} v2={<ExercisesV2 />} />} />
             <Route path="/turf" element={<V2Switch v1={<Turf />} v2={<TurfV2 />} />} />
             <Route path="/accessory" element={<V2Switch v1={<Accessory />} v2={<AccessoryV2 />} />} />
-            <Route path="/roster" element={<Roster />} />
-            <Route path="/attendance" element={<Attendance />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/football" element={<FootballSimulator />} />
+            <Route path="/roster" element={<V2Switch v1={<Roster />} v2={<RosterV2 />} />} />
+            <Route path="/attendance" element={<V2Switch v1={<Attendance />} v2={<AttendanceV2 />} />} />
+            <Route path="/admin" element={<V2Switch v1={<Admin />} v2={<AdminV2 />} />} />
+            <Route path="/football" element={<V2Switch v1={<FootballSimulator />} v2={<FootballSimulatorV2 />} />} />
             <Route path="/profile" element={<V2Switch v1={<Profile />} v2={<ProfileV2 />} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
