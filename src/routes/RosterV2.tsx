@@ -184,7 +184,7 @@ function AttendanceCalendar({
   const weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
       {months.map((m) => {
         const firstDayOfWeek = new Date(m.year, m.month, 1).getDay();
         const daysInMonth = new Date(m.year, m.month + 1, 0).getDate();
@@ -202,30 +202,30 @@ function AttendanceCalendar({
           cells.push({ day: null, present: null });
         }
         return (
-          <div key={m.key} className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-3">
-            <div className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs text-v2-ink-300 font-semibold mb-2">
+          <div key={m.key} className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-2 inline-block">
+            <div className="font-v2-heading uppercase tracking-[0.14em] text-[10px] text-v2-ink-300 font-semibold mb-1.5">
               {m.label}
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
+            <div className="grid grid-cols-7 gap-0.5 text-center" style={{ width: "max-content" }}>
               {weekdayLabels.map((label, idx) => (
                 <div
                   key={`wd-${idx}`}
-                  className="font-v2-mono tabular-nums text-[9px] uppercase tracking-[0.14em] text-v2-ink-500 pb-1"
+                  className="font-v2-mono tabular-nums text-[8px] uppercase tracking-[0.12em] text-v2-ink-500 w-5"
                 >
                   {label}
                 </div>
               ))}
               {cells.map((cell, idx) => {
                 if (cell.day === null) {
-                  return <div key={`p-${idx}`} className="aspect-square" />;
+                  return <div key={`p-${idx}`} className="w-5 h-5" />;
                 }
                 const base =
-                  "aspect-square flex items-center justify-center rounded-v2-sm font-v2-mono tabular-nums text-[10px] font-semibold border";
+                  "w-5 h-5 flex items-center justify-center rounded-sm font-v2-mono tabular-nums text-[9px] font-semibold border";
                 let cls: string;
                 if (cell.present === true) {
-                  cls = "bg-v2-success-600/20 text-v2-success-300 border-v2-success-600/50";
+                  cls = "bg-v2-success-600/25 text-v2-success-300 border-v2-success-600/50";
                 } else if (cell.present === false) {
-                  cls = "bg-v2-danger-600/15 text-v2-danger-300 border-v2-danger-600/50";
+                  cls = "bg-v2-danger-600/20 text-v2-danger-300 border-v2-danger-600/50";
                 } else {
                   cls = "bg-v2-surface-900 text-v2-ink-600 border-v2-surface-800";
                 }
@@ -1672,20 +1672,32 @@ export default function RosterV2() {
                   const s = entry.earliest;
                   const weight = s?.amrap?.weight ?? 0;
                   const reps = s?.amrap?.reps ?? 0;
+                  const tm = s?.tm ?? 0;
                   return (
                     <div
                       key={entry.lift}
                       className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-3"
                     >
-                      <div className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs text-v2-ink-400 font-semibold mb-1">
+                      <div className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs text-v2-ink-400 font-semibold mb-1.5">
                         {entry.label}
                       </div>
                       {s ? (
                         <>
-                          <div className="font-v2-mono tabular-nums text-v2-lg font-semibold text-v2-ink-50">
-                            {weight} {s.unit} <span className="text-v2-sm text-v2-ink-400">x{reps}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="font-v2-heading uppercase tracking-[0.12em] text-[9px] text-v2-ink-500 font-semibold">TM</span>
+                              <span className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-ink-50">
+                                {tm} <span className="text-[10px] text-v2-ink-400">{s.unit}</span>
+                              </span>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="font-v2-heading uppercase tracking-[0.12em] text-[9px] text-v2-ink-500 font-semibold">AMRAP</span>
+                              <span className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-ink-50">
+                                {weight} <span className="text-[10px] text-v2-ink-400">{s.unit}</span> <span className="text-v2-sm text-v2-ink-400">×{reps}</span>
+                              </span>
+                            </div>
                           </div>
-                          <div className="font-v2-mono tabular-nums text-[10px] text-v2-ink-500 mt-0.5">
+                          <div className="font-v2-mono tabular-nums text-[10px] text-v2-ink-500 mt-1.5 pt-1.5 border-t border-v2-surface-800">
                             {s.createdAt
                               ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                               : ""}
@@ -2004,27 +2016,34 @@ export default function RosterV2() {
           )}
 
           <div className="space-y-3 mt-4">
-            <V2SectionLabel>Recent Sessions</V2SectionLabel>
+            <div className="flex items-center justify-between">
+              <V2SectionLabel>Sessions</V2SectionLabel>
+              {detailSessions.length > 0 && (
+                <div className="font-v2-mono tabular-nums text-v2-xs text-v2-ink-400">
+                  {detailSessions.length} total
+                </div>
+              )}
+            </div>
             {detailSessions.length === 0 ? (
               <div className="rounded-v2-md border border-dashed border-v2-surface-700 bg-v2-surface-900 px-4 py-4 text-v2-sm text-v2-ink-400 font-v2-body">
                 No logged sessions yet.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-v2-md border border-v2-surface-800 bg-v2-surface-900">
+              <div className="overflow-auto max-h-[480px] rounded-v2-md border border-v2-surface-800 bg-v2-surface-900">
                 <table className="w-full text-v2-sm border-collapse">
-                  <thead>
+                  <thead className="sticky top-0 z-10">
                     <tr className="bg-v2-surface-900 border-b border-v2-surface-800">
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">Date</th>
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">Lift</th>
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">Cycle / Week</th>
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">AMRAP</th>
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">Est 1RM</th>
-                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">PR</th>
-                      {isCoach && <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold">Action</th>}
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">Date</th>
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">Lift</th>
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">Cycle / Week</th>
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">AMRAP</th>
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">Est 1RM</th>
+                      <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">PR</th>
+                      {isCoach && <th className="px-3 py-2 text-left font-v2-heading uppercase tracking-[0.18em] text-v2-xs text-v2-ink-400 font-semibold bg-v2-surface-900">Action</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {detailSessions.slice(0, 8).map((session) => {
+                    {detailSessions.map((session) => {
                       const isEditing = editingSessionId === session.id;
                       const isLegacyLift = !LIFT_KEYS.includes(session.lift as LiftKey);
                       const isDeleting = sessionDeleting === session.id;
