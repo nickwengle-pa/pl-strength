@@ -28,6 +28,12 @@ import {
   type Firestore,
   type Timestamp,
 } from "firebase/firestore";
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import { getSecondaryAuth, tryInitFirebase, type FirebaseHandles } from "./firebase";
 import { saveProfile as saveProfileLocal } from "./storage";
 
@@ -864,6 +870,68 @@ export type Profile = {
   verticalJump?: number;
   threeCone?: number;
   shuttle?: number;
+};
+
+export type ReportPageSize = "letter" | "a4";
+export type ReportRangePreset = "last30" | "last60" | "season" | "custom";
+
+export type ReportSettings = {
+  schoolName: string;
+  programName: string;
+  coachName: string;
+  logoUrl: string;
+  footerNote: string;
+  defaultRangePreset: ReportRangePreset;
+  pageSize: ReportPageSize;
+  updatedAt?: number;
+  updatedBy?: string | null;
+};
+
+export const defaultReportSettings = (team?: Team | string | null): ReportSettings => ({
+  schoolName: "",
+  programName: team ? formatTeamLabel(team) : "PL Strength",
+  coachName: "",
+  logoUrl: "",
+  footerNote: "Prepared by PL Strength.",
+  defaultRangePreset: "last30",
+  pageSize: "letter",
+  updatedAt: undefined,
+  updatedBy: null,
+});
+
+const normalizeReportRangePreset = (value: unknown): ReportRangePreset => {
+  return value === "last60" || value === "season" || value === "custom"
+    ? value
+    : "last30";
+};
+
+const normalizeReportPageSize = (value: unknown): ReportPageSize => {
+  return value === "a4" ? "a4" : "letter";
+};
+
+const cleanReportText = (value: unknown, maxLength: number): string => {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+};
+
+const normalizeReportSettings = (
+  raw: Partial<ReportSettings> | undefined | null,
+  team?: Team | string | null
+): ReportSettings => {
+  const base = defaultReportSettings(team);
+  if (!raw) return base;
+  return {
+    ...base,
+    schoolName: cleanReportText(raw.schoolName, 80),
+    programName: cleanReportText(raw.programName, 80) || base.programName,
+    coachName: cleanReportText(raw.coachName, 80),
+    logoUrl: cleanReportText(raw.logoUrl, 500),
+    footerNote: cleanReportText(raw.footerNote, 180) || base.footerNote,
+    defaultRangePreset: normalizeReportRangePreset(raw.defaultRangePreset),
+    pageSize: normalizeReportPageSize(raw.pageSize),
+    updatedAt: toMillis(raw.updatedAt) || undefined,
+    updatedBy: typeof raw.updatedBy === "string" ? raw.updatedBy : null,
+  };
 };
 
 const DEFAULT_PLATES: Record<Unit, number[]> = {
@@ -5425,6 +5493,77 @@ export async function fetchTeamProfiles(
   }
 
   return profiles;
+}
+
+export async function loadReportSettings(team: Team): Promise<ReportSettings> {
+  const database = fb.db;
+  if (!database) return defaultReportSettings(team);
+
+  try {
+    const snap = await getDoc(doc(database, "reportSettings", team));
+    if (!snap.exists()) return defaultReportSettings(team);
+    return normalizeReportSettings(snap.data() as Partial<ReportSettings>, team);
+  } catch (err) {
+    console.warn("Failed to load report settings", err);
+    return defaultReportSettings(team);
+  }
+}
+
+export async function saveReportSettings(
+  team: Team,
+  settings: Partial<ReportSettings>,
+  uid?: string | null
+): Promise<ReportSettings> {
+  const database = fb.db;
+  if (!database) throw new Error("Firebase is required to save report settings.");
+
+  const normalized = normalizeReportSettings(settings, team);
+  const ref = doc(database, "reportSettings", team);
+  await setDoc(
+    ref,
+    {
+      ...normalized,
+      updatedAt: serverTimestamp(),
+      updatedBy: uid ?? null,
+    },
+    { merge: true }
+  );
+  // Re-read so callers get the real server timestamp instead of an
+  // optimistic Date.now() that drifts from Firestore by clock skew.
+  const snap = await getDoc(ref);
+  return normalizeReportSettings(snap.data() as Partial<ReportSettings>, team);
+}
+
+const REPORT_LOGO_PATH = (team: Team) => `reports/${team}/logo`;
+
+export async function uploadReportLogo(
+  team: Team,
+  file: File
+): Promise<string> {
+  const handles = resolveHandles();
+  const storage = handles?.storage;
+  if (!storage) throw new Error("Firebase Storage is required to upload a logo.");
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Logo must be an image file.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Logo must be smaller than 2 MB.");
+  }
+  const ref = storageRef(storage, REPORT_LOGO_PATH(team));
+  await uploadBytes(ref, file, { contentType: file.type });
+  return getDownloadURL(ref);
+}
+
+export async function deleteReportLogo(team: Team): Promise<void> {
+  const handles = resolveHandles();
+  const storage = handles?.storage;
+  if (!storage) return;
+  try {
+    await deleteObject(storageRef(storage, REPORT_LOGO_PATH(team)));
+  } catch (err: any) {
+    // 404 = already gone. Anything else, surface.
+    if (err?.code !== "storage/object-not-found") throw err;
+  }
 }
 
 // ---- Custom Quotes for NFC Welcome Screen ----

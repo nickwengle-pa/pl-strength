@@ -15,10 +15,13 @@ import {
   subscribeAttendanceCheckinsForDate,
   updateAttendanceCheckinStatus,
   fetchLastWorkoutDates,
+  defaultReportSettings,
+  loadReportSettings,
   type AttendanceAthlete,
   type AttendanceCheckin,
   type AttendanceSession,
   type AttendanceSheet,
+  type ReportSettings,
   type Team,
 } from "../lib/db";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
@@ -904,6 +907,9 @@ export default function AttendanceV2() {
   const [reportSessionFilter, setReportSessionFilter] = useState<string>("all");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
+  const [reportSettings, setReportSettings] = useState<ReportSettings>(() =>
+    defaultReportSettings(DEFAULT_TEAM)
+  );
   const [showDesktopTableOnMobile, setShowDesktopTableOnMobile] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -1079,6 +1085,21 @@ export default function AttendanceV2() {
       ...prev,
       level: selectedTeam,
     }));
+  }, [selectedTeam]);
+
+  useEffect(() => {
+    let active = true;
+    loadReportSettings(selectedTeam)
+      .then((settings) => {
+        if (active) setReportSettings(settings);
+      })
+      .catch((err) => {
+        console.warn("Failed to load report settings", err);
+        if (active) setReportSettings(defaultReportSettings(selectedTeam));
+      });
+    return () => {
+      active = false;
+    };
   }, [selectedTeam]);
 
   useEffect(() => {
@@ -2578,6 +2599,23 @@ export default function AttendanceV2() {
       })
       .join("");
 
+    const pageSizeCss = reportSettings.pageSize === "a4" ? "A4" : "letter";
+    const schoolHtml = reportSettings.schoolName
+      ? `<div class="brand-school">${escapeHtml(reportSettings.schoolName)}</div>`
+      : "";
+    const programHtml = reportSettings.programName
+      ? `<div class="brand-program">${escapeHtml(reportSettings.programName)}</div>`
+      : "";
+    const coachHtml = reportSettings.coachName
+      ? `<div class="brand-coach">${escapeHtml(reportSettings.coachName)}</div>`
+      : "";
+    const logoHtml = reportSettings.logoUrl
+      ? `<img class="brand-logo" src="${escapeHtml(reportSettings.logoUrl)}" alt="" />`
+      : "";
+    const footerHtml = reportSettings.footerNote
+      ? `<footer class="report-footer">${escapeHtml(reportSettings.footerNote)}</footer>`
+      : "";
+
     return `
 <!doctype html>
 <html>
@@ -2585,17 +2623,33 @@ export default function AttendanceV2() {
     <meta charset="utf-8" />
     <title>${escapeHtml(formatTeamLabel(selectedTeam))} Attendance Report</title>
     <style>
+      @page { size: ${pageSizeCss}; margin: 0.5in; }
       body { font-family: Arial, sans-serif; margin: 20px; color: #111827; }
       h1 { margin: 0 0 8px 0; font-size: 22px; }
       p { margin: 2px 0; font-size: 13px; }
+      .brand-header { display: flex; align-items: center; gap: 16px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 2px solid #111827; }
+      .brand-logo { height: 56px; max-width: 120px; object-fit: contain; }
+      .brand-text { display: flex; flex-direction: column; gap: 2px; }
+      .brand-school { font-size: 18px; font-weight: 700; }
+      .brand-program { font-size: 14px; color: #374151; }
+      .brand-coach { font-size: 12px; color: #6b7280; }
       .summary { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
       .summary-card { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 12px; min-width: 160px; }
       .summary-card strong { display: block; font-size: 18px; }
       table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 10px; }
       thead th { position: sticky; top: 0; }
+      .report-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #d1d5db; font-size: 11px; color: #6b7280; text-align: center; }
     </style>
   </head>
   <body>
+    <div class="brand-header">
+      ${logoHtml}
+      <div class="brand-text">
+        ${schoolHtml}
+        ${programHtml}
+        ${coachHtml}
+      </div>
+    </div>
     <h1>${escapeHtml(formatTeamLabel(selectedTeam))} Attendance Report</h1>
     <p><strong>Range:</strong> ${escapeHtml(rangeLabel)}</p>
     <p><strong>Preset:</strong> ${escapeHtml(reportPresetLabel)}</p>
@@ -2630,6 +2684,7 @@ export default function AttendanceV2() {
         ${rowsHtml}
       </tbody>
     </table>
+    ${footerHtml}
   </body>
 </html>
     `.trim();

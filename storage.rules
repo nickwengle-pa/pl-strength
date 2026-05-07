@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Coach report branding assets (logos). Per-team folder.
+    // Auth required for writes; size/type constrained. Reads are open
+    // because download URLs are tokenized regardless of rules.
+    match /reports/{team}/{file=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+  }
+}

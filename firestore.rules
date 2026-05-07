@@ -196,6 +196,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Coach report branding and export defaults by team
+    match /reportSettings/{team} {
+      allow read: if isCoach() || isAdmin();
+      allow create, update: if (isCoach() && hasTeamScope(request.auth.uid, team)) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Custom quotes for NFC welcome screen
     match /quotes/{quoteId} {
       allow read: if true;  // Anyone can read quotes (for welcome page)

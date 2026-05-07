@@ -202,25 +202,25 @@ function AttendanceCalendar({
           cells.push({ day: null, present: null });
         }
         return (
-          <div key={m.key} className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-2 inline-block">
-            <div className="font-v2-heading uppercase tracking-[0.14em] text-[10px] text-v2-ink-300 font-semibold mb-1.5">
+          <div key={m.key} className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-1.5 inline-block">
+            <div className="font-v2-heading uppercase tracking-[0.14em] text-[9px] text-v2-ink-300 font-semibold mb-1">
               {m.label}
             </div>
-            <div className="grid grid-cols-7 gap-0.5 text-center" style={{ width: "max-content" }}>
+            <div className="grid grid-cols-7 gap-px text-center" style={{ width: "max-content" }}>
               {weekdayLabels.map((label, idx) => (
                 <div
                   key={`wd-${idx}`}
-                  className="font-v2-mono tabular-nums text-[8px] uppercase tracking-[0.12em] text-v2-ink-500 w-5"
+                  className="font-v2-mono tabular-nums text-[7px] uppercase tracking-[0.1em] text-v2-ink-500 w-4"
                 >
                   {label}
                 </div>
               ))}
               {cells.map((cell, idx) => {
                 if (cell.day === null) {
-                  return <div key={`p-${idx}`} className="w-5 h-5" />;
+                  return <div key={`p-${idx}`} className="w-4 h-4" />;
                 }
                 const base =
-                  "w-5 h-5 flex items-center justify-center rounded-sm font-v2-mono tabular-nums text-[9px] font-semibold border";
+                  "w-4 h-4 flex items-center justify-center rounded-sm font-v2-mono tabular-nums text-[8px] font-semibold border";
                 let cls: string;
                 if (cell.present === true) {
                   cls = "bg-v2-success-600/25 text-v2-success-300 border-v2-success-600/50";

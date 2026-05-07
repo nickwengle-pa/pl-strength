@@ -2,6 +2,9 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": {
     "source": "firebase-functions",
     "serviceAccount": "compute-engine-default@pl-strengthl.iam.gserviceaccount.com"

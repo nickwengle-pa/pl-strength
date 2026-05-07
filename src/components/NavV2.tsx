@@ -22,6 +22,11 @@ import {
   defaultEquipment,
   normalizeEquipment,
   saveProfile,
+  defaultReportSettings,
+  loadReportSettings,
+  saveReportSettings,
+  uploadReportLogo,
+  deleteReportLogo,
   type Team,
   type CustomQuote,
   type FeaturedQuote,
@@ -29,6 +34,9 @@ import {
   type BarOption,
   type Profile,
   type Unit,
+  type ReportSettings,
+  type ReportRangePreset,
+  type ReportPageSize,
 } from "../lib/db";
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
@@ -36,7 +44,7 @@ import { ConfirmModal } from "./ConfirmModal";
 
 type Status = "checking" | "connected" | "offline" | "syncing";
 type Theme = "light" | "dark";
-type SettingsTab = "general" | "quotes" | "equipment";
+type SettingsTab = "general" | "quotes" | "equipment" | "reports";
 
 const THEME_STORAGE_KEY = "pl-strength-theme";
 
@@ -149,6 +157,15 @@ export default function NavV2() {
   const [newPlateWeight, setNewPlateWeight] = useState("");
   const [newBarLabel, setNewBarLabel] = useState("");
   const [newBarWeight, setNewBarWeight] = useState("");
+  const [reportSettings, setReportSettings] = useState<ReportSettings>(() => defaultReportSettings());
+  const [reportSettingsLoading, setReportSettingsLoading] = useState(false);
+  const [reportSettingsSaving, setReportSettingsSaving] = useState(false);
+  const [reportSettingsDirty, setReportSettingsDirty] = useState(false);
+  const [reportSettingsMessage, setReportSettingsMessage] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const reportSettingsTeam = (teamSelection || teamScopes[0] || "") as Team | "";
 
   useEffect(() => {
     let active = true;
@@ -655,6 +672,99 @@ export default function NavV2() {
   };
 
   useEffect(() => {
+    if (!settingsOpen || settingsTab !== "reports" || !coach) return;
+    let active = true;
+    setReportSettingsMessage("");
+
+    if (!reportSettingsTeam) {
+      setReportSettings(defaultReportSettings());
+      setReportSettingsDirty(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setReportSettingsLoading(true);
+    loadReportSettings(reportSettingsTeam)
+      .then((settings) => {
+        if (!active) return;
+        setReportSettings(settings);
+        setReportSettingsDirty(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.warn("Failed to load report settings", err);
+        setReportSettings(defaultReportSettings(reportSettingsTeam));
+        setReportSettingsDirty(false);
+        setReportSettingsMessage("Report settings could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setReportSettingsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [settingsOpen, settingsTab, coach, reportSettingsTeam]);
+
+  const updateReportSettingsDraft = (updates: Partial<ReportSettings>) => {
+    setReportSettings((prev) => ({ ...prev, ...updates }));
+    setReportSettingsDirty(true);
+    setReportSettingsMessage("");
+  };
+
+  const persistReportSettingsChanges = async () => {
+    if (!reportSettingsTeam || reportSettingsSaving) return;
+    setReportSettingsSaving(true);
+    setReportSettingsMessage("");
+    try {
+      const saved = await saveReportSettings(reportSettingsTeam, reportSettings, user?.uid);
+      setReportSettings(saved);
+      setReportSettingsDirty(false);
+      setReportSettingsMessage("Report settings saved.");
+    } catch (err) {
+      console.warn("Failed to save report settings", err);
+      setReportSettingsMessage("Report settings could not be saved.");
+    } finally {
+      setReportSettingsSaving(false);
+    }
+  };
+
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !reportSettingsTeam || logoUploading) return;
+    setLogoUploading(true);
+    setReportSettingsMessage("");
+    try {
+      const url = await uploadReportLogo(reportSettingsTeam, file);
+      updateReportSettingsDraft({ logoUrl: url });
+      setReportSettingsMessage("Logo uploaded. Save to apply to reports.");
+    } catch (err: any) {
+      console.warn("Logo upload failed", err);
+      setReportSettingsMessage(err?.message ?? "Logo upload failed.");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!reportSettingsTeam || logoUploading) return;
+    setLogoUploading(true);
+    setReportSettingsMessage("");
+    try {
+      await deleteReportLogo(reportSettingsTeam);
+      updateReportSettingsDraft({ logoUrl: "" });
+      setReportSettingsMessage("Logo removed. Save to apply to reports.");
+    } catch (err: any) {
+      console.warn("Logo remove failed", err);
+      setReportSettingsMessage(err?.message ?? "Could not remove logo.");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  useEffect(() => {
     if (!isMobile) {
       setMenuOpen(false);
     }
@@ -802,6 +912,9 @@ export default function NavV2() {
         : "border-b-2 border-transparent text-v2-ink-400 hover:text-v2-ink-100",
     ].join(" ");
 
+  const settingsFieldClass =
+    "field-v2 min-h-touch rounded-v2-sm border border-v2-surface-700 bg-v2-surface-950 px-3 py-2 text-sm text-v2-ink-100 placeholder:text-v2-ink-600 focus:outline-none focus:ring-2 focus:ring-v2-accent-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950";
+
   const settingsDialog =
     settingsOpen && typeof document !== "undefined"
       ? createPortal(
@@ -811,7 +924,7 @@ export default function NavV2() {
               onClick={closeSettings}
             />
             <div
-              className="absolute left-1/2 top-1/2 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-2"
+              className="absolute left-1/2 top-1/2 w-[min(94vw,34rem)] -translate-x-1/2 -translate-y-1/2 rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-2"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between border-b border-v2-surface-800 px-4 py-3">
@@ -851,6 +964,15 @@ export default function NavV2() {
                     onClick={() => setSettingsTab("quotes")}
                   >
                     Quotes
+                  </button>
+                )}
+                {coach && (
+                  <button
+                    type="button"
+                    className={tabBtn(settingsTab === "reports")}
+                    onClick={() => setSettingsTab("reports")}
+                  >
+                    Reports
                   </button>
                 )}
                 <button
@@ -1043,6 +1165,189 @@ export default function NavV2() {
                         ))}
                       </div>
                     </div>
+                  </div>
+                ) : settingsTab === "reports" ? (
+                  <div className="space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 px-3 py-2">
+                      <div>
+                        <div className="text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-500">
+                          Active Report Team
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-v2-ink-100">
+                          {reportSettingsTeam ? formatTeamLabel(reportSettingsTeam) : "No Team Selected"}
+                        </div>
+                      </div>
+                      {reportSettingsTeam && teamScopes.length > 1 && (
+                        <div className="min-w-44">{renderTeamPicker("mobile")}</div>
+                      )}
+                    </div>
+
+                    {!reportSettingsTeam ? (
+                      <div className="rounded-v2-sm border border-v2-warn-600/60 bg-v2-warn-600/10 px-3 py-3 text-sm text-v2-warn-300">
+                        Select a team before saving report settings.
+                      </div>
+                    ) : reportSettingsLoading ? (
+                      <div className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 px-3 py-6 text-center text-sm text-v2-ink-400">
+                        Loading report settings...
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            School
+                            <input
+                              type="text"
+                              className={settingsFieldClass}
+                              value={reportSettings.schoolName}
+                              onChange={(event) =>
+                                updateReportSettingsDraft({ schoolName: event.target.value })
+                              }
+                              placeholder="School name"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            Program
+                            <input
+                              type="text"
+                              className={settingsFieldClass}
+                              value={reportSettings.programName}
+                              onChange={(event) =>
+                                updateReportSettingsDraft({ programName: event.target.value })
+                              }
+                              placeholder={formatTeamLabel(reportSettingsTeam)}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            Coach
+                            <input
+                              type="text"
+                              className={settingsFieldClass}
+                              value={reportSettings.coachName}
+                              onChange={(event) =>
+                                updateReportSettingsDraft({ coachName: event.target.value })
+                              }
+                              placeholder="Coach name"
+                            />
+                          </label>
+                          <div className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            Logo
+                            <div className="flex items-center gap-3 rounded-v2-sm border border-v2-surface-700 bg-v2-surface-950 px-3 py-2">
+                              {reportSettings.logoUrl ? (
+                                <img
+                                  src={reportSettings.logoUrl}
+                                  alt="Report logo preview"
+                                  className="h-10 w-10 rounded object-contain bg-white/5"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded border border-dashed border-v2-surface-700 flex items-center justify-center text-[10px] text-v2-ink-500 normal-case tracking-normal">
+                                  None
+                                </div>
+                              )}
+                              <input
+                                ref={logoInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleLogoFileChange}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => logoInputRef.current?.click()}
+                                disabled={logoUploading}
+                                className="text-v2-xs uppercase tracking-[0.18em] font-semibold text-v2-ink-100 px-3 py-1 rounded-v2-sm border border-v2-surface-700 hover:bg-v2-surface-800 transition disabled:opacity-50"
+                              >
+                                {logoUploading ? "..." : reportSettings.logoUrl ? "Replace" : "Upload"}
+                              </button>
+                              {reportSettings.logoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={handleLogoRemove}
+                                  disabled={logoUploading}
+                                  className="text-v2-xs uppercase tracking-[0.18em] font-semibold text-v2-danger-300 px-2 py-1 rounded-v2-sm hover:bg-v2-danger-600/10 transition disabled:opacity-50"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <span className="text-[10px] normal-case tracking-normal text-v2-ink-500 font-normal">PNG/JPG, under 2 MB.</span>
+                          </div>
+                        </div>
+
+                        <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                          Footer Note
+                          <textarea
+                            className={`${settingsFieldClass} min-h-20 resize-none`}
+                            rows={3}
+                            value={reportSettings.footerNote}
+                            onChange={(event) =>
+                              updateReportSettingsDraft({ footerNote: event.target.value })
+                            }
+                            placeholder="Prepared by PL Strength."
+                          />
+                        </label>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            Default Range
+                            <select
+                              className={settingsFieldClass}
+                              value={reportSettings.defaultRangePreset}
+                              onChange={(event) =>
+                                updateReportSettingsDraft({
+                                  defaultRangePreset: event.target.value as ReportRangePreset,
+                                })
+                              }
+                            >
+                              <option value="last30">Last 30 Days</option>
+                              <option value="last60">Last 60 Days</option>
+                              <option value="season">Season</option>
+                              <option value="custom">Custom</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-400">
+                            PDF Size
+                            <select
+                              className={settingsFieldClass}
+                              value={reportSettings.pageSize}
+                              onChange={(event) =>
+                                updateReportSettingsDraft({
+                                  pageSize: event.target.value as ReportPageSize,
+                                })
+                              }
+                            >
+                              <option value="letter">Letter</option>
+                              <option value="a4">A4</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 border-t border-v2-surface-800 pt-3">
+                          {reportSettingsMessage && (
+                            <span className="text-sm text-v2-ink-300">{reportSettingsMessage}</span>
+                          )}
+                          <div className="flex-1" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReportSettings(defaultReportSettings(reportSettingsTeam));
+                              setReportSettingsDirty(true);
+                              setReportSettingsMessage("");
+                            }}
+                            className="text-v2-xs uppercase tracking-[0.18em] text-v2-ink-500 transition hover:text-v2-ink-200"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={persistReportSettingsChanges}
+                            disabled={!reportSettingsDirty || reportSettingsSaving}
+                            className="min-h-touch rounded-v2-sm bg-v2-accent-700 px-4 py-2 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-50 transition hover:bg-v2-accent-600 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-v2-accent-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950"
+                          >
+                            {reportSettingsSaving ? "Saving..." : "Save Reports"}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : settingsTab === "equipment" ? (
                   <div className="space-y-6">
