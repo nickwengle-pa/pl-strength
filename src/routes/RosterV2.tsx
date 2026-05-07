@@ -7,6 +7,7 @@ import {
   deleteAthlete,
   deleteSession,
   defaultEquipment,
+  defaultReportSettings,
   fetchAthleteSessions,
   formatTeamLabel,
   getStoredTeamSelection,
@@ -14,6 +15,7 @@ import {
   listRoster,
   loadAttendanceSheet,
   loadProfileRemote,
+  loadReportSettings,
   normalizePasscodeDigits,
   regenerateAthleteCode,
   saveProfile,
@@ -24,10 +26,19 @@ import {
   updateSession,
   backfillCreatedAtDates,
   type Profile,
+  type ReportSettings,
   type RosterEntry,
   type SessionRecord,
   type Team,
 } from "../lib/db";
+import {
+  brandedFooterHtml,
+  brandedHeaderHtml,
+  escapeHtml,
+  pageSizeCss,
+  printHtmlInIframe,
+  sharedReportStyles,
+} from "../lib/reportHtml";
 import { roundToPlate } from "../lib/tm";
 import { useActiveAthlete } from "../context/ActiveAthleteContext";
 import { StatCardSkeleton } from "../components/LoadingSkeleton";
@@ -284,6 +295,7 @@ export default function RosterV2() {
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const [detailAttendance, setDetailAttendance] = useState<{ present: number; total: number; dates: { date: string; present: boolean }[] } | null>(null);
   const [attendanceView, setAttendanceView] = useState<"chips" | "calendar">("chips");
+  const [exportingReport, setExportingReport] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionDraft, setEditSessionDraft] = useState<Partial<SessionRecord>>({});
   const [sessionSaving, setSessionSaving] = useState(false);
@@ -1392,6 +1404,218 @@ export default function RosterV2() {
     };
   }, [filteredAthleteRows, isCoach, selectedRow, selectedUid, setActiveAthlete, activeTeamSelection]);
 
+  const buildAthleteReportHtml = (settings: ReportSettings): string => {
+    if (!detailProfile) return "";
+    const profile = detailProfile;
+    const fullName = `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "Athlete";
+    const teamLabel = profile.team ? formatTeamLabel(profile.team) : "";
+    const generatedAt = new Date().toLocaleString();
+
+    const identityRows: Array<[string, string]> = [];
+    if (teamLabel) identityRows.push(["Team", teamLabel]);
+    if (profile.graduationYear) identityRows.push(["Grad Year", String(profile.graduationYear)]);
+    if (profile.height) identityRows.push(["Height", String(profile.height)]);
+    if (profile.weight) identityRows.push(["Weight", String(profile.weight)]);
+    if (profile.unit) identityRows.push(["Unit", profile.unit.toUpperCase()]);
+    const identityHtml = identityRows.length
+      ? `<table class="kv"><tbody>${identityRows
+          .map(
+            ([k, v]) =>
+              `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`
+          )
+          .join("")}</tbody></table>`
+      : "";
+
+    const startedDate = startingPoints.startedAt
+      ? new Date(startingPoints.startedAt).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "Unknown";
+    const startingRowsHtml = startingPoints.perLift
+      .map((entry) => {
+        const s = entry.earliest;
+        if (!s) {
+          return `<tr><td>${escapeHtml(entry.label)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+        }
+        const dateStr = s.createdAt
+          ? new Date(s.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "";
+        return `<tr>
+          <td>${escapeHtml(entry.label)}</td>
+          <td>${escapeHtml(String(s.tm ?? 0))} ${escapeHtml(s.unit ?? "")}</td>
+          <td>${escapeHtml(String(s.amrap?.weight ?? 0))} ${escapeHtml(s.unit ?? "")} × ${escapeHtml(String(s.amrap?.reps ?? 0))}</td>
+          <td>${escapeHtml(dateStr)}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const currentRowsHtml = liftSummaries
+      .map((summary) => {
+        const tm = summary.tm ?? 0;
+        const bestEst = summary.bestEst
+          ? `${summary.bestEst.value.toFixed(1)} ${summary.bestEst.unit}`
+          : "—";
+        const lastDate = summary.latest?.createdAt
+          ? new Date(summary.latest.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "—";
+        return `<tr>
+          <td>${escapeHtml(summary.label)}</td>
+          <td>${escapeHtml(String(tm))}</td>
+          <td>${escapeHtml(bestEst)}</td>
+          <td>${escapeHtml(String(summary.totalSessions))}</td>
+          <td>${escapeHtml(lastDate)}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const attendancePct = detailAttendance && detailAttendance.total > 0
+      ? Math.round((detailAttendance.present / detailAttendance.total) * 100)
+      : null;
+    const attendanceSummaryHtml = detailAttendance
+      ? `<p><strong>Sessions Attended:</strong> ${detailAttendance.present} / ${detailAttendance.total}${attendancePct !== null ? ` (${attendancePct}%)` : ""}</p>`
+      : `<p><em>No attendance data.</em></p>`;
+
+    const prSessions = detailSessions.filter((s) => s.pr);
+    const prRowsHtml = prSessions
+      .slice(0, 25)
+      .map((s) => {
+        const dateStr = s.createdAt
+          ? new Date(s.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "—";
+        return `<tr>
+          <td>${escapeHtml(dateStr)}</td>
+          <td>${escapeHtml(s.lift ?? "")}</td>
+          <td>${escapeHtml(String(s.amrap?.weight ?? 0))} ${escapeHtml(s.unit ?? "")} × ${escapeHtml(String(s.amrap?.reps ?? 0))}</td>
+          <td>${escapeHtml(s.est1rm ? s.est1rm.toFixed(1) : "—")}</td>
+        </tr>`;
+      })
+      .join("");
+    const prSectionHtml = prSessions.length
+      ? `<h2>Personal Records</h2>
+         <table>
+           <thead><tr><th>Date</th><th>Lift</th><th>AMRAP</th><th>Est 1RM</th></tr></thead>
+           <tbody>${prRowsHtml}</tbody>
+         </table>`
+      : "";
+
+    const sessionRowsHtml = detailSessions
+      .map((s) => {
+        const dateStr = s.createdAt
+          ? new Date(s.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "—";
+        const cycleWeek =
+          s.cycle != null && s.week != null ? `C${s.cycle} W${s.week}` : "";
+        return `<tr>
+          <td>${escapeHtml(dateStr)}</td>
+          <td>${escapeHtml(s.lift ?? "")}</td>
+          <td>${escapeHtml(cycleWeek)}</td>
+          <td>${escapeHtml(String(s.amrap?.weight ?? 0))} ${escapeHtml(s.unit ?? "")} × ${escapeHtml(String(s.amrap?.reps ?? 0))}</td>
+          <td>${escapeHtml(s.est1rm ? s.est1rm.toFixed(1) : "—")}</td>
+          <td>${s.pr ? "★" : ""}</td>
+        </tr>`;
+      })
+      .join("");
+
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(fullName)} — Athlete Report</title>
+    <style>
+      @page { size: ${pageSizeCss(settings)}; margin: 0.5in; }
+      ${sharedReportStyles}
+      table.kv { width: auto; }
+      table.kv th { background: #f8fafc; font-weight: 600; text-align: left; min-width: 90px; }
+      .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 14px 0; font-size: 12px; color: #4b5563; }
+      .section { margin-bottom: 16px; }
+    </style>
+  </head>
+  <body>
+    ${brandedHeaderHtml(settings)}
+    <h1>${escapeHtml(fullName)}</h1>
+    <div class="meta">
+      ${teamLabel ? `<span><strong>Team:</strong> ${escapeHtml(teamLabel)}</span>` : ""}
+      <span><strong>Started:</strong> ${escapeHtml(startedDate)}</span>
+      <span><strong>Generated:</strong> ${escapeHtml(generatedAt)}</span>
+    </div>
+
+    ${identityHtml ? `<div class="section">${identityHtml}</div>` : ""}
+
+    <div class="section">
+      <h2>Starting Point</h2>
+      <table>
+        <thead><tr><th>Lift</th><th>Starting TM</th><th>Starting AMRAP</th><th>First Logged</th></tr></thead>
+        <tbody>${startingRowsHtml}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Now</h2>
+      <table>
+        <thead><tr><th>Lift</th><th>Current TM</th><th>Best Est 1RM</th><th>Total Sessions</th><th>Last Session</th></tr></thead>
+        <tbody>${currentRowsHtml}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Attendance</h2>
+      ${attendanceSummaryHtml}
+    </div>
+
+    ${prSectionHtml ? `<div class="section">${prSectionHtml}</div>` : ""}
+
+    <div class="section">
+      <h2>Session Log</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Lift</th><th>Cycle/Week</th><th>AMRAP</th><th>Est 1RM</th><th>PR</th></tr></thead>
+        <tbody>${sessionRowsHtml}</tbody>
+      </table>
+    </div>
+
+    ${brandedFooterHtml(settings)}
+  </body>
+</html>`;
+  };
+
+  const handleExportAthleteReport = async () => {
+    if (!detailProfile || exportingReport) return;
+    const team = activeTeamSelection || detailProfile.team;
+    setExportingReport(true);
+    try {
+      const settings = team
+        ? await loadReportSettings(team).catch(() => defaultReportSettings(team))
+        : defaultReportSettings();
+      const html = buildAthleteReportHtml(settings);
+      if (!html) {
+        setFlash({ kind: "error", text: "No athlete data to export." });
+        return;
+      }
+      await printHtmlInIframe(html);
+    } catch (err: any) {
+      setFlash({ kind: "error", text: err?.message ?? "Could not generate report." });
+    } finally {
+      setExportingReport(false);
+    }
+  };
+
   const detailHeader = (
     <div className="space-y-2">
       {editingName ? (
@@ -1435,6 +1659,15 @@ export default function RosterV2() {
               onClick={handleStartEditName}
             >
               Edit Name
+            </button>
+          )}
+          {isCoach && detailProfile && (
+            <button
+              className={v2BtnPrimaryClass}
+              onClick={handleExportAthleteReport}
+              disabled={exportingReport}
+            >
+              {exportingReport ? "Generating..." : "Generate Report"}
             </button>
           )}
         </div>
