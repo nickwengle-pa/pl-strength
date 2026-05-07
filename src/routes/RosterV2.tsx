@@ -1731,15 +1731,6 @@ export default function RosterV2() {
               Edit Name
             </button>
           )}
-          {isCoach && detailProfile && (
-            <button
-              className={v2BtnPrimaryClass}
-              onClick={handleExportAthleteReport}
-              disabled={exportingReport}
-            >
-              {exportingReport ? "Generating..." : "Generate Report"}
-            </button>
-          )}
         </div>
       )}
       {selectedRow?.roles && <RoleBadges roles={selectedRow.roles} />}
@@ -3398,16 +3389,28 @@ export default function RosterV2() {
           <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 shadow-v2-elev-1 p-4 lg:p-5 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               {detailHeader}
-              <button
-                type="button"
-                className={v2BtnClass}
-                onClick={() => {
-                  setSelectedUid(null);
-                  setDetailModalOpen(false);
-                }}
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isCoach && detailProfile && (
+                  <button
+                    type="button"
+                    className={v2BtnSmClass}
+                    onClick={handleExportAthleteReport}
+                    disabled={exportingReport}
+                  >
+                    {exportingReport ? "..." : "Report"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={v2BtnSmClass}
+                  onClick={() => {
+                    setSelectedUid(null);
+                    setDetailModalOpen(false);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             {detailBody}
@@ -3427,13 +3430,25 @@ export default function RosterV2() {
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 {detailHeader}
-                <button
-                  type="button"
-                  className={v2BtnClass}
-                  onClick={() => setDetailModalOpen(false)}
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isCoach && detailProfile && (
+                    <button
+                      type="button"
+                      className={v2BtnSmClass}
+                      onClick={handleExportAthleteReport}
+                      disabled={exportingReport}
+                    >
+                      {exportingReport ? "..." : "Report"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={v2BtnSmClass}
+                    onClick={() => setDetailModalOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
               {detailBody}
             </div>
