@@ -1429,7 +1429,7 @@ export default function AttendanceV2() {
           missedStreak,
           sessionMix: buildSessionMixLabel(sessionCountsByLabel),
           sessionCountsByLabel,
-          tier: tierFromPercent(pct),
+          tier: tierFromPercent(lastSixPct),
           weekly,
         };
       })
