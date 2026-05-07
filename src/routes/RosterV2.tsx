@@ -1512,6 +1512,65 @@ export default function RosterV2() {
          </table>`
       : "";
 
+    const liftColors: Record<LiftKey, string> = {
+      bench: "#dc2626",
+      squat: "#2563eb",
+      deadlift: "#16a34a",
+    };
+    const renderLiftChart = (lift: LiftKey, label: string): string => {
+      const sessionsAsc = detailSessions
+        .filter((s) => s.lift === lift)
+        .filter((s) => typeof s.amrap?.weight === "number" && (s.amrap?.weight ?? 0) > 0)
+        .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+      if (sessionsAsc.length < 2) {
+        return `<div class="lift-chart lift-chart--empty">
+          <div class="lift-chart-title" style="color:${liftColors[lift]};">${escapeHtml(label)}</div>
+          <div class="lift-chart-empty">Need at least 2 sessions to plot.</div>
+        </div>`;
+      }
+      const W = 220;
+      const H = 110;
+      const PAD_L = 28;
+      const PAD_R = 8;
+      const PAD_T = 12;
+      const PAD_B = 18;
+      const ys = sessionsAsc.map((s) => s.amrap?.weight ?? 0);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const yRange = maxY - minY || 1;
+      const maxIdx = sessionsAsc.length - 1;
+      const px = (i: number) =>
+        PAD_L + (i / maxIdx) * (W - PAD_L - PAD_R);
+      const py = (v: number) =>
+        H - PAD_B - ((v - minY) / yRange) * (H - PAD_T - PAD_B);
+      const path = sessionsAsc
+        .map((s, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(s.amrap?.weight ?? 0).toFixed(1)}`)
+        .join(" ");
+      const dots = sessionsAsc
+        .map(
+          (s, i) =>
+            `<circle cx="${px(i).toFixed(1)}" cy="${py(s.amrap?.weight ?? 0).toFixed(1)}" r="2" fill="${liftColors[lift]}" />`
+        )
+        .join("");
+      const unit = sessionsAsc[0]?.unit ?? "lb";
+      return `<div class="lift-chart">
+        <div class="lift-chart-title" style="color:${liftColors[lift]};">${escapeHtml(label)}</div>
+        <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;">
+          <line x1="${PAD_L}" y1="${H - PAD_B}" x2="${W - PAD_R}" y2="${H - PAD_B}" stroke="#9ca3af" stroke-width="0.5" />
+          <line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${H - PAD_B}" stroke="#9ca3af" stroke-width="0.5" />
+          <text x="${PAD_L - 3}" y="${PAD_T + 3}" font-size="7" text-anchor="end" fill="#6b7280">${maxY} ${escapeHtml(unit)}</text>
+          <text x="${PAD_L - 3}" y="${H - PAD_B + 2}" font-size="7" text-anchor="end" fill="#6b7280">${minY}</text>
+          <text x="${PAD_L}" y="${H - 4}" font-size="7" fill="#6b7280">1</text>
+          <text x="${W - PAD_R}" y="${H - 4}" font-size="7" text-anchor="end" fill="#6b7280">${sessionsAsc.length}</text>
+          <path d="${path}" fill="none" stroke="${liftColors[lift]}" stroke-width="1.5" />
+          ${dots}
+        </svg>
+      </div>`;
+    };
+    const chartsHtml = LIFT_KEYS.map((lift) =>
+      renderLiftChart(lift, lift.charAt(0).toUpperCase() + lift.slice(1))
+    ).join("");
+
     const sessionRowsHtml = detailSessions
       .map((s) => {
         const dateStr = s.createdAt
@@ -1547,6 +1606,11 @@ export default function RosterV2() {
       table.kv th { background: #f8fafc; font-weight: 600; text-align: left; min-width: 90px; }
       .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 14px 0; font-size: 12px; color: #4b5563; }
       .section { margin-bottom: 16px; }
+      .charts { display: flex; gap: 8px; margin-top: 6px; }
+      .lift-chart { flex: 1 1 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; background: #fafafa; }
+      .lift-chart--empty { background: #f9fafb; }
+      .lift-chart-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+      .lift-chart-empty { font-size: 9px; color: #9ca3af; padding: 18px 0; text-align: center; }
     </style>
   </head>
   <body>
@@ -1574,6 +1638,11 @@ export default function RosterV2() {
         <thead><tr><th>Lift</th><th>Current TM</th><th>Best Est 1RM</th><th>Total Sessions</th><th>Last Session</th></tr></thead>
         <tbody>${currentRowsHtml}</tbody>
       </table>
+    </div>
+
+    <div class="section">
+      <h2>Progress (AMRAP weight per session)</h2>
+      <div class="charts">${chartsHtml}</div>
     </div>
 
     <div class="section">
