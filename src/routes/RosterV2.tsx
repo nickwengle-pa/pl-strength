@@ -1540,8 +1540,9 @@ export default function RosterV2() {
     <meta charset="utf-8" />
     <title>${escapeHtml(fullName)} — Athlete Report</title>
     <style>
-      @page { size: ${pageSizeCss(settings)}; margin: 0.5in; }
+      @page { size: ${pageSizeCss(settings)}; margin: 0.2in 0.5in; }
       ${sharedReportStyles}
+      body { margin: 0; }
       table.kv { width: auto; }
       table.kv th { background: #f8fafc; font-weight: 600; text-align: left; min-width: 90px; }
       .meta { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 14px 0; font-size: 12px; color: #4b5563; }
