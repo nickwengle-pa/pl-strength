@@ -487,16 +487,19 @@ export default function RosterV2() {
   }, []);
 
   // Auto-open athlete detail when arriving with ?openUid=<uid>
-  // (e.g. from the ActiveAthleteBanner "Review" button). Consume the param
-  // after one-time use so a refresh doesn't re-trigger.
+  // (e.g. from the ActiveAthleteBanner "Review" button). Wait until the
+  // roster has loaded the target row so a separate validation effect
+  // doesn't immediately clear our selection. Consume the param once the
+  // selection actually takes so refresh doesn't re-trigger.
   useEffect(() => {
     const openUid = searchParams.get("openUid");
     if (!openUid) return;
+    if (!rows.some((r) => r.uid === openUid)) return;
     setSelectedUid(openUid);
     const next = new URLSearchParams(searchParams);
     next.delete("openUid");
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, rows]);
 
   // Load activity data for athletes
   useEffect(() => {
