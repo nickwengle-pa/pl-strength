@@ -140,6 +140,109 @@ function V2SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Month-grid calendar of attendance dates. Each session date is colored
+// green (present) or red (missed); days with no session render as a faint gap.
+function AttendanceCalendar({
+  dates,
+}: {
+  dates: { date: string; present: boolean }[];
+}) {
+  type MonthCell = {
+    key: string;
+    year: number;
+    month: number;
+    label: string;
+    map: Map<string, boolean>;
+  };
+  const months: MonthCell[] = useMemo(() => {
+    const byMonth = new Map<string, MonthCell>();
+    for (const entry of dates) {
+      const [yStr, mStr, dStr] = entry.date.split("-");
+      const year = Number(yStr);
+      const month = Number(mStr) - 1;
+      if (!Number.isFinite(year) || !Number.isFinite(month)) continue;
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+      let bucket = byMonth.get(key);
+      if (!bucket) {
+        const label = new Date(year, month, 1).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+        bucket = { key, year, month, label, map: new Map() };
+        byMonth.set(key, bucket);
+      }
+      bucket.map.set(dStr, entry.present);
+    }
+    return Array.from(byMonth.values()).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+  }, [dates]);
+
+  if (months.length === 0) return null;
+
+  const weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {months.map((m) => {
+        const firstDayOfWeek = new Date(m.year, m.month, 1).getDay();
+        const daysInMonth = new Date(m.year, m.month + 1, 0).getDate();
+        const cells: Array<{ day: number | null; present: boolean | null }> = [];
+        for (let i = 0; i < firstDayOfWeek; i += 1) {
+          cells.push({ day: null, present: null });
+        }
+        for (let day = 1; day <= daysInMonth; day += 1) {
+          const key = String(day).padStart(2, "0");
+          const present = m.map.has(key) ? (m.map.get(key) ?? null) : null;
+          cells.push({ day, present });
+        }
+        // pad to full weeks
+        while (cells.length % 7 !== 0) {
+          cells.push({ day: null, present: null });
+        }
+        return (
+          <div key={m.key} className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-3">
+            <div className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs text-v2-ink-300 font-semibold mb-2">
+              {m.label}
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {weekdayLabels.map((label, idx) => (
+                <div
+                  key={`wd-${idx}`}
+                  className="font-v2-mono tabular-nums text-[9px] uppercase tracking-[0.14em] text-v2-ink-500 pb-1"
+                >
+                  {label}
+                </div>
+              ))}
+              {cells.map((cell, idx) => {
+                if (cell.day === null) {
+                  return <div key={`p-${idx}`} className="aspect-square" />;
+                }
+                const base =
+                  "aspect-square flex items-center justify-center rounded-v2-sm font-v2-mono tabular-nums text-[10px] font-semibold border";
+                let cls: string;
+                if (cell.present === true) {
+                  cls = "bg-v2-success-600/20 text-v2-success-300 border-v2-success-600/50";
+                } else if (cell.present === false) {
+                  cls = "bg-v2-danger-600/15 text-v2-danger-300 border-v2-danger-600/50";
+                } else {
+                  cls = "bg-v2-surface-900 text-v2-ink-600 border-v2-surface-800";
+                }
+                return (
+                  <div key={`d-${m.key}-${cell.day}`} className={`${base} ${cls}`}>
+                    {cell.day}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // V2 input classes
 const v2FieldClass =
   "bg-v2-surface-950 border border-v2-surface-700 text-v2-ink-100 rounded-v2-sm px-3 py-2 text-v2-sm font-v2-body placeholder:text-v2-ink-500 focus:outline-none focus:ring-2 focus:ring-v2-info-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 focus:border-v2-info-500 transition-colors duration-v2-quick";
@@ -180,6 +283,7 @@ export default function RosterV2() {
   );
   const [tmSaving, setTmSaving] = useState<LiftKey | null>(null);
   const [detailAttendance, setDetailAttendance] = useState<{ present: number; total: number; dates: { date: string; present: boolean }[] } | null>(null);
+  const [attendanceView, setAttendanceView] = useState<"chips" | "calendar">("chips");
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editSessionDraft, setEditSessionDraft] = useState<Partial<SessionRecord>>({});
   const [sessionSaving, setSessionSaving] = useState(false);
@@ -945,7 +1049,7 @@ export default function RosterV2() {
         },
         detailProfile.uid
       );
-      const refreshed = await fetchAthleteSessions(detailProfile.uid, 12, activeTeamSelection || undefined);
+      const refreshed = await fetchAthleteSessions(detailProfile.uid, 500, activeTeamSelection || undefined);
       setDetailSessions(refreshed);
       setLogSessionOpen(false);
       setLogSessionDraft({ lift: "bench", week: 1, cycle: 1, amrapWeight: "", amrapReps: "" });
@@ -989,6 +1093,43 @@ export default function RosterV2() {
         totalSessions: sessions.length,
       };
     });
+  }, [detailProfile, detailSessions]);
+
+  // Starting Point: earliest session per lift (sessions are stored desc, so the
+  // last entry per bucket is the oldest). Captures the AMRAP weight/reps the
+  // athlete first logged for each major lift, plus the overall start date.
+  const startingPoints = useMemo(() => {
+    const buckets: Record<LiftKey, SessionRecord[]> = {
+      bench: [],
+      squat: [],
+      deadlift: [],
+    };
+    for (const session of detailSessions) {
+      const lift = session.lift as LiftKey;
+      if (LIFT_KEYS.includes(lift)) {
+        buckets[lift].push(session);
+      }
+    }
+    const perLift = LIFT_KEYS.map((lift) => {
+      const sessions = buckets[lift];
+      const earliest = sessions.length ? sessions[sessions.length - 1] : null;
+      return {
+        lift,
+        label: lift.charAt(0).toUpperCase() + lift.slice(1),
+        earliest,
+      };
+    });
+    let startedAt: number | null = null;
+    for (const session of detailSessions) {
+      const ts = session.createdAt ?? null;
+      if (typeof ts === "number" && Number.isFinite(ts)) {
+        if (startedAt === null || ts < startedAt) startedAt = ts;
+      }
+    }
+    if (startedAt === null && typeof detailProfile?.createdAt === "number") {
+      startedAt = detailProfile.createdAt;
+    }
+    return { perLift, startedAt };
   }, [detailProfile, detailSessions]);
 
   const isCoachRow = (row: RosterEntry) => {
@@ -1189,7 +1330,7 @@ export default function RosterV2() {
           loadProfileRemote(selectedUid),
           fetchAthleteSessions(
             selectedUid,
-            12,
+            500,
             activeTeamSelection || undefined
           ),
         ]);
@@ -1515,13 +1656,84 @@ export default function RosterV2() {
             </div>
           )}
 
+          {/* Starting Point */}
+          {(startingPoints.startedAt || startingPoints.perLift.some((p) => p.earliest)) && (
+            <div className="rounded-v2-md border border-v2-info-600/40 bg-v2-surface-900 p-4 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <V2SectionLabel>Starting Point</V2SectionLabel>
+                {startingPoints.startedAt && (
+                  <div className="font-v2-mono tabular-nums text-v2-xs text-v2-ink-300">
+                    Started {new Date(startingPoints.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {startingPoints.perLift.map((entry) => {
+                  const s = entry.earliest;
+                  const weight = s?.amrap?.weight ?? 0;
+                  const reps = s?.amrap?.reps ?? 0;
+                  return (
+                    <div
+                      key={entry.lift}
+                      className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950 p-3"
+                    >
+                      <div className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs text-v2-ink-400 font-semibold mb-1">
+                        {entry.label}
+                      </div>
+                      {s ? (
+                        <>
+                          <div className="font-v2-mono tabular-nums text-v2-lg font-semibold text-v2-ink-50">
+                            {weight} {s.unit} <span className="text-v2-sm text-v2-ink-400">x{reps}</span>
+                          </div>
+                          <div className="font-v2-mono tabular-nums text-[10px] text-v2-ink-500 mt-0.5">
+                            {s.createdAt
+                              ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                              : ""}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="font-v2-mono tabular-nums text-v2-sm text-v2-ink-500">—</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Attendance Breakdown */}
           {detailAttendance && (
             <div className="rounded-v2-md border border-v2-success-600/40 bg-v2-surface-900 p-4 mt-4">
               <div className="flex items-center justify-between mb-3">
                 <V2SectionLabel>Attendance</V2SectionLabel>
-                <div className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-success-300">
-                  {detailAttendance.present} / {detailAttendance.total}
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex rounded-v2-sm border border-v2-surface-700 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceView("chips")}
+                      className={`px-2.5 py-1 text-[10px] font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick ${
+                        attendanceView === "chips"
+                          ? "bg-v2-info-600 text-white"
+                          : "bg-v2-surface-900 text-v2-ink-300 hover:bg-v2-surface-800"
+                      }`}
+                    >
+                      Chips
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceView("calendar")}
+                      className={`px-2.5 py-1 text-[10px] font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick border-l border-v2-surface-700 ${
+                        attendanceView === "calendar"
+                          ? "bg-v2-info-600 text-white"
+                          : "bg-v2-surface-900 text-v2-ink-300 hover:bg-v2-surface-800"
+                      }`}
+                    >
+                      Calendar
+                    </button>
+                  </div>
+                  <div className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-success-300">
+                    {detailAttendance.present} / {detailAttendance.total}
+                  </div>
                 </div>
               </div>
               {detailAttendance.total > 0 && (
@@ -1537,7 +1749,7 @@ export default function RosterV2() {
                   </div>
                 </div>
               )}
-              {detailAttendance.dates.length > 0 && (
+              {detailAttendance.dates.length > 0 && attendanceView === "chips" && (
                 <div className="flex flex-wrap gap-1.5">
                   {detailAttendance.dates.map((entry) => (
                     <span
@@ -1554,6 +1766,9 @@ export default function RosterV2() {
                     </span>
                   ))}
                 </div>
+              )}
+              {detailAttendance.dates.length > 0 && attendanceView === "calendar" && (
+                <AttendanceCalendar dates={detailAttendance.dates} />
               )}
             </div>
           )}
