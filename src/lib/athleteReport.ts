@@ -205,12 +205,12 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
        </table>`
     : "";
 
-  // Inline (small) charts
+  // Inline (small) charts — Y axis is the estimated 1RM (calculated max)
   const renderLiftChart = (lift: LiftKey, label: string): string => {
     const sessionsAsc = sessions
       .filter((s) => s.lift === lift)
       .filter(
-        (s) => typeof s.amrap?.weight === "number" && (s.amrap?.weight ?? 0) > 0
+        (s) => typeof s.est1rm === "number" && Number.isFinite(s.est1rm) && (s.est1rm ?? 0) > 0
       )
       .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
     if (sessionsAsc.length < 2) {
@@ -225,7 +225,7 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     const PAD_R = 8;
     const PAD_T = 12;
     const PAD_B = 18;
-    const ys = sessionsAsc.map((s) => s.amrap?.weight ?? 0);
+    const ys = sessionsAsc.map((s) => s.est1rm ?? 0);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
     const yRange = maxY - minY || 1;
@@ -236,13 +236,13 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     const path = sessionsAsc
       .map(
         (s, i) =>
-          `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(s.amrap?.weight ?? 0).toFixed(1)}`
+          `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(s.est1rm ?? 0).toFixed(1)}`
       )
       .join(" ");
     const dots = sessionsAsc
       .map(
         (s, i) =>
-          `<circle cx="${px(i).toFixed(1)}" cy="${py(s.amrap?.weight ?? 0).toFixed(1)}" r="2" fill="${LIFT_COLORS[lift]}" />`
+          `<circle cx="${px(i).toFixed(1)}" cy="${py(s.est1rm ?? 0).toFixed(1)}" r="2" fill="${LIFT_COLORS[lift]}" />`
       )
       .join("");
     const unit = sessionsAsc[0]?.unit ?? "lb";
@@ -251,8 +251,8 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
       <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;">
         <line x1="${PAD_L}" y1="${H - PAD_B}" x2="${W - PAD_R}" y2="${H - PAD_B}" stroke="#9ca3af" stroke-width="0.5" />
         <line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${H - PAD_B}" stroke="#9ca3af" stroke-width="0.5" />
-        <text x="${PAD_L - 3}" y="${PAD_T + 3}" font-size="7" text-anchor="end" fill="#6b7280">${maxY} ${escapeHtml(unit)}</text>
-        <text x="${PAD_L - 3}" y="${H - PAD_B + 2}" font-size="7" text-anchor="end" fill="#6b7280">${minY}</text>
+        <text x="${PAD_L - 3}" y="${PAD_T + 3}" font-size="7" text-anchor="end" fill="#6b7280">${maxY.toFixed(0)} ${escapeHtml(unit)}</text>
+        <text x="${PAD_L - 3}" y="${H - PAD_B + 2}" font-size="7" text-anchor="end" fill="#6b7280">${minY.toFixed(0)}</text>
         <text x="${PAD_L}" y="${H - 4}" font-size="7" fill="#6b7280">1</text>
         <text x="${W - PAD_R}" y="${H - 4}" font-size="7" text-anchor="end" fill="#6b7280">${sessionsAsc.length}</text>
         <path d="${path}" fill="none" stroke="${LIFT_COLORS[lift]}" stroke-width="1.5" />
@@ -264,18 +264,18 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     renderLiftChart(lift, lift.charAt(0).toUpperCase() + lift.slice(1))
   ).join("");
 
-  // Full-page detail charts
+  // Full-page detail charts — Y axis is estimated 1RM
   const renderFullPageChart = (lift: LiftKey, label: string): string => {
     const sessionsAsc = sessions
       .filter((s) => s.lift === lift)
       .filter(
-        (s) => typeof s.amrap?.weight === "number" && (s.amrap?.weight ?? 0) > 0
+        (s) => typeof s.est1rm === "number" && Number.isFinite(s.est1rm) && (s.est1rm ?? 0) > 0
       )
       .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
     if (sessionsAsc.length < 2) return "";
     const color = LIFT_COLORS[lift];
     const unit = sessionsAsc[0]?.unit ?? "lb";
-    const ys = sessionsAsc.map((s) => s.amrap?.weight ?? 0);
+    const ys = sessionsAsc.map((s) => s.est1rm ?? 0);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
     const yPad = Math.max(5, Math.round((maxY - minY) * 0.15));
@@ -311,7 +311,7 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     const linePath = sessionsAsc
       .map(
         (s, i) =>
-          `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(s.amrap?.weight ?? 0).toFixed(1)}`
+          `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(s.est1rm ?? 0).toFixed(1)}`
       )
       .join(" ");
     const areaPath = `${linePath} L ${px(maxIdx).toFixed(1)} ${(H - PAD_B).toFixed(1)} L ${PAD_L.toFixed(1)} ${(H - PAD_B).toFixed(1)} Z`;
@@ -320,8 +320,8 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     const dataElements = sessionsAsc
       .map((s, i) => {
         const cx = px(i);
-        const cy = py(s.amrap?.weight ?? 0);
-        const w = s.amrap?.weight ?? 0;
+        const cy = py(s.est1rm ?? 0);
+        const w = (s.est1rm ?? 0).toFixed(0);
         const isPr = !!s.pr;
         const showDate = i === 0 || i === maxIdx || i % dateLabelEvery === 0;
         const dateStr = s.createdAt
@@ -347,9 +347,9 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
       })
       .join("");
 
-    const startWeight = ys[0];
-    const endWeight = ys[ys.length - 1];
-    const bestWeight = maxY;
+    const startWeight = Math.round(ys[0]);
+    const endWeight = Math.round(ys[ys.length - 1]);
+    const bestWeight = Math.round(maxY);
     const delta = endWeight - startWeight;
     const deltaSign = delta > 0 ? "+" : "";
     const startDateStr = sessionsAsc[0]?.createdAt
@@ -385,7 +385,7 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
         ${dataElements}
       </svg>
       <div class="full-chart-legend">
-        <span><span class="dot" style="background:${color};"></span>AMRAP weight per session</span>
+        <span><span class="dot" style="background:${color};"></span>Estimated 1RM per session</span>
         <span><span class="dot" style="background:#fbbf24;border:2px solid ${color};"></span>Personal record (★)</span>
       </div>
     </div>`;
@@ -467,7 +467,7 @@ export function buildAthleteReportHtml(input: AthleteReportInput): string {
     </div>
 
     <div class="section">
-      <h2>Progress (AMRAP weight per session)</h2>
+      <h2>Progress (Estimated 1RM per session)</h2>
       <div class="charts">${chartsHtml}</div>
     </div>
 
