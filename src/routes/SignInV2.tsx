@@ -2,9 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
+  signInWithCustomToken,
   signInWithEmailAndPassword,
   type AuthError,
 } from "firebase/auth";
+import {
+  COACH_AUTH_VIA_FUNCTION,
+  CoachAuthRateLimitError,
+  CoachPasscodeError,
+  claimCoachRole,
+} from "../lib/coachAuth";
 import {
   AthleteAuthError,
   TEAM_DEFINITIONS,
@@ -247,13 +254,39 @@ export default function SignInV2() {
     }
   };
 
+  // Shared tail of both coach sign-in paths: resolve team scopes, persist
+  // the profile, and land on the dashboard.
+  const completeCoachSignIn = async (
+    userUid: string,
+    allowedTeamsSeed: Team[],
+    safeFirst: string,
+    safeLast: string
+  ) => {
+    let allowedTeams = allowedTeamsSeed;
+    if (allowedTeams.length === 0 && team) allowedTeams = [team as Team];
+    try {
+      const freshTeamScopes = await fetchCoachTeamScopes(userUid);
+      if (freshTeamScopes.length > 0) allowedTeams = freshTeamScopes;
+    } catch (err) { console.warn("Failed to fetch coach team scopes", err); }
+    setStoredTeamScopes(allowedTeams);
+    const resolvedActiveTeam = team && allowedTeams.includes(team as Team)
+      ? (team as Team)
+      : allowedTeams[0] ?? team ?? "";
+    setStoredTeamSelection(resolvedActiveTeam ?? "");
+    try {
+      await persistProfile(userUid, safeFirst, safeLast, team);
+    } catch (err) {
+      console.warn("Failed to persist coach profile", err);
+    } finally {
+      setPasscode("");
+      setSubmitting(false);
+    }
+    navigate("/", { replace: true });
+  };
+
   const handleCoachSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!auth) { setMessage({ kind: "error", text: "Sign-in is unavailable right now. Check your connection and try again." }); return; }
-    if (!coachPasscodeFromEnv) {
-      setMessage({ kind: "error", text: "The coach passcode is not configured. Ask an admin to set VITE_COACH_PASSCODE." });
-      return;
-    }
     const safeFirst = sanitizeName(firstName);
     const safeLast = sanitizeName(lastName);
     if (!safeFirst || !safeLast) { setMessage({ kind: "error", text: "Enter your first and last name." }); return; }
@@ -261,6 +294,51 @@ export default function SignInV2() {
     const email = buildCoachEmail(safeFirst, safeLast);
     const entered = normalizeCoachPasscode(passcode);
     if (!entered) { setMessage({ kind: "error", text: "Enter the coach passcode." }); return; }
+
+    // ── Server-verified path (preferred). The Cloud Function checks the
+    //    passcode against Secret Manager, grants the role with the Admin SDK,
+    //    and returns a custom token. Wrong passcode is authoritative; an
+    //    unreachable function falls through to the legacy flow below.
+    if (COACH_AUTH_VIA_FUNCTION) {
+      setSubmitting(true);
+      setMessage(null);
+      try {
+        const claim = await claimCoachRole({
+          firstName: safeFirst,
+          lastName: safeLast,
+          passcode: entered,
+        });
+        const credential = await signInWithCustomToken(auth, claim.token);
+        try { await refreshRoles(credential.user.uid); } catch (err) {
+          console.warn("Failed to refresh roles after server claim", err);
+        }
+        let seedScopes = claim.teamScopes.filter(Boolean) as Team[];
+        if (team && !seedScopes.includes(team as Team)) {
+          seedScopes = [...seedScopes, team as Team];
+        }
+        await completeCoachSignIn(credential.user.uid, seedScopes, safeFirst, safeLast);
+        return;
+      } catch (err: any) {
+        if (err instanceof CoachPasscodeError) {
+          setMessage({ kind: "error", text: "That passcode doesn't match. Check with your admin for the current coach code." });
+          setSubmitting(false);
+          return;
+        }
+        if (err instanceof CoachAuthRateLimitError) {
+          setMessage({ kind: "error", text: err.message });
+          setSubmitting(false);
+          return;
+        }
+        console.warn("Server coach sign-in unavailable; using legacy sign-in", err);
+        setSubmitting(false);
+      }
+    }
+
+    // ── Legacy path (fallback during rollout; killswitch target) ──────────
+    if (!coachPasscodeFromEnv) {
+      setMessage({ kind: "error", text: "The coach passcode is not configured. Ask an admin to set VITE_COACH_PASSCODE." });
+      return;
+    }
     const expected = normalizeCoachPasscode(coachPasscodeFromEnv);
     const adminExpected = adminCoachPasscodeFromEnv ? normalizeCoachPasscode(adminCoachPasscodeFromEnv) : null;
     const isAdminOverride = adminExpected ? entered === adminExpected : false;
@@ -348,25 +426,7 @@ export default function SignInV2() {
         }
       }
     } catch (err) { console.warn("Failed to check previous team scopes", err); }
-    if (allowedTeams.length === 0 && team) allowedTeams = [team as Team];
-    try {
-      const freshTeamScopes = await fetchCoachTeamScopes(userUid);
-      if (freshTeamScopes.length > 0) allowedTeams = freshTeamScopes;
-    } catch (err) { console.warn("Failed to fetch coach team scopes", err); }
-    setStoredTeamScopes(allowedTeams);
-    const resolvedActiveTeam = team && allowedTeams.includes(team as Team)
-      ? (team as Team)
-      : allowedTeams[0] ?? team ?? "";
-    setStoredTeamSelection(resolvedActiveTeam ?? "");
-    try {
-      await persistProfile(userUid, safeFirst, safeLast, team);
-    } catch (err) {
-      console.warn("Failed to persist coach profile", err);
-    } finally {
-      setPasscode("");
-      setSubmitting(false);
-    }
-    navigate("/", { replace: true });
+    await completeCoachSignIn(userUid, allowedTeams, safeFirst, safeLast);
   };
 
   // ── V2 JSX ─────────────────────────────────────────────────────────────────

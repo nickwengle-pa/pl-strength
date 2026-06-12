@@ -6,6 +6,9 @@ const { FieldValue, getFirestore } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const functions = require("firebase-functions");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
+const crypto = require("crypto");
 
 // Initialize the Admin SDK once per process.
 initializeApp();
@@ -540,5 +543,151 @@ exports.weeklyBackup = onSchedule(
     }
 
     functions.logger.info(`Weekly backup complete: ${fileName}`);
+  }
+);
+
+// ── Coach/admin sign-in via server-verified passcode ─────────────────────────
+//
+// Replaces the client-side passcode check in SignInV2. The passcode lives in
+// Secret Manager (never in the web bundle). On a match the function finds or
+// creates the coach's auth account, writes the roles document with the Admin
+// SDK, and returns a custom token the client signs in with — so coach sign-in
+// no longer depends on the legacy passcode-derived password, and rotating the
+// passcode cannot break existing accounts.
+//
+// The client treats "wrong passcode" as authoritative (no fallback) but falls
+// back to the legacy flow if this function is unreachable, so a function
+// outage can never lock a coach out during the transition.
+
+const COACH_PASSCODE = defineSecret("COACH_PASSCODE");
+const ADMIN_COACH_PASSCODE = defineSecret("ADMIN_COACH_PASSCODE");
+
+const ATTEMPT_COLLECTION = "authAttempts";
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const ATTEMPT_LIMIT = 8;
+
+const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest();
+
+// Constant-time comparison via fixed-length digests.
+const passcodeMatches = (entered, expected) => {
+  if (!expected) return false;
+  return crypto.timingSafeEqual(sha256(entered), sha256(expected));
+};
+
+const canonicalCoachEmail = (firstName, lastName) => {
+  const canonical = `${firstName}${lastName}`.toLowerCase().replace(/[^a-z]/g, "");
+  return canonical.length >= 2 ? `coach-${canonical}@pl.strength` : null;
+};
+
+exports.claimCoachRole = onCall(
+  { secrets: [COACH_PASSCODE, ADMIN_COACH_PASSCODE] },
+  async (request) => {
+    const firstName = sanitizeName(request.data?.firstName);
+    const lastName = sanitizeName(request.data?.lastName);
+    const passcode =
+      typeof request.data?.passcode === "string"
+        ? request.data.passcode.trim().toUpperCase().slice(0, 32)
+        : "";
+
+    const email = canonicalCoachEmail(firstName, lastName);
+    if (!email || !passcode) {
+      throw new HttpsError("invalid-argument", "Enter your first and last name and the coach passcode.");
+    }
+
+    const db = getFirestore();
+    const attemptRef = db
+      .collection(ATTEMPT_COLLECTION)
+      .doc(sha256(email).toString("hex"));
+
+    // Brute-force limiter: once the rules are locked this callable becomes the
+    // only passcode oracle, so cap guesses per coach identity per window.
+    const attemptSnap = await attemptRef.get();
+    const attempt = attemptSnap.exists ? attemptSnap.data() : null;
+    const now = Date.now();
+    const windowActive = attempt && now - (attempt.windowStartMs ?? 0) < ATTEMPT_WINDOW_MS;
+    if (windowActive && (attempt.failures ?? 0) >= ATTEMPT_LIMIT) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Too many passcode attempts. Wait a few minutes and try again."
+      );
+    }
+
+    const coachExpected = (COACH_PASSCODE.value() ?? "").trim().toUpperCase();
+    const adminExpected = (ADMIN_COACH_PASSCODE.value() ?? "").trim().toUpperCase();
+    const isAdmin = passcodeMatches(passcode, adminExpected);
+    const isCoach = !isAdmin && passcodeMatches(passcode, coachExpected);
+
+    if (!isAdmin && !isCoach) {
+      await attemptRef.set(
+        windowActive
+          ? { failures: (attempt.failures ?? 0) + 1, windowStartMs: attempt.windowStartMs }
+          : { failures: 1, windowStartMs: now },
+        { merge: false }
+      );
+      functions.logger.warn("claimCoachRole: passcode mismatch", { email });
+      throw new HttpsError("permission-denied", "wrong-passcode");
+    }
+
+    // Find or create the coach's auth account. Existing accounts keep their
+    // uid (and therefore all their data); new accounts get a random password
+    // so nothing depends on the legacy `${code}coach!` derivation.
+    const auth = getAuth();
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+    } catch (err) {
+      if (err?.code === "auth/user-not-found") {
+        userRecord = await auth.createUser({
+          email,
+          password: crypto.randomBytes(32).toString("base64url"),
+          displayName: `${firstName} ${lastName}`.trim(),
+        });
+      } else {
+        throw new HttpsError("internal", "Could not look up the coach account.");
+      }
+    }
+
+    // Write the roles document exactly the way the legacy client flow shaped
+    // it (roles list + preserved teamScopes/teamAnchor + accessHistory entry)
+    // so every existing read path keeps working. Coach passcode strips admin,
+    // matching the legacy ensureCoachRoleOnly behavior.
+    const roles = isAdmin ? ["admin", "coach"] : ["coach"];
+    const roleRef = db.collection("roles").doc(userRecord.uid);
+    const roleSnap = await roleRef.get();
+    const existing = roleSnap.exists ? roleSnap.data() : {};
+    const teamScopes = Array.isArray(existing.teamScopes) ? existing.teamScopes : [];
+    const teamAnchor = existing.teamAnchor ?? null;
+
+    const payload = {
+      roles,
+      updatedAt: FieldValue.serverTimestamp(),
+      accessHistory: {
+        ...asObject(existing.accessHistory),
+        [passcode]: {
+          roles,
+          teamScopes,
+          teamAnchor,
+          lastUsed: FieldValue.serverTimestamp(),
+        },
+      },
+    };
+    if (teamScopes.length > 0) payload.teamScopes = teamScopes;
+    if (teamAnchor) payload.teamAnchor = teamAnchor;
+
+    await roleRef.set(payload, { merge: true });
+
+    if (attemptSnap.exists) {
+      await attemptRef.delete().catch(() => undefined);
+    }
+
+    const token = await auth.createCustomToken(userRecord.uid);
+
+    functions.logger.info("claimCoachRole: granted", {
+      uid: userRecord.uid,
+      email,
+      roles,
+    });
+
+    return { token, roles, teamScopes, teamAnchor };
   }
 );
