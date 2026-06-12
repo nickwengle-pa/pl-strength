@@ -1,49 +1,56 @@
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Nav from "./components/Nav";
 import NavV2 from "./components/NavV2";
 import ActiveAthleteBanner from "./components/ActiveAthleteBanner";
-import Home from "./routes/Home";
-import HomeV2 from "./routes/HomeV2";
-import Session from "./routes/Session";
-import SessionV2 from "./routes/SessionV2";
-import Roster from "./routes/Roster";
-import RosterV2 from "./routes/RosterV2";
-import Calculator from "./routes/Calculator";
-import CalculatorV2 from "./routes/CalculatorV2";
-import Summary from "./routes/Summary";
-import SummaryV2 from "./routes/SummaryV2";
-import Progress from "./routes/Progress";
-import ProgressV2 from "./routes/ProgressV2";
-import Sheets from "./routes/Sheets";
-import SheetsV2 from "./routes/SheetsV2";
-import Admin from "./routes/Admin";
-import AdminV2 from "./routes/AdminV2";
-import Profile from "./routes/Profile";
-import ProfileV2 from "./routes/ProfileV2";
-import Exercises from "./routes/Exercises";
-import ExercisesV2 from "./routes/ExercisesV2";
-import ProgramOutline from "./routes/ProgramOutline";
-import ProgramOutlineV2 from "./routes/ProgramOutlineV2";
-import Attendance from "./routes/Attendance";
-import AttendanceV2 from "./routes/AttendanceV2";
-import SignIn from "./routes/SignIn";
-import SignInV2 from "./routes/SignInV2";
-import Welcome from "./routes/Welcome";
-import WelcomeV2 from "./routes/WelcomeV2";
 import V2Switch from "./components/V2Switch";
-import Turf from "./routes/Turf";
-import TurfV2 from "./routes/TurfV2";
-import Accessory from "./routes/Accessory";
-import AccessoryV2 from "./routes/AccessoryV2";
-import FootballSimulator from "./routes/FootballSimulator";
-import FootballSimulatorV2 from "./routes/FootballSimulatorV2";
+import { isV2 } from "./lib/uiVersion";
 import { useAuth } from "./lib/auth";
 import { ActiveAthleteProvider } from "./context/ActiveAthleteContext";
 import { ToastProvider } from "./context/ToastContext";
 
-// App version - keep in sync with main.tsx
-export const APP_VERSION = '3.0.0';
+// App version - keep in sync with CACHE_NAME in public/sw.js
+export const APP_VERSION = '3.1.0';
+
+// Each route lazy-loads ONLY the active UI version's chunk. UI_VERSION is
+// resolved once at module load (see lib/uiVersion.ts), so the inactive
+// version's code is never downloaded — previously every user shipped both
+// v1 and v2 of all surfaces in a single bundle. The navs stay eager so the
+// header never flashes.
+const pick = (
+  v1: () => Promise<{ default: React.ComponentType }>,
+  v2: () => Promise<{ default: React.ComponentType }>
+) => lazy(isV2() ? v2 : v1);
+
+const HomePage = pick(() => import("./routes/Home"), () => import("./routes/HomeV2"));
+const SessionPage = pick(() => import("./routes/Session"), () => import("./routes/SessionV2"));
+const SummaryPage = pick(() => import("./routes/Summary"), () => import("./routes/SummaryV2"));
+const ProgressPage = pick(() => import("./routes/Progress"), () => import("./routes/ProgressV2"));
+const CalculatorPage = pick(() => import("./routes/Calculator"), () => import("./routes/CalculatorV2"));
+const SheetsPage = pick(() => import("./routes/Sheets"), () => import("./routes/SheetsV2"));
+const ProgramOutlinePage = pick(() => import("./routes/ProgramOutline"), () => import("./routes/ProgramOutlineV2"));
+const ExercisesPage = pick(() => import("./routes/Exercises"), () => import("./routes/ExercisesV2"));
+const TurfPage = pick(() => import("./routes/Turf"), () => import("./routes/TurfV2"));
+const AccessoryPage = pick(() => import("./routes/Accessory"), () => import("./routes/AccessoryV2"));
+const RosterPage = pick(() => import("./routes/Roster"), () => import("./routes/RosterV2"));
+const AttendancePage = pick(() => import("./routes/Attendance"), () => import("./routes/AttendanceV2"));
+const AdminPage = pick(() => import("./routes/Admin"), () => import("./routes/AdminV2"));
+const FootballSimulatorPage = pick(() => import("./routes/FootballSimulator"), () => import("./routes/FootballSimulatorV2"));
+const ProfilePage = pick(() => import("./routes/Profile"), () => import("./routes/ProfileV2"));
+const SignInPage = pick(() => import("./routes/SignIn"), () => import("./routes/SignInV2"));
+const WelcomePage = pick(() => import("./routes/Welcome"), () => import("./routes/WelcomeV2"));
+
+const routeFallback = (
+  <div
+    className={
+      isV2()
+        ? "min-h-screen flex items-center justify-center bg-v2-surface-950 text-v2-ink-400"
+        : "min-h-screen flex items-center justify-center bg-gray-50 text-gray-600"
+    }
+  >
+    Loading...
+  </div>
+);
 
 export default function App() {
   const { user, initializing, signingInWithLink } = useAuth();
@@ -67,7 +74,11 @@ export default function App() {
 
   // Welcome page is always accessible (NFC landing)
   if (isWelcomePage) {
-    return <V2Switch v1={<Welcome />} v2={<WelcomeV2 />} />;
+    return (
+      <Suspense fallback={routeFallback}>
+        <WelcomePage />
+      </Suspense>
+    );
   }
 
   if (initializing || signingInWithLink) {
@@ -79,7 +90,11 @@ export default function App() {
   }
 
   if (!user) {
-    return <V2Switch v1={<SignIn />} v2={<SignInV2 />} />;
+    return (
+      <Suspense fallback={routeFallback}>
+        <SignInPage />
+      </Suspense>
+    );
   }
 
   return (
@@ -90,25 +105,27 @@ export default function App() {
           <V2Switch v1={<Nav />} v2={<NavV2 />} />
           <ActiveAthleteBanner />
         </div>
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<V2Switch v1={<Home />} v2={<HomeV2 />} />} />
-            <Route path="/session" element={<V2Switch v1={<Session />} v2={<SessionV2 />} />} />
-            <Route path="/summary" element={<V2Switch v1={<Summary />} v2={<SummaryV2 />} />} />
-            <Route path="/progress" element={<V2Switch v1={<Progress />} v2={<ProgressV2 />} />} />
-            <Route path="/calculator" element={<V2Switch v1={<Calculator />} v2={<CalculatorV2 />} />} />
-            <Route path="/sheets" element={<V2Switch v1={<Sheets />} v2={<SheetsV2 />} />} />
-            <Route path="/program-outline" element={<V2Switch v1={<ProgramOutline />} v2={<ProgramOutlineV2 />} />} />
-            <Route path="/exercises" element={<V2Switch v1={<Exercises />} v2={<ExercisesV2 />} />} />
-            <Route path="/turf" element={<V2Switch v1={<Turf />} v2={<TurfV2 />} />} />
-            <Route path="/accessory" element={<V2Switch v1={<Accessory />} v2={<AccessoryV2 />} />} />
-            <Route path="/roster" element={<V2Switch v1={<Roster />} v2={<RosterV2 />} />} />
-            <Route path="/attendance" element={<V2Switch v1={<Attendance />} v2={<AttendanceV2 />} />} />
-            <Route path="/admin" element={<V2Switch v1={<Admin />} v2={<AdminV2 />} />} />
-            <Route path="/football" element={<V2Switch v1={<FootballSimulator />} v2={<FootballSimulatorV2 />} />} />
-            <Route path="/profile" element={<V2Switch v1={<Profile />} v2={<ProfileV2 />} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+        <main className={isV2() ? "flex-1 pb-[calc(72px+env(safe-area-inset-bottom,0px))] md:pb-0" : "flex-1"}>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/session" element={<SessionPage />} />
+              <Route path="/summary" element={<SummaryPage />} />
+              <Route path="/progress" element={<ProgressPage />} />
+              <Route path="/calculator" element={<CalculatorPage />} />
+              <Route path="/sheets" element={<SheetsPage />} />
+              <Route path="/program-outline" element={<ProgramOutlinePage />} />
+              <Route path="/exercises" element={<ExercisesPage />} />
+              <Route path="/turf" element={<TurfPage />} />
+              <Route path="/accessory" element={<AccessoryPage />} />
+              <Route path="/roster" element={<RosterPage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/football" element={<FootballSimulatorPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
         <footer className="py-2 text-center text-xs text-gray-400 print:hidden">
           v{APP_VERSION}

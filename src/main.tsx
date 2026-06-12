@@ -1,6 +1,17 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
+// Self-hosted fonts (bundled by Vite, cached by the SW — work offline,
+// unlike the old Google Fonts @import)
+import '@fontsource/barlow-condensed/500.css';
+import '@fontsource/barlow-condensed/600.css';
+import '@fontsource/barlow-condensed/700.css';
+import '@fontsource/barlow/400.css';
+import '@fontsource/barlow/500.css';
+import '@fontsource/barlow/600.css';
+import '@fontsource/barlow/700.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/700.css';
 import './index.css';
 import App, { APP_VERSION } from './App';
 import ErrorBoundary from './ErrorBoundary';
@@ -188,26 +199,28 @@ function showUpdatePrompt() {
   // Don't show multiple prompts
   if (document.getElementById('update-prompt')) return;
   
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const prompt = document.createElement('div');
   prompt.id = 'update-prompt';
   prompt.innerHTML = `
     <div style="
       position: fixed;
-      bottom: 20px;
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
-      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-      color: white;
-      padding: 16px 24px;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      background: #0F172A;
+      color: #F1F5F9;
+      border: 1px solid #334155;
+      padding: 14px 16px;
+      border-radius: 14px;
+      box-shadow: 0 10px 15px rgba(2,6,23,.1), 0 20px 25px rgba(2,6,23,.1);
       z-index: 10000;
       display: flex;
       align-items: center;
-      gap: 16px;
-      font-family: system-ui, -apple-system, sans-serif;
+      gap: 12px;
+      font-family: Barlow, system-ui, -apple-system, sans-serif;
       max-width: 90vw;
-      animation: slideUp 0.3s ease-out;
+      ${reduceMotion ? '' : 'animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);'}
     ">
       <style>
         @keyframes slideUp {
@@ -215,22 +228,28 @@ function showUpdatePrompt() {
           to { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
       </style>
-      <span style="font-size: 14px;">🎉 A New Version Is Available!</span>
+      <span style="font-size: 14px;">A new version is available</span>
       <button id="update-btn" style="
-        background: white;
-        color: #1e40af;
+        background: #7a0f18;
+        color: #fff;
         border: none;
+        min-height: 44px;
         padding: 8px 16px;
-        border-radius: 8px;
+        border-radius: 10px;
+        font-family: inherit;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         cursor: pointer;
-        font-size: 14px;
-        transition: transform 0.1s;
-      ">Update Now</button>
-      <button id="dismiss-btn" style="
+        font-size: 13px;
+        transition: background-color 0.15s;
+      " onmouseover="this.style.background='#640d14'" onmouseout="this.style.background='#7a0f18'">Update now</button>
+      <button id="dismiss-btn" aria-label="Dismiss" style="
         background: transparent;
-        color: rgba(255,255,255,0.8);
+        color: #94A3B8;
         border: none;
+        min-height: 44px;
+        min-width: 44px;
         padding: 4px;
         cursor: pointer;
         font-size: 18px;

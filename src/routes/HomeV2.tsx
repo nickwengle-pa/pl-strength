@@ -37,33 +37,33 @@ const ABBREVIATIONS = [
     code: "TM",
     title: "Training Max",
     detail:
-      "Weight You Could Lift For Around 2-3 Hard Reps. Every Plan And Sheet Uses This Number.",
+      "Weight you could lift for around 2-3 hard reps. Every plan and sheet uses this number.",
   },
   {
     code: "1RM",
     title: "One-Rep Max",
-    detail: "The Heaviest Weight You Can Lift Once With Solid Form.",
+    detail: "The heaviest weight you can lift once with solid form.",
   },
   {
     code: "AMRAP",
     title: "As Many Reps As Possible",
-    detail: "Push The Set, But Stop While You Still Have 1-2 Good Reps Left.",
+    detail: "Push the set, but stop while you still have 1-2 good reps left.",
   },
   {
     code: "PR",
     title: "Personal Record",
-    detail: "Your Best Lift So Far. New PRs Mean Progress - Celebrate Them.",
+    detail: "Your best lift so far. New PRs mean progress — celebrate them.",
   },
   {
     code: "RPE",
     title: "Rate of Perceived Exertion",
-    detail: "How Tough A Set Feels From 1-10. RPE 8 Means About Two Reps Left.",
+    detail: "How tough a set feels from 1-10. RPE 8 means about two reps left.",
   },
   {
     code: "% Bar",
     title: "Percent of TM",
     detail:
-      "Sheets Show Weights As A Percent Of Your TM So You Know What Plates To Load.",
+      "Sheets show weights as a percent of your TM so you know what plates to load.",
   },
 ];
 
@@ -219,7 +219,7 @@ export default function HomeV2() {
       } catch (err) {
         if (!active) return;
         console.debug("Could Not Load Attendance Check-In State", err);
-        setCheckinError("Could Not Load Today's Check-In Status.");
+        setCheckinError("Couldn't load today's check-in status.");
         setCheckinState({
           team: resolvedTeam,
           date: today,
@@ -651,15 +651,15 @@ export default function HomeV2() {
   const handleAthleteCheckIn = async () => {
     if (!profile || !checkinState) return;
     if (!checkinState.scheduled) {
-      setCheckinError("No Lift-Day Attendance Is Open Right Now.");
+      setCheckinError("No lift-day attendance is open right now.");
       return;
     }
     if (checkinState.locked) {
-      setCheckinError("No Sessions Available Right Now.");
+      setCheckinError("No sessions are available right now.");
       return;
     }
     if (checkinState.checkin) {
-      setCheckinNotice("You're Already Checked In For Today.");
+      setCheckinNotice("You're already checked in for today.");
       return;
     }
 
@@ -687,29 +687,29 @@ export default function HomeV2() {
       setCheckinNotice(
         isJuniorHighSelfApprove
           ? created.sessionLabel
-            ? `Checked In For ${created.sessionLabel}.`
-            : "Checked In."
+            ? `Checked in for ${created.sessionLabel}.`
+            : "Checked in."
           : created.status === "approved"
             ? created.sessionLabel
-              ? `Checked In For ${created.sessionLabel}.`
-              : "Checked In."
+              ? `Checked in for ${created.sessionLabel}.`
+              : "Checked in."
             : created.sessionLabel
-              ? `Check-In Submitted For ${created.sessionLabel}. Coach Verification Is Pending.`
-              : "Check-In Submitted. Coach Verification Is Pending."
+              ? `Check-in submitted for ${created.sessionLabel}. Coach verification is pending.`
+              : "Check-in submitted. Coach verification is pending."
       );
     } catch (err: any) {
       const code = err?.message ?? "";
       if (code === "attendance/checkin-closed") {
-        setCheckinError("Check-In Is Closed For Today.");
+        setCheckinError("Check-in is closed for today.");
       } else if (code === "attendance/date-locked") {
-        setCheckinError("No Sessions Available Right Now.");
+        setCheckinError("No sessions are available right now.");
       } else if (
         err?.code === "permission-denied" ||
         /missing or insufficient permissions/i.test(code)
       ) {
-        setCheckinError("Check-In Permission Failed. Sign Out, Sign Back In, Then Try Again.");
+        setCheckinError("Check-in permission failed. Sign out, sign back in, then try again.");
       } else {
-        setCheckinError(err?.message ?? "Could Not Submit Attendance Check-In.");
+        setCheckinError(err?.message ?? "Couldn't submit your attendance check-in.");
       }
       try {
         const latest = await loadAthleteAttendanceCheckin(
@@ -818,7 +818,7 @@ export default function HomeV2() {
 
             {(loadingActivity || loadingAttendance) ? (
               <div className="py-8 text-center text-v2-sm text-v2-ink-300 font-v2-body">
-                Loading Team Activity...
+                Loading team activity...
               </div>
             ) : (
               <>
@@ -844,42 +844,42 @@ export default function HomeV2() {
                 {/* Weekly Snapshot Cards */}
                 <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-5">
                   <div className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950/60 p-3 text-center">
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Week Att %</div>
+                    <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Week Att %</div>
                     <div className={`font-v2-mono tabular-nums text-v2-2xl font-bold ${attendanceStats.weekAttPct >= 85 ? 'text-v2-success-600' :
                       attendanceStats.weekAttPct >= 70 ? 'text-v2-warn-500' :
                         attendanceStats.weekAttPct > 0 ? 'text-v2-danger-600' : 'text-v2-ink-500'
                       }`}>
                       {attendanceStats.weekAttPct > 0 ? `${attendanceStats.weekAttPct}%` : '—'}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-v2-ink-500">This Week</div>
+                    <div className="mt-0.5 text-v2-xs uppercase tracking-wider text-v2-ink-500">This Week</div>
                   </div>
                   <div className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950/60 p-3 text-center">
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Sessions</div>
+                    <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Sessions</div>
                     <div className="font-v2-mono tabular-nums text-v2-2xl font-bold text-v2-info-300">
                       {attendanceStats.weekSessionCount}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-v2-ink-500">This Week</div>
+                    <div className="mt-0.5 text-v2-xs uppercase tracking-wider text-v2-ink-500">This Week</div>
                   </div>
                   <div className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950/60 p-3 text-center">
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Present</div>
+                    <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Present</div>
                     <div className="font-v2-mono tabular-nums text-v2-2xl font-bold text-v2-success-600">
                       {attendanceStats.athletesPresentThisWeek}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-v2-ink-500">Of {attendanceStats.totalAthletes}</div>
+                    <div className="mt-0.5 text-v2-xs uppercase tracking-wider text-v2-ink-500">Of {attendanceStats.totalAthletes}</div>
                   </div>
                   <div className="rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950/60 p-3 text-center">
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Workouts</div>
+                    <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Workouts</div>
                     <div className="font-v2-mono tabular-nums text-v2-2xl font-bold text-v2-info-300">
                       {totalWorkouts}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-v2-ink-500">Last 7 Days</div>
+                    <div className="mt-0.5 text-v2-xs uppercase tracking-wider text-v2-ink-500">Last 7 Days</div>
                   </div>
                   <div className="col-span-2 rounded-v2-sm border border-v2-surface-800 bg-v2-surface-950/60 p-3 text-center md:col-span-1">
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">PRs</div>
+                    <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">PRs</div>
                     <div className="font-v2-mono tabular-nums text-v2-2xl font-bold text-v2-warn-500">
                       {recentPRs.length}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-v2-ink-500">This Week</div>
+                    <div className="mt-0.5 text-v2-xs uppercase tracking-wider text-v2-ink-500">This Week</div>
                   </div>
                 </div>
 
@@ -923,7 +923,7 @@ export default function HomeV2() {
                       <div className="flex items-center gap-2">
                         <AccentBar className="h-px w-4 bg-v2-warn-500" />
                         <h3 className="font-v2-heading text-v2-sm uppercase tracking-[0.18em] text-v2-ink-100">Needs Attention</h3>
-                        <span className="rounded-v2-full bg-v2-warn-500/20 px-2 py-0.5 font-v2-mono tabular-nums text-[10px] font-semibold text-v2-warn-500">
+                        <span className="rounded-v2-full bg-v2-warn-500/20 px-2 py-0.5 font-v2-mono tabular-nums text-v2-xs font-semibold text-v2-warn-500">
                           {attendanceStats.lowAttendanceAthletes.length + attendanceStats.inactiveAthletes.length}
                         </span>
                       </div>
@@ -932,7 +932,7 @@ export default function HomeV2() {
                     <div className="mt-3 space-y-2">
                       {attendanceStats.lowAttendanceAthletes.length > 0 && (
                         <div>
-                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Low Attendance (Last 30 Days)</div>
+                          <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Low Attendance (Last 30 Days)</div>
                           {attendanceStats.lowAttendanceAthletes.map((a) => (
                             <div key={`low-${a.name}`} className="mb-1 flex items-center justify-between rounded-v2-sm border border-v2-danger-600/40 bg-v2-danger-600/10 px-3 py-1.5 text-v2-xs">
                               <span className="font-medium text-v2-ink-100">{a.name}</span>
@@ -943,7 +943,7 @@ export default function HomeV2() {
                       )}
                       {attendanceStats.inactiveAthletes.length > 0 && (
                         <div>
-                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Inactive (14+ Days Since Last Attendance)</div>
+                          <div className="mb-1 text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-ink-500">Inactive (14+ Days Since Last Attendance)</div>
                           {attendanceStats.inactiveAthletes.map((a) => (
                             <div key={`inactive-${a.name}`} className="mb-1 flex items-center justify-between rounded-v2-sm border border-v2-warn-500/40 bg-v2-warn-500/10 px-3 py-1.5 text-v2-xs">
                               <span className="font-medium text-v2-ink-100">{a.name}</span>
@@ -967,7 +967,7 @@ export default function HomeV2() {
                     )}
                     <AccentBar className="h-px w-4 bg-v2-info-600" />
                     <h3 className="font-v2-heading text-v2-sm uppercase tracking-[0.18em] text-v2-ink-100">Live Activity</h3>
-                    <span className="font-v2-mono tabular-nums text-[10px] text-v2-ink-500">{liveSessionFeed.length} recent session{liveSessionFeed.length !== 1 ? "s" : ""}</span>
+                    <span className="font-v2-mono tabular-nums text-v2-xs text-v2-ink-500">{liveSessionFeed.length} recent session{liveSessionFeed.length !== 1 ? "s" : ""}</span>
                   </div>
                   {isMobileLayout ? (
                     <div className="space-y-1.5">
@@ -992,12 +992,12 @@ export default function HomeV2() {
                               <div className="truncate text-v2-xs font-semibold text-v2-ink-100">
                                 {name}
                                 {session.pr && (
-                                  <span className="ml-1 font-v2-mono text-[10px] text-v2-warn-500">PR</span>
+                                  <span className="ml-1 font-v2-mono text-v2-xs text-v2-warn-500">PR</span>
                                 )}
                               </div>
-                              <div className="font-v2-mono tabular-nums text-[11px] text-v2-ink-500">{timeAgo}</div>
+                              <div className="font-v2-mono tabular-nums text-v2-xs text-v2-ink-500">{timeAgo}</div>
                             </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-v2-ink-300 font-v2-body">
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-v2-xs text-v2-ink-300 font-v2-body">
                               <span className="rounded-v2-sm bg-v2-surface-800 px-1.5 py-0.5 capitalize">{session.lift}</span>
                               <span className="font-v2-mono tabular-nums">W{session.week}</span>
                               <span className="font-v2-mono tabular-nums">AMRAP {amrapLabel}</span>
@@ -1011,7 +1011,7 @@ export default function HomeV2() {
                     <div className="max-h-60 overflow-x-auto overflow-y-auto">
                       <table className="w-full text-v2-xs">
                         <thead className="sticky top-0 bg-v2-surface-900">
-                          <tr className="text-[10px] uppercase tracking-[0.18em] text-v2-ink-500">
+                          <tr className="text-v2-xs uppercase tracking-[0.18em] text-v2-ink-500">
                             <th className="px-1.5 py-1 text-left font-medium">Athlete</th>
                             <th className="px-1.5 py-1 text-left font-medium">Lift</th>
                             <th className="px-1.5 py-1 text-center font-medium">Wk</th>
@@ -1040,7 +1040,7 @@ export default function HomeV2() {
                               >
                                 <td className="whitespace-nowrap px-1.5 py-1 font-medium text-v2-ink-100">
                                   {name}
-                                  {session.pr && <span className="ml-1 font-v2-mono text-[10px] text-v2-warn-500" title="PR">&#9733;</span>}
+                                  {session.pr && <span className="ml-1 font-v2-mono text-v2-xs text-v2-warn-500" title="PR">&#9733;</span>}
                                 </td>
                                 <td className="whitespace-nowrap px-1.5 py-1">
                                   <span className="inline-flex items-center gap-1">
@@ -1072,7 +1072,7 @@ export default function HomeV2() {
                       <div className="flex items-center gap-2">
                         <AccentBar className="h-px w-4 bg-v2-warn-500" />
                         <h3 className="font-v2-heading text-v2-sm uppercase tracking-[0.18em] text-v2-ink-100">Recent PRs</h3>
-                        <span className="rounded-v2-full bg-v2-warn-500/20 px-2 py-0.5 font-v2-mono tabular-nums text-[10px] font-semibold text-v2-warn-500">
+                        <span className="rounded-v2-full bg-v2-warn-500/20 px-2 py-0.5 font-v2-mono tabular-nums text-v2-xs font-semibold text-v2-warn-500">
                           {recentPRs.length}
                         </span>
                       </div>
@@ -1114,7 +1114,7 @@ export default function HomeV2() {
                     </h2>
                   </div>
                   {checkinState && (
-                    <span className="rounded-v2-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-v2-ink-300">
+                    <span className="rounded-v2-full bg-v2-surface-800 px-2 py-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-300">
                       {checkinTeamLabel}
                     </span>
                   )}
@@ -1127,19 +1127,19 @@ export default function HomeV2() {
                 )}
 
                 {loadingCheckinState ? (
-                  <p className="mt-3 text-v2-sm text-v2-ink-300">Checking Today's Attendance Window...</p>
+                  <p className="mt-3 text-v2-sm text-v2-ink-300">Checking today's attendance window...</p>
                 ) : checkinError ? (
                   <p className="mt-3 text-v2-sm font-semibold text-v2-danger-600">{checkinError}</p>
                 ) : checkinState?.checkin ? (
                   <div className="mt-3 rounded-v2-sm border border-v2-surface-700 bg-v2-surface-800 px-3 py-2">
                     <p className="text-v2-sm font-semibold text-v2-ink-50">
                       {checkinState?.team === "football-junior-high" && checkinStatus !== "rejected"
-                        ? "You're Checked In."
+                        ? "You're checked in."
                         : checkinStatus === "approved"
-                          ? "Coach Marked You Present."
+                          ? "Coach marked you present."
                           : checkinStatus === "rejected"
-                            ? "Coach Marked This Check-In As Not Present."
-                            : "You're Checked In. Coach Verification Is Pending."}
+                            ? "Coach marked this check-in as not present."
+                            : "You're checked in. Coach verification is pending."}
                     </p>
                     {checkinSessionLabel && (
                       <p className="mt-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-accent-300">
@@ -1153,9 +1153,9 @@ export default function HomeV2() {
                 ) : checkinState?.scheduled && !checkinState.locked ? (
                   <div className="mt-3 space-y-3">
                     <p className="text-v2-sm text-v2-ink-200">
-                      Tap Once When You're In The Weight Room.
+                      Tap once when you're in the weight room.
                       {checkinState.nextSession?.label
-                        ? ` You're Checking Into ${checkinState.nextSession.label}.`
+                        ? ` You're checking into ${checkinState.nextSession.label}.`
                         : ""}
                     </p>
                     <button
@@ -1169,7 +1169,7 @@ export default function HomeV2() {
                   </div>
                 ) : checkinState?.scheduled && checkinState.locked ? (
                   <p className="mt-3 text-v2-sm font-semibold text-v2-warn-500">
-                    No Sessions Available Right Now.
+                    No sessions are available right now.
                   </p>
                 ) : null}
               </div>
@@ -1185,7 +1185,7 @@ export default function HomeV2() {
                       Lift Day Check-In
                     </h2>
                   </div>
-                  <span className="rounded-v2-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-v2-ink-300">
+                  <span className="rounded-v2-full bg-v2-surface-800 px-2 py-1 text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-ink-300">
                     {formatTeamLabel(selfCheckinTeam)}
                   </span>
                 </div>
@@ -1197,7 +1197,7 @@ export default function HomeV2() {
                   <p className="mt-3 text-v2-sm text-v2-ink-300">Loading...</p>
                 ) : selfCheckinStatus === "present" ? (
                   <div className="mt-3 rounded-v2-sm border border-v2-surface-700 bg-v2-surface-800 px-3 py-2">
-                    <p className="text-v2-sm font-semibold text-v2-success-600">You're Checked In For Today.</p>
+                    <p className="text-v2-sm font-semibold text-v2-success-600">You're checked in for today.</p>
                     <p className="mt-0.5 text-v2-xs text-v2-ink-500">Attendance recorded. Keep lifting.</p>
                   </div>
                 ) : selfCheckinStatus === "error" ? (

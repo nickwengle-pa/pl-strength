@@ -124,7 +124,7 @@ function RoleBadges({ roles }: RoleBadgesProps) {
         return (
           <span
             key={role}
-            className={`rounded-v2-sm px-2 py-0.5 text-[10px] font-v2-heading font-semibold uppercase tracking-[0.18em] ${pillClass}`}
+            className={`rounded-v2-sm px-2 py-0.5 text-v2-xs font-v2-heading font-semibold uppercase tracking-[0.18em] ${pillClass}`}
           >
             {label}
           </span>
@@ -263,10 +263,10 @@ const v2BtnCtaClass =
   "inline-flex items-center justify-center min-h-touch px-4 py-2 rounded-v2-sm font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold bg-v2-accent-700 border border-v2-accent-700 text-white hover:bg-v2-accent-600 focus:outline-none focus:ring-2 focus:ring-v2-accent-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 transition-colors duration-v2-quick disabled:opacity-50 disabled:cursor-not-allowed";
 
 const v2BtnDangerClass =
-  "inline-flex items-center justify-center min-h-touch px-3 py-1.5 rounded-v2-sm font-v2-heading text-[10px] uppercase tracking-[0.16em] font-semibold bg-transparent border border-v2-danger-600/60 text-v2-danger-300 hover:bg-v2-danger-600/10 focus:outline-none focus:ring-2 focus:ring-v2-danger-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 transition-colors duration-v2-quick disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center min-h-touch px-3 py-1.5 rounded-v2-sm font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold bg-transparent border border-v2-danger-600/60 text-v2-danger-300 hover:bg-v2-danger-600/10 focus:outline-none focus:ring-2 focus:ring-v2-danger-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 transition-colors duration-v2-quick disabled:opacity-50 disabled:cursor-not-allowed";
 
 const v2BtnSmClass =
-  "inline-flex items-center justify-center min-h-[32px] px-3 py-1 rounded-v2-sm font-v2-heading text-[10px] uppercase tracking-[0.16em] font-semibold bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-100 hover:bg-v2-surface-700 focus:outline-none focus:ring-2 focus:ring-v2-info-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 transition-colors duration-v2-quick disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center min-h-[32px] px-3 py-1 rounded-v2-sm font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-100 hover:bg-v2-surface-700 focus:outline-none focus:ring-2 focus:ring-v2-info-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950 transition-colors duration-v2-quick disabled:opacity-50 disabled:cursor-not-allowed";
 
 export default function RosterV2() {
   const showToast = useToast();
@@ -275,6 +275,8 @@ export default function RosterV2() {
   const [rows, setRows] = useState<RosterEntry[]>([]);
   const [err, setErr] = useState<string|undefined>();
   const [busyUid, setBusyUid] = useState<string | null>(null);
+  const [codePromptRow, setCodePromptRow] = useState<RosterEntry | null>(null);
+  const [codePromptValue, setCodePromptValue] = useState("");
   const [deleteUid, setDeleteUid] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
@@ -645,14 +647,9 @@ export default function RosterV2() {
     };
   }, []);
 
-  const handleRegenerate = async (row: RosterEntry) => {
+  // Opened via the code modal below (replaces the old window.prompt flow)
+  const handleRegenerate = async (row: RosterEntry, input: string) => {
     if (!row.uid) return;
-
-    const input = window.prompt(
-      `Enter A 4-Digit Code For ${row.firstName ?? "This Athlete"}.\nLeave Blank To Auto-Generate A New Code.`,
-      ""
-    );
-    if (input === null) return;
 
     const trimmed = input.trim();
     if (trimmed && !/^\d{4}$/.test(trimmed)) {
@@ -670,14 +667,14 @@ export default function RosterV2() {
         if (result.status === "taken") {
           setFlash({
             kind: "error",
-            text: "That Code Is Already Used By Another Athlete. Try A Different Four-Digit Code.",
+            text: "That code is already used by another athlete. Try a different four-digit code.",
           });
           return;
         }
         if (result.status === "unavailable") {
           setFlash({
             kind: "error",
-            text: "We Could Not Reserve That Code. Check Firestore Permissions And Try Again.",
+            text: "We couldn't reserve that code. Check Firestore permissions and try again.",
           });
           return;
         }
@@ -690,7 +687,7 @@ export default function RosterV2() {
       if (!nextCode) {
         setFlash({
           kind: "error",
-          text: "A Code Was Not Generated. Try Again.",
+          text: "A code was not generated. Try again.",
         });
         return;
       }
@@ -1733,17 +1730,17 @@ export default function RosterV2() {
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="font-v2-heading uppercase tracking-[0.12em] text-[9px] text-v2-ink-500 font-semibold">TM</span>
                               <span className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-ink-50">
-                                {tm} <span className="text-[10px] text-v2-ink-400">{s.unit}</span>
+                                {tm} <span className="text-v2-xs text-v2-ink-400">{s.unit}</span>
                               </span>
                             </div>
                             <div className="flex items-baseline justify-between gap-2">
                               <span className="font-v2-heading uppercase tracking-[0.12em] text-[9px] text-v2-ink-500 font-semibold">AMRAP</span>
                               <span className="font-v2-mono tabular-nums text-v2-base font-semibold text-v2-ink-50">
-                                {weight} <span className="text-[10px] text-v2-ink-400">{s.unit}</span> <span className="text-v2-sm text-v2-ink-400">×{reps}</span>
+                                {weight} <span className="text-v2-xs text-v2-ink-400">{s.unit}</span> <span className="text-v2-sm text-v2-ink-400">×{reps}</span>
                               </span>
                             </div>
                           </div>
-                          <div className="font-v2-mono tabular-nums text-[10px] text-v2-ink-500 mt-1.5 pt-1.5 border-t border-v2-surface-800">
+                          <div className="font-v2-mono tabular-nums text-v2-xs text-v2-ink-500 mt-1.5 pt-1.5 border-t border-v2-surface-800">
                             {s.createdAt
                               ? new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                               : ""}
@@ -1769,7 +1766,7 @@ export default function RosterV2() {
                     <button
                       type="button"
                       onClick={() => setAttendanceView("chips")}
-                      className={`px-2.5 py-1 text-[10px] font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick ${
+                      className={`px-2.5 py-1 text-v2-xs font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick ${
                         attendanceView === "chips"
                           ? "bg-v2-info-600 text-white"
                           : "bg-v2-surface-900 text-v2-ink-300 hover:bg-v2-surface-800"
@@ -1780,7 +1777,7 @@ export default function RosterV2() {
                     <button
                       type="button"
                       onClick={() => setAttendanceView("calendar")}
-                      className={`px-2.5 py-1 text-[10px] font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick border-l border-v2-surface-700 ${
+                      className={`px-2.5 py-1 text-v2-xs font-v2-heading uppercase tracking-[0.14em] font-semibold transition-colors duration-v2-quick border-l border-v2-surface-700 ${
                         attendanceView === "calendar"
                           ? "bg-v2-info-600 text-white"
                           : "bg-v2-surface-900 text-v2-ink-300 hover:bg-v2-surface-800"
@@ -1812,7 +1809,7 @@ export default function RosterV2() {
                   {detailAttendance.dates.map((entry) => (
                     <span
                       key={entry.date}
-                      className={`inline-flex items-center gap-1 rounded-v2-sm px-2 py-0.5 text-[10px] font-v2-mono tabular-nums border ${
+                      className={`inline-flex items-center gap-1 rounded-v2-sm px-2 py-0.5 text-v2-xs font-v2-mono tabular-nums border ${
                         entry.present
                           ? "bg-v2-success-600/10 text-v2-success-300 border-v2-success-600/40"
                           : "bg-v2-danger-600/10 text-v2-danger-300 border-v2-danger-600/40"
@@ -2225,7 +2222,7 @@ export default function RosterV2() {
                           </td>
                           <td className="px-3 py-2">
                             {session.pr ? (
-                              <span className="inline-flex items-center gap-1 rounded-v2-sm bg-v2-success-600/15 border border-v2-success-600/40 px-2 py-0.5 text-[10px] font-v2-heading font-semibold text-v2-success-300 uppercase tracking-[0.16em]">
+                              <span className="inline-flex items-center gap-1 rounded-v2-sm bg-v2-success-600/15 border border-v2-success-600/40 px-2 py-0.5 text-v2-xs font-v2-heading font-semibold text-v2-success-300 uppercase tracking-[0.16em]">
                                 PR
                               </span>
                             ) : (
@@ -2320,6 +2317,59 @@ export default function RosterV2() {
           variant="danger"
         />
 
+        {/* Set-code modal (replaces the old window.prompt flow) */}
+        {codePromptRow !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-v2-xl bg-v2-surface-900 border border-v2-surface-800 p-6 shadow-v2-elev-2 space-y-4">
+              <div className="space-y-1">
+                <h3 className="font-v2-heading text-xl font-bold uppercase tracking-[0.18em] text-v2-ink-50">
+                  Set Code
+                </h3>
+                <p className="text-v2-sm text-v2-ink-300">
+                  Enter a 4-digit code for {codePromptRow.firstName ?? "this athlete"}, or leave it blank to auto-generate one.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="roster-code-input" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                  4-Digit Code
+                </label>
+                <input
+                  id="roster-code-input"
+                  className="field-v2 !bg-v2-surface-950 !border-v2-surface-700 !text-v2-ink-100 font-v2-mono tracking-[0.35em] text-center text-v2-xl v2-tabular"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="Auto"
+                  value={codePromptValue}
+                  onChange={(e) => setCodePromptValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCodePromptRow(null)}
+                  className="min-h-touch px-4 py-3 rounded-v2-md border border-v2-surface-700 text-v2-ink-300 font-semibold hover:bg-v2-surface-800 duration-v2-quick"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const row = codePromptRow;
+                    const value = codePromptValue;
+                    setCodePromptRow(null);
+                    void handleRegenerate(row, value);
+                  }}
+                  className="min-h-touch px-4 py-3 rounded-v2-md bg-v2-accent-700 hover:bg-v2-accent-800 text-v2-ink-50 font-semibold shadow-v2-elev-1 duration-v2-quick"
+                >
+                  {codePromptValue ? "Save Code" : "Auto-Generate"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Page header */}
         <div className="flex items-center gap-3 pb-2">
           <div className="h-px w-8 bg-v2-info-600" />
@@ -2354,7 +2404,7 @@ export default function RosterV2() {
               <div className="inline-flex rounded-v2-sm border border-v2-surface-700 bg-v2-surface-950 p-0.5 gap-0.5">
                 <button
                   onClick={() => setCoachLevelFilter("varsity")}
-                  className={`px-3 py-1 font-v2-heading text-[10px] uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
+                  className={`px-3 py-1 font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
                     coachLevelFilter === "varsity"
                       ? "bg-v2-info-600 text-white"
                       : "text-v2-ink-400 hover:bg-v2-surface-800"
@@ -2364,7 +2414,7 @@ export default function RosterV2() {
                 </button>
                 <button
                   onClick={() => setCoachLevelFilter("juniorHigh")}
-                  className={`px-3 py-1 font-v2-heading text-[10px] uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
+                  className={`px-3 py-1 font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
                     coachLevelFilter === "juniorHigh"
                       ? "bg-v2-info-600 text-white"
                       : "text-v2-ink-400 hover:bg-v2-surface-800"
@@ -2374,7 +2424,7 @@ export default function RosterV2() {
                 </button>
                 <button
                   onClick={() => setCoachLevelFilter("both")}
-                  className={`px-3 py-1 font-v2-heading text-[10px] uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
+                  className={`px-3 py-1 font-v2-heading text-v2-xs uppercase tracking-[0.16em] font-semibold rounded-v2-sm transition-colors duration-v2-quick min-h-[32px] ${
                     coachLevelFilter === "both"
                       ? "bg-v2-info-600 text-white"
                       : "text-v2-ink-400 hover:bg-v2-surface-800"
@@ -2430,7 +2480,7 @@ export default function RosterV2() {
                         <td className="px-3 py-2">
                           <button
                             type="button"
-                            className="font-v2-heading text-[10px] uppercase tracking-[0.16em] text-v2-danger-300 hover:text-v2-danger-200 font-semibold"
+                            className="font-v2-heading text-v2-xs uppercase tracking-[0.16em] text-v2-danger-300 hover:text-v2-danger-200 font-semibold"
                             onClick={() => handleDelete(r, "coach")}
                             disabled={deleteUid === r.uid}
                           >
@@ -2496,7 +2546,7 @@ export default function RosterV2() {
                       >
                         <td className="px-3 py-2 font-v2-body font-semibold text-v2-ink-100 whitespace-nowrap">
                           {name}
-                          {session.pr && <span className="ml-1.5 text-v2-warn-500 font-v2-heading text-[10px] font-semibold" title="PR">PR</span>}
+                          {session.pr && <span className="ml-1.5 text-v2-warn-500 font-v2-heading text-v2-xs font-semibold" title="PR">PR</span>}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1.5">
@@ -2922,7 +2972,7 @@ export default function RosterV2() {
                             }
                           />
                         ) : (
-                          <span className="text-[10px] text-v2-ink-500 font-v2-heading uppercase tracking-[0.16em]">No Lift</span>
+                          <span className="text-v2-xs text-v2-ink-500 font-v2-heading uppercase tracking-[0.16em]">No Lift</span>
                         )}
                         <span className="rounded-v2-sm bg-v2-surface-800 border border-v2-surface-700 px-2 py-0.5 font-v2-mono tabular-nums text-v2-xs text-v2-info-300 font-semibold">
                           {r.accessCode ?? "--"}
@@ -2931,11 +2981,11 @@ export default function RosterV2() {
                     </div>
                     <div className="mt-2.5 grid grid-cols-2 gap-2 text-v2-xs font-v2-body">
                       <div className="text-v2-ink-400">
-                        <span className="font-v2-heading uppercase tracking-[0.16em] text-[10px] mr-1">Joined</span>
+                        <span className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs mr-1">Joined</span>
                         <span className="font-v2-mono tabular-nums text-v2-ink-200 font-semibold">{joinedLabel}</span>
                       </div>
                       <div className="text-v2-ink-400">
-                        <span className="font-v2-heading uppercase tracking-[0.16em] text-[10px] mr-1">Last</span>
+                        <span className="font-v2-heading uppercase tracking-[0.16em] text-v2-xs mr-1">Last</span>
                         <span className="font-v2-mono tabular-nums text-v2-ink-200 font-semibold">{lastWorkoutLabel}</span>
                       </div>
                     </div>
@@ -2955,7 +3005,8 @@ export default function RosterV2() {
                         className={v2BtnSmClass}
                         onClick={(event) => {
                           event.stopPropagation();
-                          handleRegenerate(r);
+                          setCodePromptValue("");
+                          setCodePromptRow(r);
                         }}
                         disabled={busyUid === r.uid || deleteUid === r.uid}
                       >
@@ -2974,7 +3025,7 @@ export default function RosterV2() {
                           {deleteUid === r.uid ? "Deleting..." : "Delete"}
                         </button>
                       ) : (
-                        <span className="self-center font-v2-heading text-[10px] uppercase tracking-[0.16em] text-v2-ink-500">Admin Only</span>
+                        <span className="self-center font-v2-heading text-v2-xs uppercase tracking-[0.16em] text-v2-ink-500">Admin Only</span>
                       )}
                     </div>
                   </div>
@@ -3098,7 +3149,8 @@ export default function RosterV2() {
                               className={v2BtnSmClass}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                handleRegenerate(r);
+                                setCodePromptValue("");
+                                setCodePromptRow(r);
                               }}
                               disabled={busyUid === r.uid || deleteUid === r.uid}
                             >
@@ -3117,7 +3169,7 @@ export default function RosterV2() {
                                 {deleteUid === r.uid ? "Deleting..." : "Delete"}
                               </button>
                             ) : (
-                              <span className="font-v2-heading text-[10px] uppercase tracking-[0.16em] text-v2-ink-500 self-center">Admin Only</span>
+                              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.16em] text-v2-ink-500 self-center">Admin Only</span>
                             )}
                           </div>
                         </td>

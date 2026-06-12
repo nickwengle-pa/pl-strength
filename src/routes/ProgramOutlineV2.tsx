@@ -451,7 +451,7 @@ function AccentLabel({ children, tone = "accent" }: { children: React.ReactNode;
   return (
     <div className="flex items-center gap-2">
       <span className={`h-px w-5 ${bar}`} aria-hidden />
-      <span className="font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-300">
+      <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-300">
         {children}
       </span>
     </div>
@@ -783,7 +783,7 @@ export default function ProgramOutlineV2() {
                 </button>
               )}
               {!admin && viewMode === "full" && (
-                <span className="font-v2-heading text-[10px] uppercase tracking-[0.2em] text-v2-ink-500 border border-v2-surface-700 bg-v2-surface-800 px-3 py-1 rounded-v2-sm">
+                <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500 border border-v2-surface-700 bg-v2-surface-800 px-3 py-1 rounded-v2-sm">
                   View Only
                 </span>
               )}
@@ -797,7 +797,7 @@ export default function ProgramOutlineV2() {
           <div className="rounded-v2-md border border-v2-info-600/60 bg-v2-info-600/10 px-4 py-3">
             <div className="flex items-center gap-3">
               <span className="h-px w-5 bg-v2-info-600" aria-hidden />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-info-600">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-info-600">
                 Editing Mode Active
               </span>
             </div>
@@ -994,9 +994,9 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
   const fieldCls =
     "w-full bg-v2-surface-950 border border-v2-surface-700 rounded-v2-sm px-3 py-2 text-sm text-v2-ink-50 placeholder:text-v2-ink-500 focus:outline-none focus:border-v2-info-600 transition-colors duration-v2-quick";
   const smallBtnCls =
-    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-[11px] bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
+    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-v2-xs bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
   const primaryBtnCls =
-    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-[11px] bg-v2-info-600 text-v2-ink-50 hover:brightness-110 transition-colors duration-v2-quick";
+    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-v2-xs bg-v2-info-600 text-v2-ink-50 hover:brightness-110 transition-colors duration-v2-quick";
 
   return (
     <div className="space-y-6">
@@ -1028,7 +1028,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                     .getElementById(btn.target)
                     ?.scrollIntoView({ behavior: "smooth", block: "center" })
                 }
-                className="px-4 py-2 font-v2-heading uppercase tracking-[0.15em] text-[11px] rounded-v2-sm border border-v2-surface-700 bg-v2-surface-800 text-v2-ink-300 hover:text-v2-ink-50 hover:border-v2-accent-700 transition-colors duration-v2-quick"
+                className="px-4 py-2 font-v2-heading uppercase tracking-[0.15em] text-v2-xs rounded-v2-sm border border-v2-surface-700 bg-v2-surface-800 text-v2-ink-300 hover:text-v2-ink-50 hover:border-v2-accent-700 transition-colors duration-v2-quick"
               >
                 {btn.label}
               </button>
@@ -1101,7 +1101,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                   )}
                   {editable ? (
                     <div className="grid gap-3 md:grid-cols-2">
-                      <label className="flex flex-col gap-1 font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-500">
+                      <label className="flex flex-col gap-1 font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500">
                         Video URL
                         <input
                           className={fieldCls}
@@ -1110,7 +1110,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                           placeholder="https://..."
                         />
                       </label>
-                      <label className="flex flex-col gap-1 font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-500">
+                      <label className="flex flex-col gap-1 font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500">
                         Embed URL
                         <input
                           className={fieldCls}
@@ -1126,7 +1126,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                         href={data.hipMobility.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-accent-700 hover:brightness-125 transition"
+                        className="inline-flex items-center gap-2 font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-accent-700 hover:brightness-125 transition"
                       >
                         <span className="h-px w-4 bg-v2-accent-700" aria-hidden />
                         Watch On YouTube
@@ -1160,7 +1160,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                       Align these training days with the 5/3/1 percentages for the current week.
                     </p>
                     <div className="text-sm text-v2-ink-500 mt-1 flex flex-wrap items-center gap-2">
-                      <span className="font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-300">
+                      <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-300">
                         Warmup:
                       </span>{" "}
                       {editable ? (
@@ -1190,7 +1190,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                             key={weekIndex}
                             className="rounded-v2-sm border border-v2-surface-700 bg-v2-surface-800 p-4 space-y-2"
                           >
-                            <label className="flex flex-col gap-1 font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-500">
+                            <label className="flex flex-col gap-1 font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500">
                               Week Name
                               <input
                                 className={fieldCls}
@@ -1215,7 +1215,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                               const dayListId = `lift-day-${weekIndex}-${dayIndex}`;
                               return (
                                 <div key={dayIndex} className="flex items-center gap-2">
-                                  <span className="w-20 font-v2-heading text-[11px] uppercase tracking-[0.15em] text-v2-ink-500">
+                                  <span className="w-20 font-v2-heading text-v2-xs uppercase tracking-[0.15em] text-v2-ink-500">
                                     Day {dayIndex + 1}
                                   </span>
                                   <input
@@ -1246,7 +1246,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                       })}
                       {(library.liftWeekNames.length > 0 || library.liftDays.length > 0) && (
                         <details className="rounded-v2-sm border border-dashed border-v2-surface-700 bg-v2-surface-900 p-3 text-xs text-v2-ink-300">
-                          <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-[11px] text-v2-ink-50">
+                          <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-50">
                             Browse Saved Week Layouts
                           </summary>
                           <div className="mt-2 space-y-3">
@@ -1292,7 +1292,7 @@ function OutlinePanel({ data, editable, onUpdate, library }: OutlinePanelProps) 
                             {data.liftWeeks.map((week) => (
                               <th
                                 key={week.week}
-                                className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-[11px] text-v2-ink-50"
+                                className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-50"
                               >
                                 {week.week}
                               </th>
@@ -1418,7 +1418,7 @@ function Section({
   const fieldCls =
     "w-full bg-v2-surface-950 border border-v2-surface-700 rounded-v2-sm px-3 py-2 text-sm text-v2-ink-50 placeholder:text-v2-ink-500 focus:outline-none focus:border-v2-info-600 transition-colors duration-v2-quick";
   const smallBtnCls =
-    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-[11px] bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
+    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-v2-xs bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
 
   return (
     <div className="rounded-v2-sm border border-v2-surface-700 bg-v2-surface-900 p-4 text-sm text-v2-ink-300 space-y-3">
@@ -1467,7 +1467,7 @@ function Section({
           </div>
           {showOptionSuggestions ? (
             <details className="rounded-v2-sm border border-dashed border-v2-surface-700 bg-v2-surface-800 p-3 text-xs text-v2-ink-300">
-              <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-[11px] text-v2-ink-50">
+              <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-50">
                 Browse Saved Items
               </summary>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -1545,7 +1545,7 @@ function Section({
               </div>
               {showFooterSuggestions ? (
                 <details className="rounded-v2-sm border border-dashed border-v2-surface-700 bg-v2-surface-800 p-3 text-xs text-v2-ink-300">
-                  <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-[11px] text-v2-ink-50">
+                  <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-50">
                     Browse Saved Items
                   </summary>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1642,7 +1642,7 @@ function AccessorySection({
   const fieldCls =
     "w-full bg-v2-surface-950 border border-v2-surface-700 rounded-v2-sm px-3 py-2 text-sm text-v2-ink-50 placeholder:text-v2-ink-500 focus:outline-none focus:border-v2-info-600 transition-colors duration-v2-quick";
   const smallBtnCls =
-    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-[11px] bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
+    "min-h-touch px-3 rounded-v2-sm font-v2-heading uppercase tracking-[0.15em] text-v2-xs bg-v2-surface-800 border border-v2-surface-700 text-v2-ink-50 hover:border-v2-info-600 transition-colors duration-v2-quick";
 
   return (
     <div className="rounded-v2-sm border border-v2-surface-700 bg-v2-surface-900 p-4 space-y-3 text-sm text-v2-ink-300">
@@ -1657,7 +1657,7 @@ function AccessorySection({
             return (
               <div key={index} className="grid gap-2 md:grid-cols-[2fr_2fr_auto]">
                 <div className="flex flex-col gap-1">
-                  <span className="font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-500">
+                  <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500">
                     Exercise
                   </span>
                   <input
@@ -1678,7 +1678,7 @@ function AccessorySection({
                   ) : null}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="font-v2-heading text-[11px] uppercase tracking-[0.2em] text-v2-ink-500">
+                  <span className="font-v2-heading text-v2-xs uppercase tracking-[0.2em] text-v2-ink-500">
                     Prescription
                   </span>
                   <input
@@ -1724,7 +1724,7 @@ function AccessorySection({
           </div>
           {showNameSuggestions ? (
             <details className="rounded-v2-sm border border-dashed border-v2-surface-700 bg-v2-surface-800 p-3 text-xs text-v2-ink-300">
-              <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-[11px] text-v2-ink-50">
+              <summary className="cursor-pointer font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-50">
                 Browse Saved Lifts
               </summary>
               <div className="mt-2 space-y-2">
@@ -1769,10 +1769,10 @@ function AccessorySection({
           <table className="min-w-[280px] border border-v2-surface-700 text-left">
             <thead>
               <tr className="bg-v2-surface-800">
-                <th className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-[10px] text-v2-ink-300">
+                <th className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-300">
                   Exercise
                 </th>
-                <th className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-[10px] text-v2-ink-300">
+                <th className="border border-v2-surface-700 px-3 py-2 font-v2-heading uppercase tracking-[0.15em] text-v2-xs text-v2-ink-300">
                   Prescription
                 </th>
               </tr>

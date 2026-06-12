@@ -105,7 +105,7 @@ export default function AdminV2() {
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <div className="h-px w-5 bg-v2-warn-600" />
-            <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-warn-300">
+            <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300">
               {eyebrow}
             </span>
           </div>
@@ -144,7 +144,7 @@ export default function AdminV2() {
         <header className="space-y-3 border-b border-v2-surface-800 pb-6">
           <div className="flex items-center gap-3">
             <div className="h-px w-5 bg-v2-warn-600" />
-            <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-warn-300">
+            <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300">
               Privileged Surface
             </span>
           </div>
@@ -160,7 +160,7 @@ export default function AdminV2() {
           <div className="rounded-v2-md border border-v2-danger-600/60 bg-v2-danger-600/10 px-5 py-4 font-v2-body text-sm text-v2-ink-50 shadow-v2-elev-1">
             <div className="flex items-center gap-3">
               <div className="h-px w-5 bg-v2-danger-600" />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-ink-50">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-50">
                 Configuration Error
               </span>
             </div>
@@ -173,7 +173,7 @@ export default function AdminV2() {
         {/* Identity */}
         <SectionCard eyebrow="Identity" title="Signed-In User">
           <div className="flex flex-col gap-1">
-            <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">
+            <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">
               UID
             </span>
             <code className="break-all font-v2-mono tabular-nums text-sm text-v2-ink-50">
@@ -187,7 +187,7 @@ export default function AdminV2() {
           {loading ? (
             <div className="flex items-center gap-3 text-v2-ink-500">
               <div className="h-px w-5 bg-v2-warn-600" />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em]">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em]">
                 Loading
               </span>
             </div>
@@ -223,7 +223,7 @@ export default function AdminV2() {
             accessHistory.length > 0 && (
               <button
                 onClick={() => setClearHistoryConfirm(true)}
-                className="min-h-touch rounded-v2-sm border border-v2-danger-600/60 bg-v2-danger-600/10 px-3 py-1.5 font-v2-heading text-[11px] uppercase tracking-[0.18em] text-v2-ink-50 transition duration-v2-quick hover:bg-v2-danger-600 hover:text-v2-ink-50 focus:outline-none focus:ring-2 focus:ring-v2-warn-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950"
+                className="min-h-touch rounded-v2-sm border border-v2-danger-600/60 bg-v2-danger-600/10 px-3 py-1.5 font-v2-heading text-v2-xs uppercase tracking-[0.18em] text-v2-ink-50 transition duration-v2-quick hover:bg-v2-danger-600 hover:text-v2-ink-50 focus:outline-none focus:ring-2 focus:ring-v2-warn-500 focus:ring-offset-2 focus:ring-offset-v2-surface-950"
               >
                 Clear History
               </button>
@@ -277,7 +277,7 @@ export default function AdminV2() {
           <div className="rounded-v2-md border border-v2-warn-600/60 bg-v2-warn-600/10 p-5 shadow-v2-elev-1">
             <div className="flex items-center gap-3">
               <div className="h-px w-5 bg-v2-warn-600" />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-warn-300">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300">
                 Admin Rights Granted
               </span>
             </div>
@@ -295,7 +295,7 @@ export default function AdminV2() {
           <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 p-5 shadow-v2-elev-1">
             <div className="flex items-center gap-3">
               <div className="h-px w-5 bg-v2-warn-600" />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-warn-300">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300">
                 Coach Access
               </span>
             </div>
@@ -307,7 +307,7 @@ export default function AdminV2() {
           <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 p-5 shadow-v2-elev-1">
             <div className="flex items-center gap-3">
               <div className="h-px w-5 bg-v2-warn-600" />
-              <span className="font-v2-heading text-[11px] uppercase tracking-[0.22em] text-v2-warn-300">
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300">
                 Athlete Mode
               </span>
             </div>

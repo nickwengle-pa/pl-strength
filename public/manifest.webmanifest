@@ -3,8 +3,8 @@
   "short_name": "PL Strength",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#8B1C21",
+  "background_color": "#020617",
+  "theme_color": "#7a0f18",
   "icons": [
     {
       "src": "/icons/icon-72.png",

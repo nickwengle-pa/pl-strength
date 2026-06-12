@@ -41,6 +41,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { useDevice } from "../lib/device";
 import { ConfirmModal } from "./ConfirmModal";
+import BottomTabBarV2 from "./BottomTabBarV2";
 
 type Status = "checking" | "connected" | "offline" | "syncing";
 type Theme = "light" | "dark";
@@ -1239,7 +1240,7 @@ export default function NavV2() {
                                   className="h-10 w-10 rounded object-contain bg-white/5"
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded border border-dashed border-v2-surface-700 flex items-center justify-center text-[10px] text-v2-ink-500 normal-case tracking-normal">
+                                <div className="h-10 w-10 rounded border border-dashed border-v2-surface-700 flex items-center justify-center text-v2-xs text-v2-ink-500 normal-case tracking-normal">
                                   None
                                 </div>
                               )}
@@ -1269,7 +1270,7 @@ export default function NavV2() {
                                 </button>
                               )}
                             </div>
-                            <span className="text-[10px] normal-case tracking-normal text-v2-ink-500 font-normal">PNG/JPG, under 2 MB.</span>
+                            <span className="text-v2-xs normal-case tracking-normal text-v2-ink-500 font-normal">PNG/JPG, under 2 MB.</span>
                           </div>
                         </div>
 
@@ -1681,7 +1682,7 @@ export default function NavV2() {
                 </div>
               </div>
               {renderTeamPicker("mobile")}
-              <nav className="space-y-1">
+              <nav className="space-y-1" aria-label="All pages">
                 {mobileLinks.map(({ to, label }) => (
                   <NavLink
                     key={to}
@@ -1722,6 +1723,7 @@ export default function NavV2() {
         </div>
       )}
     </header>
+    <BottomTabBarV2 coach={coach || admin} />
     </>
   );
 }

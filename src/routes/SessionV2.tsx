@@ -81,18 +81,18 @@ const adjustTrainingMaxByCycles = (
 const WEEK_THEMES: Record<Week, { name: string; focus: string; blurb: string }> = {
   1: {
     name: "Foundation Volume",
-    focus: "Set The Tone With Crisp Sets Of Five.",
-    blurb: "Smooth Technique And Steady Breathing Build Momentum For The Cycle.",
+    focus: "Set the tone with crisp sets of five.",
+    blurb: "Smooth technique and steady breathing build momentum for the cycle.",
   },
   2: {
     name: "Power Triples",
-    focus: "Drive Explosively Through The Sticking Point.",
-    blurb: "Sharpen Power Output And Keep One Rep In The Tank On Every Set.",
+    focus: "Drive explosively through the sticking point.",
+    blurb: "Sharpen power output and keep one rep in the tank on every set.",
   },
   3: {
     name: "Peak Week",
-    focus: "Prime The Nervous System And Chase A Confident AMRAP.",
-    blurb: "Own Each Top Set And Push Smartly Into PR Territory.",
+    focus: "Prime the nervous system and chase a confident AMRAP.",
+    blurb: "Own each top set and push smartly into PR territory.",
   },
 };
 
@@ -170,6 +170,9 @@ export default function SessionV2() {
   const [allPrFlags, setAllPrFlags] = useState<Record<Lift, boolean>>({ squat: false, bench: false, deadlift: false });
   const [pendingPostSave, setPendingPostSave] = useState<(() => void) | null>(null);
   const [plateCalcTarget, setPlateCalcTarget] = useState<number | null>(null);
+  // Failed-set reps modal (replaces the old native prompt())
+  const [failedSetTarget, setFailedSetTarget] = useState<{ phase: string; index: number } | null>(null);
+  const [failedReps, setFailedReps] = useState(0);
   const [teamSelection, setTeamSelection] = useState<Team | "">(() => getStoredTeamSelection());
   const autoAdvanceRef = useRef(false);
   const savingRef = useRef(false);
@@ -801,6 +804,61 @@ export default function SessionV2() {
           </div>
         )}
 
+        {failedSetTarget !== null && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-v2-xl bg-v2-surface-900 border border-v2-surface-800 p-6 shadow-v2-elev-2 space-y-5">
+              <div className="text-center space-y-1">
+                <h3 className="font-v2-heading text-xl font-bold uppercase tracking-[0.18em] text-v2-ink-50">Tough Set</h3>
+                <p className="text-sm text-v2-ink-300">How many reps did you complete?</p>
+              </div>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  onClick={() => setFailedReps(prev => Math.max(0, prev - 1))}
+                  aria-label="One less rep"
+                  className="w-14 h-14 rounded-full bg-v2-surface-800 border border-v2-surface-700 text-2xl font-bold text-v2-ink-50 active:bg-v2-surface-950 duration-v2-quick"
+                >
+                  −
+                </button>
+                <div className="font-v2-mono tabular-nums text-6xl font-bold w-24 text-center text-v2-ink-50">{failedReps}</div>
+                <button
+                  onClick={() => setFailedReps(prev => prev + 1)}
+                  aria-label="One more rep"
+                  className="w-14 h-14 rounded-full bg-v2-surface-800 border border-v2-surface-700 text-2xl font-bold text-v2-ink-50 active:bg-v2-surface-950 duration-v2-quick"
+                >
+                  +
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setFailedSetTarget(null)}
+                  className="min-h-touch px-4 py-3 rounded-v2-md border border-v2-surface-800 text-v2-ink-300 font-semibold hover:bg-v2-surface-800 duration-v2-quick"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const reps = String(failedReps);
+                    if (failedSetTarget.phase === 'warm') {
+                      setWarmStatus(failedSetTarget.index, 'F');
+                      setWarmActual(failedSetTarget.index, reps);
+                    } else {
+                      setWorkStatus(failedSetTarget.index, 'F');
+                      setWorkActual(failedSetTarget.index, reps);
+                    }
+                    setFailedSetTarget(null);
+                    if (!isLastSet) {
+                      setCurrentSetIndex(prev => prev + 1);
+                    }
+                  }}
+                  className="min-h-touch px-4 py-3 rounded-v2-md bg-v2-accent-700 hover:bg-v2-accent-800 text-v2-ink-50 font-semibold shadow-v2-elev-1 duration-v2-quick"
+                >
+                  Log Reps
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           className={`fixed inset-0 z-50 text-v2-ink-50 flex flex-col overflow-hidden relative ${
             currentSet?.phase === 'warm'
@@ -816,7 +874,7 @@ export default function SessionV2() {
           )}
         <div className="flex items-center justify-between px-4 py-3 border-b border-v2-surface-800 flex-shrink-0 relative">
           <div>
-            <div className="text-[11px] font-v2-heading uppercase tracking-[0.22em] text-v2-ink-500">Cycle {cycleNumber} · Week {week}</div>
+            <div className="text-v2-xs font-v2-heading uppercase tracking-[0.22em] text-v2-ink-500">Cycle {cycleNumber} · Week {week}</div>
             <div className="text-lg font-v2-heading uppercase tracking-[0.08em] font-bold text-v2-ink-50">{LIFT_LABELS[lift]}</div>
           </div>
           <button
@@ -847,7 +905,7 @@ export default function SessionV2() {
                   <button
                     type="button"
                     onClick={() => setPlateCalcTarget(currentSet.weight)}
-                    className="mx-auto inline-flex items-center gap-2 rounded-full bg-v2-surface-900 border border-v2-surface-800 px-3 py-1 font-v2-heading uppercase tracking-[0.14em] text-[11px] font-semibold text-v2-ink-300 hover:bg-v2-surface-800 duration-v2-quick"
+                    className="mx-auto inline-flex items-center gap-2 rounded-full bg-v2-surface-900 border border-v2-surface-800 px-3 py-1 font-v2-heading uppercase tracking-[0.14em] text-v2-xs font-semibold text-v2-ink-300 hover:bg-v2-surface-800 duration-v2-quick"
                   >
                     Plate Calc
                   </button>
@@ -867,7 +925,7 @@ export default function SessionV2() {
                   <>
                     <div className="mt-3 mx-4 px-4 py-2 rounded-v2-md border bg-v2-danger-950/40 border-v2-danger-700">
                       <div className="font-v2-heading uppercase tracking-[0.2em] text-lg font-bold text-v2-danger-300">AMRAP Set</div>
-                      <div className="text-[11px] mt-1 text-v2-ink-300">Leave 1-2 reps in reserve</div>
+                      <div className="text-v2-sm mt-1 text-v2-ink-200">Leave 1-2 reps in reserve</div>
                     </div>
                     <div className="mt-3 mx-4 px-4 py-3 rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 space-y-2">
                       <div className="font-v2-heading text-xs uppercase tracking-[0.22em] text-v2-ink-500">Reps Completed</div>
@@ -958,19 +1016,8 @@ export default function SessionV2() {
                   </button>
                   <button
                     onClick={() => {
-                      const reps = prompt('How Many Reps Did You Complete?');
-                      if (reps) {
-                        if (currentSet.phase === 'warm') {
-                          setWarmStatus(currentSet.index, 'F');
-                          setWarmActual(currentSet.index, reps);
-                        } else {
-                          setWorkStatus(currentSet.index, 'F');
-                          setWorkActual(currentSet.index, reps);
-                        }
-                        if (!isLastSet) {
-                          setCurrentSetIndex(prev => prev + 1);
-                        }
-                      }
+                      setFailedReps(0);
+                      setFailedSetTarget({ phase: currentSet.phase, index: currentSet.index });
                     }}
                     className="min-h-touch-lg py-5 bg-v2-danger-600 hover:bg-v2-danger-700 text-v2-ink-50 rounded-v2-md font-v2-heading uppercase tracking-[0.14em] font-bold text-xl shadow-v2-elev-1 duration-v2-quick"
                   >
@@ -983,14 +1030,14 @@ export default function SessionV2() {
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
                   disabled={currentSetIndex === 0}
-                  className="py-1.5 bg-v2-surface-900 hover:bg-v2-surface-800 rounded-v2-sm disabled:opacity-20 font-v2-heading uppercase tracking-[0.14em] text-[11px] text-v2-ink-500 duration-v2-quick"
+                  className="min-h-touch py-2 bg-v2-surface-900 hover:bg-v2-surface-800 border border-v2-surface-800 rounded-v2-sm disabled:opacity-20 font-v2-heading uppercase tracking-[0.14em] text-v2-sm text-v2-ink-300 duration-v2-quick"
                 >
                   ← Prev
                 </button>
                 <button
                   onClick={() => setCurrentSetIndex(prev => Math.min(allSets.length - 1, prev + 1))}
                   disabled={isLastSet}
-                  className="py-1.5 bg-v2-surface-900 hover:bg-v2-surface-800 rounded-v2-sm disabled:opacity-20 font-v2-heading uppercase tracking-[0.14em] text-[11px] text-v2-ink-500 duration-v2-quick"
+                  className="min-h-touch py-2 bg-v2-surface-900 hover:bg-v2-surface-800 border border-v2-surface-800 rounded-v2-sm disabled:opacity-20 font-v2-heading uppercase tracking-[0.14em] text-v2-sm text-v2-ink-300 duration-v2-quick"
                 >
                   Next →
                 </button>
@@ -1044,7 +1091,7 @@ export default function SessionV2() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className={`font-v2-heading text-[11px] font-semibold uppercase tracking-[0.22em] ${isPr ? "text-v2-warn-300" : colors.text}`}>
+                          <div className={`font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] ${isPr ? "text-v2-warn-300" : colors.text}`}>
                             {LIFT_LABELS[l]}
                           </div>
                           <div className={`font-v2-mono tabular-nums text-3xl font-bold ${isPr ? "text-v2-warn-300" : colors.accent}`}>
@@ -1052,14 +1099,14 @@ export default function SessionV2() {
                           </div>
                         </div>
                         {isPr && (
-                          <span className="inline-flex items-center rounded-full border border-v2-warn-700 bg-v2-warn-950/60 px-2 py-0.5 font-v2-heading text-[10px] font-bold uppercase tracking-[0.2em] text-v2-warn-300">
+                          <span className="inline-flex items-center rounded-full border border-v2-warn-700 bg-v2-warn-950/60 px-2 py-0.5 font-v2-heading text-v2-xs font-bold uppercase tracking-[0.2em] text-v2-warn-300">
                             PR
                           </span>
                         )}
                       </div>
                       {isPr && (
                         <div className="mt-1">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-v2-warn-950/60 border border-v2-warn-700 px-2.5 py-0.5 font-v2-heading text-[11px] font-bold text-v2-warn-300 uppercase tracking-[0.18em]">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-v2-warn-950/60 border border-v2-warn-700 px-2.5 py-0.5 font-v2-heading text-v2-xs font-bold text-v2-warn-300 uppercase tracking-[0.18em]">
                             New Personal Record
                           </span>
                         </div>
@@ -1097,12 +1144,12 @@ export default function SessionV2() {
             <div className="text-center space-y-2">
               <h3 className="font-v2-heading text-xl font-bold uppercase tracking-[0.18em] text-v2-ink-50">Week {week} Complete!</h3>
               <p className="text-sm text-v2-ink-300">
-                You've Logged {liftLabel} For Week {week}. Nice Work!
+                You've logged {liftLabel} for Week {week}. Nice work!
               </p>
             </div>
             <div className="rounded-v2-md bg-v2-success-950/60 border border-v2-success-700 p-4 text-center">
               <p className="text-sm font-medium text-v2-success-300">
-                Ready To Advance {liftLabel} To Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? nextCycleAfter(cycleNumber) : cycleNumber})?
+                Ready to advance {liftLabel} to Week {week === 3 ? 1 : week + 1} (Cycle {week === 3 ? nextCycleAfter(cycleNumber) : cycleNumber})?
               </p>
               {week === 3 && (
                 <p className="mt-1 text-xs text-v2-success-300">
@@ -1165,7 +1212,7 @@ export default function SessionV2() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className={`font-v2-heading text-[11px] font-semibold uppercase tracking-[0.22em] ${isPr ? "text-v2-warn-300" : colors.text}`}>
+                        <div className={`font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] ${isPr ? "text-v2-warn-300" : colors.text}`}>
                           {LIFT_LABELS[l]}
                         </div>
                         <div className={`font-v2-mono tabular-nums text-3xl font-bold ${isPr ? "text-v2-warn-300" : colors.accent}`}>
@@ -1173,14 +1220,14 @@ export default function SessionV2() {
                         </div>
                       </div>
                       {isPr && (
-                        <span className="inline-flex items-center rounded-full border border-v2-warn-700 bg-v2-warn-950/60 px-2 py-0.5 font-v2-heading text-[10px] font-bold uppercase tracking-[0.2em] text-v2-warn-300">
+                        <span className="inline-flex items-center rounded-full border border-v2-warn-700 bg-v2-warn-950/60 px-2 py-0.5 font-v2-heading text-v2-xs font-bold uppercase tracking-[0.2em] text-v2-warn-300">
                           PR
                         </span>
                       )}
                     </div>
                     {isPr && (
                       <div className="mt-1">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-v2-warn-950/60 border border-v2-warn-700 px-2.5 py-0.5 font-v2-heading text-[11px] font-bold text-v2-warn-300 uppercase tracking-[0.18em]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-v2-warn-950/60 border border-v2-warn-700 px-2.5 py-0.5 font-v2-heading text-v2-xs font-bold text-v2-warn-300 uppercase tracking-[0.18em]">
                           New Personal Record
                         </span>
                       </div>
@@ -1260,18 +1307,18 @@ export default function SessionV2() {
                 }`}
               >
                 <div className="flex items-center justify-center gap-1">
-                  <div className="font-v2-heading text-[10px] font-medium uppercase tracking-[0.22em] opacity-85">
+                  <div className="font-v2-heading text-v2-xs font-medium uppercase tracking-[0.22em] opacity-85">
                     Week {w}
                   </div>
                   {isDone && !isActive && (
-                    <span className="text-[10px] text-v2-success-300" title="Completed Recently">✓</span>
+                    <span className="text-v2-xs text-v2-success-300" title="Completed Recently">✓</span>
                   )}
                 </div>
                 <div className={`font-v2-mono tabular-nums text-lg font-bold ${isActive ? "" : "text-v2-ink-50"}`}>
                   {w === 1 ? "65/75/85" : w === 2 ? "70/80/90" : "75/85/95"}
                 </div>
                 {isActive && (
-                  <div className="mt-1 font-v2-heading text-[10px] font-medium uppercase tracking-[0.16em] opacity-90 truncate">
+                  <div className="mt-1 font-v2-heading text-v2-xs font-medium uppercase tracking-[0.16em] opacity-90 truncate">
                     {weekTheme.name}
                   </div>
                 )}
@@ -1295,7 +1342,7 @@ export default function SessionV2() {
                 <p className="text-sm text-v2-ink-300">{theme.focus}</p>
                 <p className="text-xs text-v2-ink-500">{theme.blurb}</p>
               </div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-[11px] font-semibold uppercase tracking-[0.22em] text-v2-accent-300">
+              <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-accent-300">
                 {heroBadge}
               </span>
             </div>
@@ -1305,7 +1352,7 @@ export default function SessionV2() {
                   key={stat.label}
                   className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-950 px-4 py-3"
                 >
-                  <div className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">
+                  <div className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">
                     {stat.label}
                   </div>
                   <div className="mt-1 text-lg font-semibold text-v2-ink-50">
@@ -1394,17 +1441,17 @@ export default function SessionV2() {
                   </button>
                 </div>
                 {targetUid ? (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-v2-accent-300">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-accent-300">
                     Viewing {activeAthleteName}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-v2-accent-300">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-v2-accent-950/50 border border-v2-accent-800 px-3 py-1 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.18em] text-v2-accent-300">
                     Personal Session
                   </span>
                 )}
                 {isCoach && !targetUid ? (
                   <span className="inline-flex items-start gap-2 rounded-v2-md bg-v2-warn-950/40 border border-v2-warn-800 px-3 py-2 text-xs font-medium text-v2-warn-300">
-                    No Athlete Selected. Log Your Own Session Or Pick Someone From The Roster To Load Their Plan.
+                    No athlete selected. Log your own session or pick someone from the roster to load their plan.
                   </span>
                 ) : null}
                 <button
@@ -1429,7 +1476,7 @@ export default function SessionV2() {
 
             {sessionSettingsOpen && (
               <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-950 px-4 py-3 text-xs text-v2-ink-300">
-                <div className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Units</div>
+                <div className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Units</div>
                 <div className="mt-1 flex items-center justify-between text-sm font-semibold text-v2-ink-50">
                   <span className="font-v2-mono tabular-nums">{unit.toUpperCase()}</span>
                   <span className="font-v2-heading text-xs uppercase tracking-[0.22em] text-v2-ink-500">auto</span>
@@ -1440,7 +1487,7 @@ export default function SessionV2() {
             <div className={`rounded-v2-md border border-v2-surface-800 bg-v2-surface-950 ${isMobileDevice ? 'p-3' : 'p-4'}`}>
               <div className={`grid ${isMobileDevice ? 'gap-2' : 'gap-4'}`}>
                 <label className="flex flex-col gap-1 text-sm font-medium text-v2-ink-300">
-                  <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Lift</span>
+                  <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Lift</span>
                   <select
                     className={`rounded-v2-md border border-v2-accent-800 bg-v2-surface-900 px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-v2-ink-50 shadow-v2-elev-1 focus:border-v2-accent-600 focus:outline-none focus:ring-2 focus:ring-v2-accent-700/40 duration-v2-quick`}
                     value={lift}
@@ -1457,7 +1504,7 @@ export default function SessionV2() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1 text-sm font-medium text-v2-ink-300">
-                    <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Cycle</span>
+                    <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Cycle</span>
                     <select
                       className={`rounded-v2-md border border-v2-accent-800 bg-v2-surface-900 px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-v2-ink-50 shadow-v2-elev-1 focus:border-v2-accent-600 focus:outline-none focus:ring-2 focus:ring-v2-accent-700/40 duration-v2-quick`}
                       value={cycle}
@@ -1470,7 +1517,7 @@ export default function SessionV2() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm font-medium text-v2-ink-300">
-                    <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Week</span>
+                    <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Week</span>
                     <select
                       className={`rounded-v2-md border border-v2-accent-800 bg-v2-surface-900 px-3 ${isMobileDevice ? 'py-2' : 'py-3'} text-base font-bold text-v2-ink-50 shadow-v2-elev-1 focus:border-v2-accent-600 focus:outline-none focus:ring-2 focus:ring-v2-accent-700/40 duration-v2-quick`}
                       value={week}
@@ -1484,15 +1531,15 @@ export default function SessionV2() {
                 </div>
 
                 <div className="flex flex-col gap-1 text-sm font-medium text-v2-ink-300">
-                  <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Training Max</span>
+                  <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Training Max</span>
                   {tm && Number.isFinite(tm) ? (
                     <div className="inline-flex items-center justify-between rounded-v2-md border border-v2-accent-800 bg-v2-surface-900 px-3 py-2 text-sm font-semibold text-v2-accent-300 shadow-v2-elev-1">
                       <span className="font-v2-mono tabular-nums">{tm} {unit}</span>
-                      <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-accent-300">ready</span>
+                      <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-accent-300">ready</span>
                     </div>
                   ) : (
                     <div className="rounded-v2-md border border-dashed border-v2-surface-800 px-3 py-2 text-sm text-v2-ink-500">
-                      Set Training Max In Calculator.
+                      Set your Training Max in the Calculator.
                     </div>
                   )}
                 </div>
@@ -1502,7 +1549,7 @@ export default function SessionV2() {
               <div className="rounded-v2-md border border-v2-accent-800 bg-gradient-to-br from-v2-accent-950/60 via-v2-surface-950 to-v2-surface-950 p-4 shadow-v2-elev-1">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="font-v2-heading text-[11px] font-semibold uppercase tracking-[0.22em] text-v2-info-300">Now Logging</div>
+                    <div className="font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-info-300">Now Logging</div>
                     <div className="font-v2-heading text-xl font-bold uppercase tracking-[0.08em] text-v2-ink-50">
                       {LIFT_LABELS[lift]} - Cycle {cycleNumber} - Week {week}
                     </div>
@@ -1519,7 +1566,7 @@ export default function SessionV2() {
 
             {!isMobileDevice && (
               <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-950 px-4 py-3 text-xs text-v2-ink-300">
-                <span className="font-v2-heading font-semibold uppercase tracking-[0.18em] text-v2-ink-50">Set Status Legend:</span> S = Completed All Prescribed Reps. F = Stopped Early - Record The Reps Completed.
+                <span className="font-v2-heading font-semibold uppercase tracking-[0.18em] text-v2-ink-50">Set Status Legend:</span> S = completed all prescribed reps. F = stopped early — record the reps completed.
               </div>
             )}
 
@@ -1528,15 +1575,15 @@ export default function SessionV2() {
                 <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
                       <p className="font-v2-heading text-sm font-semibold uppercase tracking-[0.14em] text-v2-info-300">Warm-Up Ramp</p>
-                      <p className="text-xs text-v2-info-300/80">Prime The Groove With Smooth Sets.</p>
+                      <p className="text-xs text-v2-info-300/80">Prime the groove with smooth sets.</p>
                     </div>
-                    <span className="inline-flex items-center rounded-full bg-v2-surface-900 border border-v2-info-800 px-2 py-0.5 font-v2-heading text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-info-300">
+                    <span className="inline-flex items-center rounded-full bg-v2-surface-900 border border-v2-info-800 px-2 py-0.5 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-info-300">
                       Warm-Up
                     </span>
                   </div>
                 <div className="flex items-center gap-1.5 mb-1 sm:hidden">
-                    <div className="font-v2-heading text-[11px] font-semibold text-v2-info-300 uppercase tracking-[0.22em]">Warm-Up</div>
-                    <span className="font-v2-mono tabular-nums text-[10px] font-semibold text-v2-info-300 bg-v2-surface-900 border border-v2-info-800 rounded-full px-1.5 py-0.5">1–{warm.length}</span>
+                    <div className="font-v2-heading text-v2-xs font-semibold text-v2-info-300 uppercase tracking-[0.22em]">Warm-Up</div>
+                    <span className="font-v2-mono tabular-nums text-v2-xs font-semibold text-v2-info-300 bg-v2-surface-900 border border-v2-info-800 rounded-full px-1.5 py-0.5">1–{warm.length}</span>
                   </div>
                 <div className="space-y-1 sm:space-y-2">
                   {warm.map((set, index) => (
@@ -1557,7 +1604,7 @@ export default function SessionV2() {
                   ))}
                   {warm.length === 0 && (
                     <div className="rounded-v2-sm border border-dashed border-v2-info-800 px-3 py-2 text-sm text-v2-info-300">
-                      Add A Training Max To Unlock Warm-Ups.
+                      Add a Training Max to unlock warm-ups.
                     </div>
                   )}
                 </div>
@@ -1567,15 +1614,15 @@ export default function SessionV2() {
                 <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
                       <p className="font-v2-heading text-sm font-semibold uppercase tracking-[0.14em] text-v2-accent-300">Main Work</p>
-                      <p className="text-xs text-v2-accent-300/80">Own Each Top Set And Log How It Felt.</p>
+                      <p className="text-xs text-v2-accent-300/80">Own each top set and log how it felt.</p>
                     </div>
-                    <span className="inline-flex items-center rounded-full bg-v2-surface-900 border border-v2-accent-800 px-2 py-0.5 font-v2-heading text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-accent-300">
+                    <span className="inline-flex items-center rounded-full bg-v2-surface-900 border border-v2-accent-800 px-2 py-0.5 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-accent-300">
                       Work Sets
                     </span>
                   </div>
                 <div className="flex items-center gap-1.5 mb-1 sm:hidden">
-                    <div className="font-v2-heading text-[11px] font-semibold text-v2-accent-300 uppercase tracking-[0.22em]">Work Sets</div>
-                    <span className="font-v2-mono tabular-nums text-[10px] font-semibold text-v2-accent-300 bg-v2-surface-900 border border-v2-accent-800 rounded-full px-1.5 py-0.5">{warm.length + 1}–{warm.length + work.length}</span>
+                    <div className="font-v2-heading text-v2-xs font-semibold text-v2-accent-300 uppercase tracking-[0.22em]">Work Sets</div>
+                    <span className="font-v2-mono tabular-nums text-v2-xs font-semibold text-v2-accent-300 bg-v2-surface-900 border border-v2-accent-800 rounded-full px-1.5 py-0.5">{warm.length + 1}–{warm.length + work.length}</span>
                   </div>
                 <div className="space-y-1 sm:space-y-2">
                   {work.map((set, index) => {
@@ -1591,7 +1638,7 @@ export default function SessionV2() {
                           >
                             {set.weight} {unit}
                           </button>
-                          <span className="font-v2-heading text-[11px] font-semibold text-v2-warn-300 uppercase tracking-[0.22em]">AMRAP ↓</span>
+                          <span className="font-v2-heading text-v2-xs font-semibold text-v2-warn-300 uppercase tracking-[0.22em]">AMRAP ↓</span>
                         </div>
                           <div className="hidden sm:flex items-center justify-between gap-3 rounded-v2-sm border border-v2-warn-800 bg-v2-warn-950/40 px-4 py-3">
                           <div className="flex items-center gap-4">
@@ -1629,7 +1676,7 @@ export default function SessionV2() {
                   })}
                   {work.length === 0 && (
                     <div className="rounded-v2-sm border border-dashed border-v2-accent-800 px-3 py-2 text-sm text-v2-accent-300">
-                      Add A Training Max To Populate The Working Weights.
+                      Add a Training Max to populate the working weights.
                     </div>
                   )}
                 </div>
@@ -1638,7 +1685,7 @@ export default function SessionV2() {
 
             <div className="rounded-v2-md border border-v2-warn-700 bg-v2-warn-950/60 p-2 shadow-v2-elev-2 space-y-1.5 sticky bottom-0 z-30 sm:hidden">
                 <div className="flex items-center justify-between gap-1.5">
-                  <span className="font-v2-heading text-[10px] font-semibold text-v2-warn-300 uppercase tracking-[0.18em] whitespace-nowrap">
+                  <span className="font-v2-heading text-v2-xs font-semibold text-v2-warn-300 uppercase tracking-[0.18em] whitespace-nowrap">
                     AMRAP<br/><span className="font-v2-mono tabular-nums">{work.length > 0 ? Math.round((work[work.length - 1]?.pct ?? 0) * 100) : 0}%</span> TM
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -1684,7 +1731,7 @@ export default function SessionV2() {
                 <div className="rounded-v2-md border border-v2-warn-800 bg-v2-warn-950/40 p-4 shadow-v2-elev-1">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-sm font-medium text-v2-warn-300">
-                      <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-warn-300/80">Last Set AMRAP Reps</span>
+                      <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300/80">Last Set AMRAP Reps</span>
                       <input
                         className="rounded-v2-md border border-v2-warn-800 bg-v2-surface-900 px-3 py-2 font-v2-mono tabular-nums text-sm font-semibold text-v2-warn-300 shadow-v2-elev-1 focus:border-v2-warn-600 focus:outline-none focus:ring-2 focus:ring-v2-warn-700/40 duration-v2-quick"
                         type="number"
@@ -1694,7 +1741,7 @@ export default function SessionV2() {
                       />
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-v2-warn-300">
-                      <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-warn-300/80">Session Notes</span>
+                      <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-warn-300/80">Session Notes</span>
                       <input
                         className="rounded-v2-md border border-v2-warn-800 bg-v2-surface-900 px-3 py-2 text-sm text-v2-ink-50 shadow-v2-elev-1 focus:border-v2-warn-600 focus:outline-none focus:ring-2 focus:ring-v2-warn-700/40 duration-v2-quick"
                         value={note}
@@ -1712,11 +1759,11 @@ export default function SessionV2() {
                 >
                   <div className="font-v2-heading text-xs uppercase tracking-[0.22em] text-v2-ink-50/85">Estimated 1RM</div>
                   <div className="font-v2-mono tabular-nums text-3xl font-bold">
-                    {est ? `${est} ${unit}` : "Log Reps To Calculate"}
+                    {est ? `${est} ${unit}` : "Log reps to calculate"}
                   </div>
                   {prFlag && (
                     <div className="mt-1 font-v2-heading text-sm font-medium uppercase tracking-[0.14em] text-v2-ink-50">
-                      New PR Unlocked! Record It Before You Forget.
+                      New PR unlocked! Record it before you forget.
                     </div>
                   )}
                 </div>
@@ -1736,7 +1783,7 @@ export default function SessionV2() {
           <div className="rounded-v2-lg border border-v2-surface-800 bg-v2-surface-900 p-6 space-y-5 shadow-v2-elev-2">
             <div className="flex items-center justify-between">
               <h3 className="font-v2-heading text-lg font-bold uppercase tracking-[0.14em] text-v2-ink-50">Recent Sessions</h3>
-              <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">{liftLabel}</span>
+              <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">{liftLabel}</span>
             </div>
             <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-950 p-3">
               <TrendMini values={estSeries} unit={unit} />
@@ -1755,11 +1802,11 @@ export default function SessionV2() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         {isRemax ? (
-                          <span className="inline-flex items-center rounded-v2-sm border border-v2-accent-800 bg-v2-accent-950/60 px-2 py-0.5 font-v2-heading text-[11px] font-bold uppercase tracking-[0.18em] text-v2-accent-300">
+                          <span className="inline-flex items-center rounded-v2-sm border border-v2-accent-800 bg-v2-accent-950/60 px-2 py-0.5 font-v2-heading text-v2-xs font-bold uppercase tracking-[0.18em] text-v2-accent-300">
                             Remax
                           </span>
                         ) : (
-                          <span className={`inline-flex items-center rounded-v2-sm border px-2 py-0.5 font-v2-mono tabular-nums text-[11px] font-bold ${weekColors[session.week] || weekColors[1]}`}>
+                          <span className={`inline-flex items-center rounded-v2-sm border px-2 py-0.5 font-v2-mono tabular-nums text-v2-xs font-bold ${weekColors[session.week] || weekColors[1]}`}>
                             C{cycleLabel} W{session.week}
                           </span>
                         )}
@@ -1780,7 +1827,7 @@ export default function SessionV2() {
                         </span>
                       </div>
                       {session.pr ? (
-                        <span className="inline-flex items-center rounded-full bg-v2-success-950/60 border border-v2-success-700 px-2 py-0.5 font-v2-heading text-[10px] font-semibold uppercase tracking-[0.22em] text-v2-success-300">
+                        <span className="inline-flex items-center rounded-full bg-v2-success-950/60 border border-v2-success-700 px-2 py-0.5 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] text-v2-success-300">
                           PR
                         </span>
                       ) : null}
@@ -1801,7 +1848,7 @@ export default function SessionV2() {
               })}
               {history.length === 0 && (
                 <li className="rounded-v2-md border border-dashed border-v2-surface-800 px-3 py-3 text-sm text-v2-ink-500">
-                  Log Your First Session To See Trends Here.
+                  Log your first session to see trends here.
                 </li>
               )}
             </ul>
@@ -1933,13 +1980,13 @@ function SetRow({
       <div className="min-w-[160px]">
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 font-v2-heading text-[10px] font-semibold uppercase tracking-[0.22em] ${
+            className={`inline-flex items-center rounded-full px-2 py-0.5 font-v2-heading text-v2-xs font-semibold uppercase tracking-[0.22em] ${
               phase === "Work" ? "bg-v2-accent-950/60 text-v2-accent-300 border border-v2-accent-800" : "bg-v2-info-950/60 text-v2-info-300 border border-v2-info-800"
             }`}
           >
             {phase}
           </span>
-          <span className="font-v2-heading text-[10px] uppercase tracking-[0.22em] text-v2-ink-500">Set {index + 1}</span>
+          <span className="font-v2-heading text-v2-xs uppercase tracking-[0.22em] text-v2-ink-500">Set {index + 1}</span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <div className="font-v2-mono tabular-nums text-sm font-semibold text-v2-ink-50">{weightLabel}</div>

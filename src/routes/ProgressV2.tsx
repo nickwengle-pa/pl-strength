@@ -528,7 +528,7 @@ function Field({
 }) {
   return (
     <div className={align === "right" ? "text-right" : ""}>
-      <div className="font-v2-body text-[10px] font-semibold uppercase tracking-[0.2em] text-v2-ink-500">
+      <div className="font-v2-body text-v2-xs font-semibold uppercase tracking-[0.2em] text-v2-ink-500">
         {label}
       </div>
       <div className={`font-v2-mono text-v2-sm font-semibold tabular-nums mt-0.5 ${valueClass || "text-v2-ink-100"}`}>
@@ -602,7 +602,7 @@ function LineChart({
                 point.pointClassName ?? "bg-v2-accent-500"
               }`}
             />
-            <span className="rounded bg-v2-surface-800/90 px-1.5 py-0.5 font-v2-mono text-[10px] font-semibold text-v2-ink-100 tabular-nums shadow-sm">
+            <span className="rounded bg-v2-surface-800/90 px-1.5 py-0.5 font-v2-mono text-v2-xs font-semibold text-v2-ink-100 tabular-nums shadow-sm">
               {point.label}
             </span>
           </div>

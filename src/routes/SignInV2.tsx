@@ -29,7 +29,8 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { useOrg } from "../context/OrgContext";
 
-// ── All logic below is identical to SignIn.tsx — only JSX changes ──
+// ── Logic forked from SignIn.tsx (v1). V2 diverges: team selection is
+//    preserved on failed sign-in attempts, and messages are sentence case. ──
 
 const updateDisplayNameCache = (name: string) => {
   if (typeof window !== "undefined") {
@@ -98,9 +99,9 @@ export default function SignInV2() {
 
   useEffect(() => {
     if (!org) {
-      setMessage({ kind: "error", text: "Select Your School/Team First." });
+      setMessage({ kind: "error", text: "Select your school or team first." });
       navigate("/", { replace: true });
-    } else if (message?.kind === "error" && message.text.includes("Select Your School")) {
+    } else if (message?.kind === "error" && message.text.includes("Select your school")) {
       setMessage(null);
     }
   }, [org, message, navigate]);
@@ -193,16 +194,16 @@ export default function SignInV2() {
 
   const handleAthleteSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!auth) { setMessage({ kind: "error", text: "Firebase Auth Is Unavailable." }); return; }
+    if (!auth) { setMessage({ kind: "error", text: "Sign-in is unavailable right now. Check your connection and try again." }); return; }
     const safeFirst = sanitizeName(firstName);
     const safeLast = sanitizeName(lastName);
     const digits = normalizePasscodeDigits(passcode);
-    if (!safeFirst || !safeLast) { setMessage({ kind: "error", text: "Enter First And Last Name." }); return; }
+    if (!safeFirst || !safeLast) { setMessage({ kind: "error", text: "Enter your first and last name." }); return; }
     if (digits.length !== 4) {
-      setMessage({ kind: "error", text: "Passcode Must Be 4 Digits. Ask Your Coach If You Forgot It." });
+      setMessage({ kind: "error", text: "Your passcode must be 4 digits. Ask your coach if you forgot it." });
       return;
     }
-    if (!team) { setMessage({ kind: "error", text: "Select Your Team Before Signing In." }); return; }
+    if (!team) { setMessage({ kind: "error", text: "Select your team before signing in." }); return; }
     setSubmitting(true);
     setMessage(null);
     try {
@@ -215,54 +216,56 @@ export default function SignInV2() {
         setStoredTeamScopes([resolvedTeam]);
       }
       updateDisplayNameCache(`${profile.firstName} ${profile.lastName}`.trim());
-      setMessage({ kind: "success", text: "Signed In! You're Ready To Train." });
+      setMessage({ kind: "success", text: "Signed in! You're ready to train." });
       navigate("/", { replace: true });
     } catch (err: any) {
       if (err instanceof AthleteAuthError) {
         if (err.code === "auth/wrong-password") {
-          setMessage({ kind: "error", text: "Passcode Does Not Match. Ask Your Coach If You Need Help." });
+          setMessage({ kind: "error", text: "That passcode doesn't match. Ask your coach if you need help." });
         } else if (err.code === "athlete-code/taken") {
-          setMessage({ kind: "error", text: "That Code Is Already Being Used By Another Athlete. Ask Your Coach For A Unique Code." });
+          setMessage({ kind: "error", text: "That code is already being used by another athlete. Ask your coach for a unique code." });
         } else if (err.code === "athlete-code/unavailable") {
-          setMessage({ kind: "error", text: "We Couldn't Verify That Code. Try Again In A Moment." });
+          setMessage({ kind: "error", text: "We couldn't verify that code. Try again in a moment." });
         } else if (err.code === "auth/unavailable") {
-          setMessage({ kind: "error", text: "Firebase Auth Is Unavailable." });
+          setMessage({ kind: "error", text: "Sign-in is unavailable right now. Check your connection and try again." });
         } else {
-          setMessage({ kind: "error", text: err.message || "We Could Not Sign You In." });
+          setMessage({ kind: "error", text: err.message || "We couldn't sign you in." });
         }
       } else {
         const code = (err as AuthError)?.code;
         const text = code === "auth/email-already-in-use"
-          ? "That Athlete Already Exists. Double-Check Spelling Or The Passcode."
-          : (err?.message ?? "We Could Not Sign You In.");
+          ? "That athlete already exists. Double-check spelling or the passcode."
+          : (err?.message ?? "We couldn't sign you in.");
         setMessage({ kind: "error", text });
       }
     } finally {
+      // Clear the passcode for retry, but KEEP the team selection —
+      // resetting it after a typo'd passcode forced athletes to re-pick
+      // their team and hit a confusing second error.
       setPasscode("");
-      setTeam("");
       setSubmitting(false);
     }
   };
 
   const handleCoachSignIn = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!auth) { setMessage({ kind: "error", text: "Firebase Auth Is Unavailable." }); return; }
+    if (!auth) { setMessage({ kind: "error", text: "Sign-in is unavailable right now. Check your connection and try again." }); return; }
     if (!coachPasscodeFromEnv) {
-      setMessage({ kind: "error", text: "Coach Passcode Is Not Configured. Ask An Admin To Set VITE_COACH_PASSCODE." });
+      setMessage({ kind: "error", text: "The coach passcode is not configured. Ask an admin to set VITE_COACH_PASSCODE." });
       return;
     }
     const safeFirst = sanitizeName(firstName);
     const safeLast = sanitizeName(lastName);
-    if (!safeFirst || !safeLast) { setMessage({ kind: "error", text: "Enter First And Last Name." }); return; }
-    if (!team) { setMessage({ kind: "error", text: "Select Your Team Before Signing In." }); return; }
+    if (!safeFirst || !safeLast) { setMessage({ kind: "error", text: "Enter your first and last name." }); return; }
+    if (!team) { setMessage({ kind: "error", text: "Select your team before signing in." }); return; }
     const email = buildCoachEmail(safeFirst, safeLast);
     const entered = normalizeCoachPasscode(passcode);
-    if (!entered) { setMessage({ kind: "error", text: "Enter The Coach Passcode." }); return; }
+    if (!entered) { setMessage({ kind: "error", text: "Enter the coach passcode." }); return; }
     const expected = normalizeCoachPasscode(coachPasscodeFromEnv);
     const adminExpected = adminCoachPasscodeFromEnv ? normalizeCoachPasscode(adminCoachPasscodeFromEnv) : null;
     const isAdminOverride = adminExpected ? entered === adminExpected : false;
     if (entered !== expected && !isAdminOverride) {
-      setMessage({ kind: "error", text: "That Passcode Does Not Match. Check With Your Admin For The Current Coach Code." });
+      setMessage({ kind: "error", text: "That passcode doesn't match. Check with your admin for the current coach code." });
       return;
     }
     setSubmitting(true);
@@ -288,22 +291,22 @@ export default function SignInV2() {
               const cred = await signInWithEmailAndPassword(auth, email, password);
               userUid = cred.user.uid;
             } catch (retryErr: any) {
-              setMessage({ kind: "error", text: (retryErr as AuthError)?.message ?? "We Could Not Sign You In With The Existing Coach Account. Ask An Admin To Reset The Coach Passcode." });
+              setMessage({ kind: "error", text: (retryErr as AuthError)?.message ?? "We couldn't sign you in with the existing coach account. Ask an admin to reset the coach passcode." });
               setSubmitting(false);
               return;
             }
           } else {
-            setMessage({ kind: "error", text: createErr?.message ?? "We Could Not Create The Account." });
+            setMessage({ kind: "error", text: createErr?.message ?? "We couldn't create the account." });
             setSubmitting(false);
             return;
           }
         }
       } else if (error.code === "auth/wrong-password") {
-        setMessage({ kind: "error", text: "Passcode Does Not Match. Ask Your Admin For The Current Coach Code." });
+        setMessage({ kind: "error", text: "That passcode doesn't match. Ask your admin for the current coach code." });
         setSubmitting(false);
         return;
       } else {
-        setMessage({ kind: "error", text: error.message ?? "We Could Not Sign You In." });
+        setMessage({ kind: "error", text: error.message ?? "We couldn't sign you in." });
         setSubmitting(false);
         return;
       }
@@ -322,8 +325,8 @@ export default function SignInV2() {
       setMessage({
         kind: "error",
         text: isAdminOverride
-          ? "Signed In, But We Could Not Confirm Admin Access. Try The Admin Code Again Or Contact Support."
-          : "Signed In, But We Could Not Update Coach Permissions In Firestore. Ask An Admin To Confirm Firebase Configuration.",
+          ? "Signed in, but we couldn't confirm admin access. Try the admin code again or contact support."
+          : "Signed in, but we couldn't update coach permissions. Ask an admin to confirm the Firebase configuration.",
       });
       setSubmitting(false);
       return;
@@ -361,7 +364,6 @@ export default function SignInV2() {
       console.warn("Failed to persist coach profile", err);
     } finally {
       setPasscode("");
-      setTeam("");
       setSubmitting(false);
     }
     navigate("/", { replace: true });
@@ -484,10 +486,11 @@ export default function SignInV2() {
                 {/* Name row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                    <label htmlFor="athlete-first-name" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                       First Name
                     </label>
                     <input
+                      id="athlete-first-name"
                       className={fieldCls}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -497,10 +500,11 @@ export default function SignInV2() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                    <label htmlFor="athlete-last-name" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                       Last Name
                     </label>
                     <input
+                      id="athlete-last-name"
                       className={fieldCls}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
@@ -513,10 +517,11 @@ export default function SignInV2() {
 
                 {/* Team */}
                 <div className="space-y-1.5">
-                  <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                  <label htmlFor="athlete-team" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                     Team
                   </label>
                   <select
+                    id="athlete-team"
                     className={fieldCls}
                     value={team}
                     onChange={(e) => setTeam(e.target.value as Team | "")}
@@ -532,10 +537,11 @@ export default function SignInV2() {
 
                 {/* Passcode */}
                 <div className="space-y-1.5">
-                  <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                  <label htmlFor="athlete-passcode" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                     4-Digit Team Code
                   </label>
                   <input
+                    id="athlete-passcode"
                     className={`${fieldCls} font-v2-mono tracking-[0.35em] text-center text-v2-xl v2-tabular`}
                     type="tel"
                     value={passcode}
@@ -571,10 +577,11 @@ export default function SignInV2() {
                 {/* Name row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                    <label htmlFor="coach-first-name" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                       First Name
                     </label>
                     <input
+                      id="coach-first-name"
                       className={fieldCls}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -584,10 +591,11 @@ export default function SignInV2() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="font-v2-body text-v2-ink-400 text-v2-xs uppercase tracking-wider font-semibold block">
+                    <label htmlFor="coach-last-name" className="font-v2-body text-v2-ink-400 text-v2-xs uppercase tracking-wider font-semibold block">
                       Last Name
                     </label>
                     <input
+                      id="coach-last-name"
                       className={fieldCls}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
@@ -600,10 +608,11 @@ export default function SignInV2() {
 
                 {/* Team */}
                 <div className="space-y-1.5">
-                  <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                  <label htmlFor="coach-team" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                     Team
                   </label>
                   <select
+                    id="coach-team"
                     className={fieldCls}
                     value={team}
                     onChange={(e) => setTeam(e.target.value as Team | "")}
@@ -619,10 +628,11 @@ export default function SignInV2() {
 
                 {/* Coach passcode */}
                 <div className="space-y-1.5">
-                  <label className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
+                  <label htmlFor="coach-passcode" className="font-v2-body text-v2-xs text-v2-ink-400 uppercase tracking-wider font-semibold block">
                     Coach Passcode
                   </label>
                   <input
+                    id="coach-passcode"
                     className={`${fieldCls} font-v2-mono tracking-[0.25em] text-center text-v2-xl`}
                     value={passcode}
                     onChange={(e) => setPasscode(normalizeCoachPasscode(e.target.value))}

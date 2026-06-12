@@ -148,9 +148,9 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
               <div className="h-20 w-24 flex flex-col items-center justify-center rounded-lg bg-gradient-to-br from-slate-200 to-slate-300 text-xs font-bold text-slate-900 shadow-lg border-2 border-slate-400" style={{
                 boxShadow: "0 4px 6px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.5)"
               }}>
-                <div className="text-[10px] text-slate-600 uppercase tracking-wide">Bar</div>
+                <div className="text-v2-xs text-slate-600 uppercase tracking-wide">Bar</div>
                 <div className="text-sm">{barWeight > 0 ? `${formatNumber(barWeight)}` : "—"}</div>
-                <div className="text-[10px] text-slate-600">{unit}</div>
+                <div className="text-v2-xs text-slate-600">{unit}</div>
               </div>
               {/* Collar */}
               <div className="h-16 w-3 bg-gradient-to-r from-slate-600 to-slate-500 border-l border-slate-700" style={{
@@ -186,7 +186,7 @@ export function PlateVisual({ unit, barWeight, plates, targetWeight }: PlateVisu
                       boxShadow: "inset 0 2px 4px rgba(0,0,0,0.8)"
                     }} />
                   </div>
-                  <span className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 rounded bg-slate-800/60 px-1.5 py-0.5 text-[11px] font-bold text-gray-100">
+                  <span className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 rounded bg-slate-800/60 px-1.5 py-0.5 text-v2-xs font-bold text-gray-100">
                     {formatNumber(plate.weight)}
                   </span>
                 </div>

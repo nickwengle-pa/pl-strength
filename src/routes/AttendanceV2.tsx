@@ -3234,7 +3234,7 @@ export default function AttendanceV2() {
                 type="button"
                 onClick={() => setSelectedTeam(team)}
                 className={[
-                  "whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight transition sm:rounded-v2-md sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
+                  "whitespace-nowrap rounded px-1.5 py-0.5 text-v2-xs font-semibold leading-tight transition sm:rounded-v2-md sm:px-4 sm:py-2 sm:text-sm sm:font-medium",
                   selectedTeam === team
                     ? "bg-v2-accent-700 text-v2-ink-50 shadow-v2-elev-1 hover:bg-v2-accent-800"
                     : "border border-v2-surface-800 bg-v2-surface-900 text-v2-ink-200 hover:border-v2-accent-700 hover:bg-v2-accent-900/40 hover:text-v2-accent-300",
@@ -3278,12 +3278,12 @@ export default function AttendanceV2() {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-100">
                 Quick Add Athlete
               </h3>
-              <p className="text-[11px] text-v2-ink-400">
+              <p className="text-v2-xs text-v2-ink-400">
                 Name Is Required. Everything Else Is Optional.
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-ink-200">
+          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-200">
             {isAddAthleteCollapsed ? "Show" : "Hide"}
           </span>
         </button>
@@ -3363,7 +3363,7 @@ export default function AttendanceV2() {
             </div>
 
             <details className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2">
-              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+              <summary className="cursor-pointer text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                 Optional Details
               </summary>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -3400,11 +3400,11 @@ export default function AttendanceV2() {
             <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-100">
               Current Roster
             </h3>
-            <p className="text-[11px] text-v2-ink-400">
+            <p className="text-v2-xs text-v2-ink-400">
               Remove Athletes Here Without Cluttering Daily Attendance Checks.
             </p>
           </div>
-          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-ink-200">
+          <span className="rounded-full bg-v2-surface-800 px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-200">
             {visibleAthletes.length} Athlete{visibleAthletes.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -3428,7 +3428,7 @@ export default function AttendanceV2() {
                     <p className="truncate text-sm font-semibold text-v2-ink-100">
                       {athleteName || "Unknown Athlete"}
                     </p>
-                    <p className="truncate text-[11px] text-v2-ink-400">
+                    <p className="truncate text-v2-xs text-v2-ink-400">
                       Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
                     </p>
                   </div>
@@ -3553,7 +3553,7 @@ export default function AttendanceV2() {
                 </button>
               </div>
               {selectedDirty && (
-                <div className="border-t border-v2-surface-800 px-3 pb-2 text-[11px] font-medium uppercase tracking-wide text-v2-danger-300">
+                <div className="border-t border-v2-surface-800 px-3 pb-2 text-v2-xs font-medium uppercase tracking-wide text-v2-danger-300">
                   Unsaved Attendance Changes
                 </div>
               )}
@@ -3575,8 +3575,8 @@ export default function AttendanceV2() {
                   onClick={() => setLiftDayRangePreset(opt.value)}
                   className={
                     liftDayRangePreset === opt.value
-                      ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
-                      : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
+                      ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
+                      : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                   }
                 >
                   {opt.label}
@@ -3588,7 +3588,7 @@ export default function AttendanceV2() {
           {/* Inline Add Lift Day Form */}
           {showInlineAddDate && (
             <div className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 p-3 space-y-2">
-              <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+              <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
                 <input
                   type="date"
@@ -3599,12 +3599,12 @@ export default function AttendanceV2() {
               </label>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                  <span className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                     Sessions
                   </span>
                   <button
                     type="button"
-                    className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
+                    className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                     onClick={handleAddDateDraftSession}
                   >
                     + Add Session
@@ -3620,7 +3620,7 @@ export default function AttendanceV2() {
                     key={session.id}
                     className="flex flex-wrap items-center gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2 py-2"
                   >
-                    <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-[10px] font-semibold text-v2-ink-200">
+                    <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-v2-xs font-semibold text-v2-ink-200">
                       {index + 1}
                     </span>
                     <input
@@ -3634,7 +3634,7 @@ export default function AttendanceV2() {
                     />
                     <button
                       type="button"
-                      className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
+                      className="rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                       onClick={() => handleRemoveDateDraftSession(session.id)}
                       disabled={addDateDraftSessions.length <= 1}
                     >
@@ -3711,23 +3711,23 @@ export default function AttendanceV2() {
                         });
                       }}
                     >
-                      <span className="text-[11px] text-v2-ink-400 select-none">
+                      <span className="text-v2-xs text-v2-ink-400 select-none">
                         {isExpanded ? "▼" : "►"}
                       </span>
                       <span className="text-sm font-semibold text-v2-ink-100">
                         {formatDateLabel(date)}
                       </span>
                       {isNewest && (
-                        <span className="rounded-full bg-v2-warn-900/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-v2-warn-300">
+                        <span className="rounded-full bg-v2-warn-900/60 px-2 py-0.5 text-v2-xs font-semibold uppercase tracking-wide text-v2-warn-300">
                           Latest
                         </span>
                       )}
-                      <span className="text-[11px] text-v2-ink-400">
+                      <span className="text-v2-xs text-v2-ink-400">
                         {sessionsForDate.length || 1} Session{sessionsForDate.length !== 1 ? "s" : ""}
                       </span>
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          "rounded-full px-2 py-0.5 text-v2-xs font-semibold uppercase tracking-wide",
                           dateLocked
                             ? "bg-v2-warn-900/60 text-v2-warn-300"
                             : "bg-v2-success-900/60 text-v2-success-300",
@@ -3739,7 +3739,7 @@ export default function AttendanceV2() {
                         <button
                           type="button"
                           className={[
-                            "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                            "rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide transition",
                             dateLocked
                               ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
                               : "bg-v2-surface-800 text-v2-ink-200 hover:bg-v2-surface-700",
@@ -3751,7 +3751,7 @@ export default function AttendanceV2() {
                         </button>
                         <button
                           type="button"
-                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
+                          className="rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                           onClick={() => handleRemoveDate(selectedTeam, date)}
                           disabled={selectedSaving || dateHasAnyLockedSession(selectedSheet, date)}
                         >
@@ -3764,12 +3764,12 @@ export default function AttendanceV2() {
                     {isExpanded && (
                       <div className="border-t border-v2-surface-800 px-3 pb-3 pt-2 space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                          <span className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                             Sessions
                           </span>
                           <button
                             type="button"
-                            className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
+                            className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                             onClick={() => handleAddSessionToDate(selectedTeam, date)}
                             disabled={selectedSaving}
                           >
@@ -3784,7 +3784,7 @@ export default function AttendanceV2() {
                               key={`${date}-${session.key}`}
                               className="flex flex-wrap items-center gap-2 rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2 py-2"
                             >
-                              <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-[10px] font-semibold text-v2-ink-200">
+                              <span className="rounded bg-v2-surface-800 px-1.5 py-0.5 text-v2-xs font-semibold text-v2-ink-200">
                                 {index + 1}
                               </span>
                               <input
@@ -3803,7 +3803,7 @@ export default function AttendanceV2() {
                               <button
                                 type="button"
                                 className={[
-                                  "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                                  "rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide transition",
                                   locked
                                     ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
                                     : "bg-v2-success-900/60 text-v2-success-300 hover:bg-v2-success-900/30",
@@ -3821,7 +3821,7 @@ export default function AttendanceV2() {
                               </button>
                               <button
                                 type="button"
-                                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
+                                className="rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-danger-300 transition hover:bg-v2-danger-900/40 disabled:opacity-50"
                                 onClick={() =>
                                   handleRemoveSessionFromDate(selectedTeam, date, session.key)
                                 }
@@ -3832,7 +3832,7 @@ export default function AttendanceV2() {
                             </div>
                           );
                         })}
-                        <p className="text-[11px] text-v2-ink-400">
+                        <p className="text-v2-xs text-v2-ink-400">
                           Athletes auto-assigned to the first unlocked session. One check-in per date.
                         </p>
                       </div>
@@ -3852,13 +3852,13 @@ export default function AttendanceV2() {
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-v2-warn-300">
                   Potential Duplicates
                 </h4>
-                <p className="text-[11px] text-v2-warn-300">
+                <p className="text-v2-xs text-v2-warn-300">
                   {potentialDuplicatePairs.length} pair{potentialDuplicatePairs.length !== 1 ? "s" : ""} share the same last name — review and merge, or skip.
                 </p>
               </div>
               <button
                 type="button"
-                className="rounded-lg border border-v2-warn-600 bg-v2-warn-900/60 px-2.5 py-1 text-[11px] font-semibold text-v2-warn-300 transition hover:bg-v2-warn-900/30"
+                className="rounded-lg border border-v2-warn-600 bg-v2-warn-900/60 px-2.5 py-1 text-v2-xs font-semibold text-v2-warn-300 transition hover:bg-v2-warn-900/30"
                 onClick={() =>
                   markDuplicatePairsReviewed(
                     selectedTeam,
@@ -3887,7 +3887,7 @@ export default function AttendanceV2() {
                           <span className="font-semibold">{athlete.firstName} {athlete.lastName}</span>
                           {athlete.number && <span className="text-v2-ink-400">#{athlete.number}</span>}
                           {athlete.grade && <span className="text-v2-ink-400">Gr.{athlete.grade}</span>}
-                          <span className={["rounded-full px-1.5 py-0.5 text-[10px] font-semibold", athlete.uid ? "bg-v2-success-900/60 text-v2-success-300" : "bg-v2-surface-800 text-v2-ink-400"].join(" ")}>
+                          <span className={["rounded-full px-1.5 py-0.5 text-v2-xs font-semibold", athlete.uid ? "bg-v2-success-900/60 text-v2-success-300" : "bg-v2-surface-800 text-v2-ink-400"].join(" ")}>
                             {athlete.uid ? "✓ linked" : "unlinked"}
                           </span>
                           <span className="text-v2-ink-400">{dateCount} date{dateCount !== 1 ? "s" : ""}</span>
@@ -3897,7 +3897,7 @@ export default function AttendanceV2() {
                     <div className="flex gap-2 pt-1">
                       <button
                         type="button"
-                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-amber-700"
+                        className="rounded-lg bg-amber-600 px-3 py-1.5 text-v2-xs font-semibold text-v2-ink-50 transition hover:bg-amber-700"
                         onClick={() =>
                           setMergePreviewIds({
                             primaryId: suggestedPrimary.id,
@@ -3909,7 +3909,7 @@ export default function AttendanceV2() {
                       </button>
                       <button
                         type="button"
-                        className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-3 py-1.5 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
+                        className="rounded-lg border border-v2-surface-700 bg-v2-surface-900 px-3 py-1.5 text-v2-xs font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                         onClick={() => markDuplicatePairsReviewed(selectedTeam, [pairKey])}
                       >
                         Not the Same Person — Skip
@@ -3951,7 +3951,7 @@ export default function AttendanceV2() {
                 </div>
                 <div className="space-y-4 p-4 text-sm">
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                    <p className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                       Profile Result
                     </p>
                     <div className="rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-3 py-2 text-xs space-y-1">
@@ -3981,10 +3981,10 @@ export default function AttendanceV2() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                    <p className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                       Attendance Records
                     </p>
-                    <p className="text-[11px] text-v2-ink-400">
+                    <p className="text-v2-xs text-v2-ink-400">
                       OR logic — any date where either entry was present will be kept as present.
                     </p>
                     {conflictDates.length > 0 ? (
@@ -4033,7 +4033,7 @@ export default function AttendanceV2() {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-v2-ink-200">
                 Athlete Attendance
               </h3>
-              <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+              <label className="flex items-center gap-2 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
                 <select
                   className="field-v2 min-w-40 text-xs"
@@ -4097,7 +4097,7 @@ export default function AttendanceV2() {
                             <div className="truncate text-sm font-semibold text-v2-ink-100">
                               {athleteName || "Unknown Athlete"}
                             </div>
-                            <div className="truncate text-[11px] text-v2-ink-400">
+                            <div className="truncate text-v2-xs text-v2-ink-400">
                               Jersey {athlete.number || "-"} - Grade {athlete.grade || "-"}
                             </div>
                           </div>
@@ -4112,7 +4112,7 @@ export default function AttendanceV2() {
                                 key={`${mobileAthleteDate}-${athlete.id}-${session.key}`}
                                 type="button"
                                 className={[
-                                  "rounded-md border px-2 py-1 text-[10px] font-semibold transition",
+                                  "rounded-md border px-2 py-1 text-v2-xs font-semibold transition",
                                   selected ? tone.active : tone.idle,
                                   sessionLocked ? "opacity-65" : "",
                                   disableAll || sessionLocked
@@ -4146,7 +4146,7 @@ export default function AttendanceV2() {
           <div className="space-y-2">
           {/* Date range filter bar */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-400">
+            <span className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-400">
               Show:
             </span>
             {TABLE_RANGE_OPTIONS.map((opt) => (
@@ -4156,15 +4156,15 @@ export default function AttendanceV2() {
                 onClick={() => setTableRangePreset(opt.value)}
                 className={
                   tableRangePreset === opt.value
-                    ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
-                    : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-[11px] font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
+                    ? "rounded-lg bg-v2-accent-700 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-50 transition hover:bg-v2-accent-800"
+                    : "rounded-lg border border-v2-surface-800 bg-v2-surface-900 px-2.5 py-1 text-v2-xs font-semibold text-v2-ink-300 transition hover:bg-v2-surface-800"
                 }
               >
                 {opt.label}
               </button>
             ))}
             {tableVisibleDates.length === 0 && tableRangePreset !== "all_dates" && (
-              <span className="text-[11px] text-v2-ink-500 italic">
+              <span className="text-v2-xs text-v2-ink-500 italic">
                 No dates in this range
               </span>
             )}
@@ -4236,15 +4236,15 @@ export default function AttendanceV2() {
                   <th key={date} className={["px-2 py-2 text-center text-xs font-semibold text-v2-ink-300", isNewestDate ? "bg-v2-warn-900/30" : ""].join(" ")}>
                     <div className="flex flex-col items-center gap-1">
                       {selectedSheet.lockedDates?.[date] ? (
-                        <span className="rounded-full bg-v2-danger-900/60 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-v2-danger-300">
+                        <span className="rounded-full bg-v2-danger-900/60 px-2 py-[2px] text-v2-xs font-semibold uppercase tracking-wide text-v2-danger-300">
                           Locked
                         </span>
                       ) : (
-                        <span className="rounded-full bg-v2-success-900/60 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-v2-success-300">
+                        <span className="rounded-full bg-v2-success-900/60 px-2 py-[2px] text-v2-xs font-semibold uppercase tracking-wide text-v2-success-300">
                           Open
                         </span>
                       )}
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-v2-ink-400">
+                      <span className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-400">
                         {sessionsForDate.length || 1} Sessions
                       </span>
                       {sessionsForDate.length > 0 && (
@@ -4258,11 +4258,11 @@ export default function AttendanceV2() {
                             return (
                               <span
                                 key={`${date}-session-chip-${session.key}`}
-                                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${tone.badge}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-v2-xs font-semibold ${tone.badge}`}
                                 title={session.label}
                               >
                                 {sessionIndex + 1}
-                                <span className="text-[10px]">{sessionCountsForDate[session.key] ?? 0}</span>
+                                <span className="text-v2-xs">{sessionCountsForDate[session.key] ?? 0}</span>
                               </span>
                             );
                           })}
@@ -4280,7 +4280,7 @@ export default function AttendanceV2() {
                       <button
                         type="button"
                         className={[
-                          "rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition",
+                          "rounded-md px-2 py-1 text-v2-xs font-semibold uppercase tracking-wide transition",
                           selectedSheet.lockedDates?.[date]
                             ? "bg-v2-warn-900/60 text-v2-warn-300 hover:bg-v2-warn-900/30"
                             : "bg-v2-surface-800 text-v2-ink-200 hover:bg-v2-surface-700",
@@ -4380,7 +4380,7 @@ export default function AttendanceV2() {
                                     key={`${date}-${athlete.id}-${session.key}`}
                                     type="button"
                                     className={[
-                                      "h-6 min-w-8 rounded-md border px-1 text-[10px] font-bold shadow-sm transition",
+                                      "h-6 min-w-8 rounded-md border px-1 text-v2-xs font-bold shadow-sm transition",
                                       selected ? tone.active : tone.idle,
                                       sessionLocked ? "opacity-65" : "",
                                       disableAll || sessionLocked
@@ -4404,7 +4404,7 @@ export default function AttendanceV2() {
                               })}
                             </div>
                           ) : (
-                            <span className="text-[10px] text-v2-ink-500">-</span>
+                            <span className="text-v2-xs text-v2-ink-500">-</span>
                           )}
                         </td>
                       );
@@ -4432,7 +4432,7 @@ export default function AttendanceV2() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+              <label className="text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                 Date
               </label>
               <select
@@ -4546,16 +4546,16 @@ export default function AttendanceV2() {
                             {athleteName || "Unknown Athlete"}
                           </span>
                           <span className="hidden text-v2-ink-500 sm:inline">•</span>
-                          <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-v2-ink-400">
+                          <span className="shrink-0 text-v2-xs font-medium uppercase tracking-wide text-v2-ink-400">
                             {checkin.sessionLabel || "Session"}
                           </span>
                           <span className="hidden text-v2-ink-500 sm:inline">•</span>
-                          <span className="shrink-0 text-[11px] text-v2-ink-400">{submittedLabel}</span>
+                          <span className="shrink-0 text-v2-xs text-v2-ink-400">{submittedLabel}</span>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
                             type="button"
-                            className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-emerald-600 px-2 py-1 text-v2-xs font-semibold text-v2-ink-50 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "approved")}
                             disabled={disabledAction}
                           >
@@ -4563,7 +4563,7 @@ export default function AttendanceV2() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-v2-ink-50 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-rose-600 px-2 py-1 text-v2-xs font-semibold text-v2-ink-50 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => handleReviewCheckin(checkin, "rejected")}
                             disabled={disabledAction}
                           >
@@ -4631,7 +4631,7 @@ export default function AttendanceV2() {
                           <div className="text-sm font-semibold text-v2-ink-100">
                             {athleteName || "Unknown Athlete"}
                           </div>
-                          <div className="text-[11px] text-v2-ink-400">
+                          <div className="text-v2-xs text-v2-ink-400">
                             {(row.sessionLabel || "Session") + " - " + timeLabel}
                           </div>
                         </div>
@@ -4660,7 +4660,7 @@ export default function AttendanceV2() {
                 {reportRangeLabel} • {reportPresetLabel}
               </p>
             </div>
-            <span className="rounded-full bg-v2-surface-800 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-200">
+            <span className="rounded-full bg-v2-surface-800 px-3 py-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-200">
               {isReportSectionCollapsed ? "Show" : "Hide"}
             </span>
           </button>
@@ -4672,12 +4672,12 @@ export default function AttendanceV2() {
                   <p className="text-xs text-v2-ink-300">
                     Quick Coach Snapshot With Weekly Breakdown And Export Options.
                   </p>
-                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-400">
+                  <p className="mt-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-400">
                     Active Range: {reportRangeLabel}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                  <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                     Preset
                     <select
                       className="field-v2 min-w-44"
@@ -4693,7 +4693,7 @@ export default function AttendanceV2() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                  <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                     Session
                     <select
                       className="field-v2 min-w-44"
@@ -4708,7 +4708,7 @@ export default function AttendanceV2() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                  <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                     From
                     <input
                       type="date"
@@ -4720,7 +4720,7 @@ export default function AttendanceV2() {
                       }}
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-v2-ink-300">
+                  <label className="flex flex-col gap-1 text-v2-xs font-semibold uppercase tracking-wide text-v2-ink-300">
                     To
                     <input
                       type="date"
@@ -4777,7 +4777,7 @@ export default function AttendanceV2() {
           ) : (
             <>
               <div className="rounded-v2-md border border-v2-surface-800 bg-v2-surface-900 px-3 py-2">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-v2-xs sm:text-xs">
                   <span className="inline-flex items-center gap-1 rounded-lg bg-v2-surface-800 px-2 py-1 font-medium text-v2-ink-200">
                     Players <strong className="text-v2-ink-50">{reportSummary.playerCount}</strong>
                   </span>
@@ -4887,13 +4887,13 @@ export default function AttendanceV2() {
                         <td className="px-3 py-2 font-medium text-v2-ink-100">{row.athlete.firstName || "-"}</td>
                         <td className="px-3 py-2 font-medium text-v2-ink-100">{row.athlete.lastName || "-"}</td>
                         <td className="px-3 py-2 text-center text-v2-ink-200">{row.athlete.grade || "-"}</td>
-                        <td className="px-3 py-2 text-[11px] text-v2-ink-200">{row.sessionMix}</td>
+                        <td className="px-3 py-2 text-v2-xs text-v2-ink-200">{row.sessionMix}</td>
                         <td className="px-3 py-2 text-center text-v2-ink-200">{row.attended}</td>
                         <td className="px-3 py-2 text-center text-v2-ink-200">{row.missed}</td>
                         <td className="px-3 py-2 text-center font-semibold text-v2-ink-100">{row.pct.toFixed(1)}%</td>
                         <td className="px-3 py-2 text-center text-v2-ink-200">{row.lastSixPct.toFixed(1)}%</td>
                         <td className="px-3 py-2 text-center">
-                          <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${tierBadgeClass(row.tier)}`}>
+                          <span className={`inline-flex rounded-full px-2 py-1 text-v2-xs font-semibold ${tierBadgeClass(row.tier)}`}>
                             {tierLabel(row.tier)}
                           </span>
                         </td>
@@ -4944,13 +4944,13 @@ export default function AttendanceV2() {
           </div>
           <details className="text-xs text-v2-info-300">
             <summary className="cursor-pointer font-medium">Example CSV Format</summary>
-            <pre className="mt-2 bg-v2-surface-900 p-2 rounded border border-v2-info-600 text-v2-ink-100 text-[10px] overflow-x-auto">
+            <pre className="mt-2 bg-v2-surface-900 p-2 rounded border border-v2-info-600 text-v2-ink-100 text-v2-xs overflow-x-auto">
 Number,FirstName,LastName,Grade,Team,Height,Weight,Position,Letter
 12,John,Smith,12,varsity-football-coed,6'2",185,QB,V
 45,Jane,Doe,9,jh-football-coed,5'8",140,RB,JV
 23,Mike,Johnson,11,varsity-football-coed,6'0",175,WR,V
             </pre>
-            <p className="mt-1 text-[10px]">
+            <p className="mt-1 text-v2-xs">
               • First Row Can Be A Header (Will Be Auto-Detected)<br />
               • Only FirstName and LastName Are Required<br />
               • All Other Fields Are Optional (Uses Selected Team If Team Not Provided)<br />

@@ -51,22 +51,22 @@ export default function ActiveAthleteBanner() {
     <div className="border-b border-indigo-100 bg-indigo-50 text-indigo-900 text-xs sm:text-sm">
       <div className="container flex flex-col gap-3 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4 sm:py-3">
         <div className="space-y-1">
-          <div className="font-semibold uppercase tracking-[0.2em] text-[10px] text-indigo-600 sm:text-xs sm:tracking-wide">
+          <div className="font-semibold uppercase tracking-[0.2em] text-v2-xs text-indigo-600 sm:text-xs sm:tracking-wide">
             Active Athlete
           </div>
           <div className="text-sm font-semibold sm:text-base">{name}</div>
           {isAdmin && activeAthlete.uid && (
-            <div className="text-[11px] text-indigo-700 sm:text-xs">
+            <div className="text-v2-xs text-indigo-700 sm:text-xs">
               UID: <code className="rounded bg-white/70 px-1 py-[1px]">{activeAthlete.uid}</code>
             </div>
           )}
           {(teamLabel || activeAthlete.unit) && (
-            <div className="text-[11px] text-indigo-700 sm:text-xs">
+            <div className="text-v2-xs text-indigo-700 sm:text-xs">
               {[teamLabel, activeAthlete.unit].filter(Boolean).join(" • ")}
             </div>
           )}
           {error && (
-            <div className="text-[11px] text-rose-700 sm:text-xs">{error}</div>
+            <div className="text-v2-xs text-rose-700 sm:text-xs">{error}</div>
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">

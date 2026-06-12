@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+/* Fonts are self-hosted via @fontsource imports in src/main.tsx */
 
 @tailwind base;
 @tailwind components;
@@ -594,7 +594,12 @@ html.theme-dark {
   animation: prShimmer 3s linear infinite;
 }
 
-/* ── V2 Design System (additive — does not affect v1 surfaces) ────────── */
+/* ── V2 Design System (additive — does not affect v1 surfaces) ──────────
+   Wrapped in @layer components so single-class Tailwind utilities
+   (e.g. `min-h-touch-lg`, `text-v2-lg` on a `.btn-v2-primary`) take
+   precedence — without the layer, source order made these rules win. */
+
+@layer components {
 
 .card-v2 {
   @apply bg-v2-surface-50 text-v2-ink-800 border border-v2-surface-200 rounded-v2-xl p-5 shadow-v2-elev-1 transition-shadow duration-v2-base ease-v2-standard;
@@ -663,6 +668,8 @@ html.theme-dark .nav-link-v2-active {
   --tw-ring-color: rgba(122, 15, 24, 0.5);
 }
 
+} /* end @layer components */
+
 /* Numeric tabular utility — combine with font-v2-mono + text-v2-display */
 .v2-tabular {
   font-variant-numeric: tabular-nums;
@@ -677,5 +684,15 @@ html.theme-dark .nav-link-v2-active {
   .field-v2,
   .nav-link-v2 {
     transition-duration: 0ms !important;
+  }
+
+  /* Decorative animations off; spinners stay (they convey loading state) */
+  .pr-glow,
+  .pr-trophy-bounce,
+  .pr-shimmer,
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none !important;
   }
 }
