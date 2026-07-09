@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+
+# Environment files (keep .env.local.example as the template)
+.env.local
+.env.*.local
+
+# Editor / tooling caches
+.vs/
+.vscode/
+.idea/
+.firebase/
+*.log
+.DS_Store
