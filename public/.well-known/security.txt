@@ -1,0 +1,13 @@
+# PL Strength — https://pl-strength.app
+#
+# If you've found a security issue in this application, please report it to the
+# contact below. This is a small team-run app for a high school strength
+# program; there's no bug bounty, but reports are read and taken seriously.
+#
+# Please don't run automated scans that degrade service for athletes using the
+# app, and don't access or modify any account that isn't yours.
+
+Contact: mailto:nick.w.engle@gmail.com
+Expires: 2027-08-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://pl-strength.app/.well-known/security.txt

@@ -1,0 +1,19 @@
+# Local source files that must never be served publicly or committed.
+# Contents are uploaded to Firebase Storage and served behind auth instead.
+private-assets/
+
+# NOTE: dist/ is intentionally NOT ignored — this repo commits its build output
+# and Cloudflare Pages serves from it. Ignoring it would silently drop assets
+# from the deploy.
+
+# Dependencies
+node_modules/
+
+# Local secrets / config
+.env.local
+.env*.local
+
+# Editor / OS
+.vs/
+.DS_Store
+Thumbs.db
