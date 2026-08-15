@@ -11,5 +11,16 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
       allow delete: if request.auth != null;
     }
+
+    // Program documents (the 5/3/1 guide PDF, etc.). These used to sit in
+    // public/ where Cloudflare served them to anyone with the URL, bypassing
+    // sign-in entirely. Reads now require an authenticated user.
+    //
+    // No client writes: upload these from the Firebase console or CLI. Nothing
+    // in the app should be able to replace a program document.
+    match /guides/{file=**} {
+      allow read: if request.auth != null;
+      allow write, delete: if false;
+    }
   }
 }
