@@ -24,7 +24,10 @@ const artifacts = [
   }
 ];
 
-const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+const sha256 = (value) => {
+  const text = Buffer.isBuffer(value) ? value.toString("utf8") : String(value);
+  return createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex");
+};
 
 async function readUpstreamCommit() {
   try {
