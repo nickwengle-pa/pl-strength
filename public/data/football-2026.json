@@ -1,0 +1,2624 @@
+{
+  "schemaVersion": 2,
+  "season": 2026,
+  "generatedAt": "2026-09-01T22:39:15.199Z",
+  "sourcePriority": [
+    "piaa-d6-scoreboard",
+    "piaa-classifications",
+    "blackline-rankings"
+  ],
+  "sources": {
+    "scoreboard": "https://piaad6.org/wp-json/wp/v2/posts?categories=137&per_page=100&orderby=date&order=asc&_fields=id,date,modified,link,title,content",
+    "classifications": "https://www.piaa.org/schools/classifications/sportDistrict.aspx?district=6&sportID=10",
+    "rankings": "https://sports.blkline.com/sports/reports/d6FootballRanking.action",
+    "regularSeasonCutoff": "2026-10-31",
+    "rankingsUpdatedAt": "08/31/2026 20:15",
+    "scoreboardPosts": [
+      {
+        "id": 9980,
+        "modified": "2026-08-30T19:52:32",
+        "link": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+        "title": "2026 D6 Football Scoreboard…. Week 0",
+        "scoreLineCount": 56,
+        "parsedGameCount": 56,
+        "district6GameCount": 26
+      }
+    ]
+  },
+  "teams": [
+    {
+      "id": "allderdice",
+      "name": "Allderdice",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 8,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 24,
+      "averageAllowed": 27,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "altoona",
+      "name": "Altoona",
+      "aliases": [
+        "Altoona Area High School"
+      ],
+      "cls": "AAAAAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 7,
+      "averageAllowed": 24,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "athens",
+      "name": "Athens",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "bald-eagle-area",
+      "name": "Bald Eagle Area",
+      "aliases": [
+        "Bald Eagle Area High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 35,
+      "averageAllowed": 27,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "bedford",
+      "name": "Bedford",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "bellefonte",
+      "name": "Bellefonte",
+      "aliases": [
+        "Bellefonte Area High School"
+      ],
+      "cls": "AAAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 7,
+      "averageAllowed": 14,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "bellwood-antis",
+      "name": "Bellwood-Antis",
+      "aliases": [
+        "Bellwood Antis High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 120,
+      "averagePoints": 120,
+      "averageScore": 26,
+      "averageAllowed": 14,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "berlin-brothersvalley",
+      "name": "Berlin Brothersvalley",
+      "aliases": [],
+      "cls": "AA",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "bishop-guilfoyle",
+      "name": "Bishop Guilfoyle",
+      "aliases": [
+        "Bishop Guilfoyle Academy"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 46,
+      "averageAllowed": 14,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "bishop-mccort",
+      "name": "Bishop McCort",
+      "aliases": [
+        "Bishop McCort Catholic High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 6,
+      "averageAllowed": 14,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "bloomsburg",
+      "name": "Bloomsburg",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "bradford",
+      "name": "Bradford",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "brockway",
+      "name": "Brockway",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "brookville",
+      "name": "Brookville",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "bucktail",
+      "name": "Bucktail",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "cambria-heights",
+      "name": "Cambria Heights",
+      "aliases": [
+        "Cambria Heights High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 50,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "cameron-county",
+      "name": "Cameron County",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "canton",
+      "name": "Canton",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "central",
+      "name": "Central",
+      "aliases": [
+        "Central High School Martinsburg"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 43,
+      "averageAllowed": 20,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "central-cambria",
+      "name": "Central Cambria",
+      "aliases": [
+        "Central Cambria High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 7,
+      "averageAllowed": 28,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "central-columbia",
+      "name": "Central Columbia",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "central-mountain",
+      "name": "Central Mountain",
+      "aliases": [
+        "Central Mountain High School"
+      ],
+      "cls": "AAAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 19,
+      "averageAllowed": 28,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "central-york",
+      "name": "Central York",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 3,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "chestnut-ridge",
+      "name": "Chestnut Ridge",
+      "aliases": [],
+      "cls": "AA",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "claysburg-kimmel",
+      "name": "Claysburg-Kimmel",
+      "aliases": [
+        "Claysburg Kimmel High School"
+      ],
+      "cls": "AAAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 6,
+      "averageAllowed": 36,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "clearfield",
+      "name": "Clearfield",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "conemaugh-township",
+      "name": "Conemaugh Township",
+      "aliases": [],
+      "cls": "A",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "conemaugh-valley",
+      "name": "Conemaugh Valley",
+      "aliases": [
+        "Conemaugh Valley High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 0,
+      "averageAllowed": 56,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "coudersport",
+      "name": "Coudersport",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "cowanesque-valley",
+      "name": "Cowanesque Valley",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "curwensville",
+      "name": "Curwensville",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "danville",
+      "name": "Danville",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "dubois",
+      "name": "DuBois",
+      "aliases": [],
+      "cls": "AAAAA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 12,
+      "averageAllowed": 14,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "erie-area",
+      "name": "Erie Area",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 10,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 14,
+      "averageAllowed": 12,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "everett",
+      "name": "Everett",
+      "aliases": [],
+      "cls": "AA",
+      "district": 5,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "forest-hills",
+      "name": "Forest Hills",
+      "aliases": [
+        "Forest Hills Senior High School"
+      ],
+      "cls": "AAAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 80,
+      "averagePoints": 80,
+      "averageScore": 13,
+      "averageAllowed": 10,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "fox-chapel",
+      "name": "Fox Chapel",
+      "aliases": [],
+      "cls": "AAAAA",
+      "district": 7,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "glendale",
+      "name": "Glendale",
+      "aliases": [
+        "Glendale High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 24,
+      "averageAllowed": 41,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "greater-johnstown",
+      "name": "Greater Johnstown",
+      "aliases": [
+        "Greater Johnstown High School"
+      ],
+      "cls": "AAAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 34,
+      "averageAllowed": 50,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "hickory",
+      "name": "Hickory",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 10,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "hollidaysburg",
+      "name": "Hollidaysburg",
+      "aliases": [
+        "Hollidaysburg Area Senior High School"
+      ],
+      "cls": "AAAAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 24,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "homer-center",
+      "name": "Homer-Center",
+      "aliases": [
+        "Homer-Center Senior High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 35,
+      "averageAllowed": 28,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "hughesville",
+      "name": "Hughesville",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "huntingdon",
+      "name": "Huntingdon",
+      "aliases": [
+        "Huntingdon Area High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 27,
+      "averageAllowed": 35,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "jersey-shore",
+      "name": "Jersey Shore",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "juniata",
+      "name": "Juniata",
+      "aliases": [
+        "Juniata High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 0,
+      "averageAllowed": 23,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "juniata-valley",
+      "name": "Juniata Valley",
+      "aliases": [
+        "Juniata Valley High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 14,
+      "averageAllowed": 25,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "kane",
+      "name": "Kane",
+      "aliases": [],
+      "cls": "AA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "karns-city",
+      "name": "Karns City",
+      "aliases": [],
+      "cls": "AA",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "keystone",
+      "name": "Keystone",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "lewisburg",
+      "name": "Lewisburg",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "line-mountain",
+      "name": "Line Mountain",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "loyalsock",
+      "name": "Loyalsock",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "marion-center",
+      "name": "Marion Center",
+      "aliases": [
+        "Marion Center Area High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 56,
+      "averageAllowed": 0,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "mcdowell",
+      "name": "McDowell",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 10,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 30,
+      "averageAllowed": 31,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "meyersdale",
+      "name": "Meyersdale",
+      "aliases": [],
+      "cls": "A",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "mifflin-county",
+      "name": "Mifflin County",
+      "aliases": [
+        "Mifflin County High School"
+      ],
+      "cls": "AAAAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 28,
+      "averageAllowed": 19,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "mifflinburg",
+      "name": "Mifflinburg",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "milton",
+      "name": "Milton",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "moniteau",
+      "name": "Moniteau",
+      "aliases": [],
+      "cls": "AA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "montgomery",
+      "name": "Montgomery",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "montoursville",
+      "name": "Montoursville",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "moshannon-valley",
+      "name": "Moshannon Valley",
+      "aliases": [
+        "Moshannon Valley High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 36,
+      "averageAllowed": 35,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "mount-carmel",
+      "name": "Mount Carmel",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "mount-union",
+      "name": "Mount Union",
+      "aliases": [
+        "MOUNT UNION AREA HIGH SCHOOL"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 42,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "muncy",
+      "name": "Muncy",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "north-penn-mansfield",
+      "name": "North Penn-Mansfield",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "north-schuylkill",
+      "name": "North Schuylkill",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 11,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "north-star",
+      "name": "North Star",
+      "aliases": [],
+      "cls": "AA",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "northern-bedford-county",
+      "name": "Northern Bedford County",
+      "aliases": [],
+      "cls": "A",
+      "district": 5,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "northern-cambria",
+      "name": "Northern Cambria",
+      "aliases": [
+        "Northern Cambria High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 28,
+      "averageAllowed": 35,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "otto-eldred",
+      "name": "Otto-Eldred",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "penn-cambria",
+      "name": "Penn Cambria",
+      "aliases": [
+        "Penn Cambria High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 35,
+      "averageAllowed": 13,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "penns-manor",
+      "name": "Penns Manor",
+      "aliases": [
+        "Penns Manor Area High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 12,
+      "averageAllowed": 42,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "penns-valley-area",
+      "name": "Penns Valley Area",
+      "aliases": [
+        "Penns Valley Area High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 14,
+      "averageAllowed": 46,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "philipsburg-osceola",
+      "name": "Philipsburg-Osceola",
+      "aliases": [
+        "Philipsburg Osceola Area High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 20,
+      "averageAllowed": 43,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "port-allegany",
+      "name": "Port Allegany",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "portage",
+      "name": "Portage",
+      "aliases": [
+        "Portage Area High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 31,
+      "averageAllowed": 29,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "pottsville",
+      "name": "Pottsville",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 11,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "punxsutawney",
+      "name": "Punxsutawney",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "purchase-line",
+      "name": "Purchase Line",
+      "aliases": [
+        "Purchase Line High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 9,
+      "averageAllowed": 28,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "redbank-valley",
+      "name": "Redbank Valley",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "richland",
+      "name": "Richland",
+      "aliases": [
+        "Richland High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 28,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "ridgway",
+      "name": "Ridgway",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "river-valley",
+      "name": "River Valley",
+      "aliases": [
+        "River Valley High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 90,
+      "averagePoints": 90,
+      "averageScore": 42,
+      "averageAllowed": 12,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "saint-marys",
+      "name": "Saint Marys",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 9,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "sayre",
+      "name": "Sayre",
+      "aliases": [],
+      "cls": "A",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "schuylkill-haven",
+      "name": "Schuylkill Haven",
+      "aliases": [],
+      "cls": "AA",
+      "district": 11,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "selinsgrove",
+      "name": "Selinsgrove",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "shamokin",
+      "name": "Shamokin",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "shikellamy",
+      "name": "Shikellamy",
+      "aliases": [],
+      "cls": "AAAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "smethport",
+      "name": "Smethport",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "somerset",
+      "name": "Somerset",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 5,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "south-williamsport",
+      "name": "South Williamsport",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "southern-columbia",
+      "name": "Southern Columbia",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "southern-huntingdon-county",
+      "name": "Southern Huntingdon County",
+      "aliases": [
+        "Southern Huntingdon County Senior High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 47,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "state-college",
+      "name": "State College",
+      "aliases": [
+        "State College Area High School"
+      ],
+      "cls": "AAAAAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 100,
+      "averagePoints": 100,
+      "averageScore": 35,
+      "averageAllowed": 28,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "towanda",
+      "name": "Towanda",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "tri-valley",
+      "name": "Tri-Valley",
+      "aliases": [],
+      "cls": "A",
+      "district": 11,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "troy",
+      "name": "Troy",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "tussey-mountain",
+      "name": "Tussey Mountain",
+      "aliases": [],
+      "cls": "A",
+      "district": 5,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "tyrone",
+      "name": "Tyrone",
+      "aliases": [
+        "Tyrone Area High School"
+      ],
+      "cls": "AAA",
+      "district": 6,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "rankingPoints": 110,
+      "averagePoints": 110,
+      "averageScore": 14,
+      "averageAllowed": 7,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "union-ac-valley",
+      "name": "Union_AC Valley",
+      "aliases": [],
+      "cls": "A",
+      "district": 9,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "united-valley-co-op-blacklick-valley-united",
+      "name": "United Valley co-op [Blacklick Valley/United]",
+      "aliases": [
+        "United High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 7,
+      "averageAllowed": 50,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "warrior-run",
+      "name": "Warrior Run",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "west-branch",
+      "name": "West Branch",
+      "aliases": [
+        "West Branch High School"
+      ],
+      "cls": "A",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 14,
+      "averageAllowed": 48,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "west-shamokin",
+      "name": "West Shamokin",
+      "aliases": [
+        "West Shamokin Jr-Sr High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 29,
+      "averageAllowed": 31,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "westinghouse",
+      "name": "Westinghouse",
+      "aliases": [],
+      "cls": "AA",
+      "district": 8,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "westmont-hilltop",
+      "name": "Westmont Hilltop",
+      "aliases": [
+        "Westmont Hilltop High School"
+      ],
+      "cls": "AA",
+      "district": 6,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "rankingPoints": 0,
+      "averagePoints": 0,
+      "averageScore": 10,
+      "averageAllowed": 13,
+      "recordSource": "blackline-rankings",
+      "recordProvisional": false
+    },
+    {
+      "id": "williamsport",
+      "name": "Williamsport",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 4,
+      "wins": 1,
+      "losses": 0,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "windber",
+      "name": "Windber",
+      "aliases": [],
+      "cls": "A",
+      "district": 5,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "wyalusing",
+      "name": "Wyalusing",
+      "aliases": [],
+      "cls": "AA",
+      "district": 4,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "wyoming-valley-west",
+      "name": "Wyoming Valley West",
+      "aliases": [],
+      "cls": "AAAAAA",
+      "district": 2,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    },
+    {
+      "id": "wyomissing",
+      "name": "Wyomissing",
+      "aliases": [],
+      "cls": "AAA",
+      "district": 3,
+      "wins": 0,
+      "losses": 1,
+      "ties": 0,
+      "recordSource": "piaa-scoreboard-observed",
+      "recordProvisional": true
+    }
+  ],
+  "games": [
+    {
+      "id": "2026:2026-08-28:altoona:hollidaysburg",
+      "sourceGameId": "2026:2026-08-28:altoona:hollidaysburg",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Hollidaysburg",
+      "b": "Altoona",
+      "scoreA": 24,
+      "scoreB": 7,
+      "winner": "Hollidaysburg",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Hollidaysburg": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Altoona": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Hollidaysburg": {
+          "district": 6,
+          "cls": "AAAAA"
+        },
+        "Altoona": {
+          "district": 6,
+          "cls": "AAAAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:bald-eagle-area:huntingdon",
+      "sourceGameId": "2026:2026-08-28:bald-eagle-area:huntingdon",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Bald Eagle Area",
+      "b": "Huntingdon",
+      "scoreA": 35,
+      "scoreB": 27,
+      "winner": "Bald Eagle Area",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Bald Eagle Area": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Huntingdon": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Bald Eagle Area": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Huntingdon": {
+          "district": 6,
+          "cls": "AAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:bedford:bishop-mccort",
+      "sourceGameId": "2026:2026-08-28:bedford:bishop-mccort",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Bedford",
+      "b": "Bishop McCort",
+      "scoreA": 14,
+      "scoreB": 6,
+      "winner": "Bedford",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Bedford": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Bishop McCort": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Bedford": {
+          "district": 5,
+          "cls": "AAA"
+        },
+        "Bishop McCort": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:bellefonte:tyrone",
+      "sourceGameId": "2026:2026-08-28:bellefonte:tyrone",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Tyrone",
+      "b": "Bellefonte",
+      "scoreA": 14,
+      "scoreB": 7,
+      "winner": "Tyrone",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Tyrone": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Bellefonte": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Tyrone": {
+          "district": 6,
+          "cls": "AAA"
+        },
+        "Bellefonte": {
+          "district": 6,
+          "cls": "AAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:bellwood-antis:clearfield",
+      "sourceGameId": "2026:2026-08-28:bellwood-antis:clearfield",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Bellwood-Antis",
+      "b": "Clearfield",
+      "scoreA": 26,
+      "scoreB": 14,
+      "winner": "Bellwood-Antis",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Bellwood-Antis": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Clearfield": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Bellwood-Antis": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Clearfield": {
+          "district": 9,
+          "cls": "AAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:berlin-brothersvalley:juniata-valley",
+      "sourceGameId": "2026:2026-08-28:berlin-brothersvalley:juniata-valley",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Berlin Brothersvalley",
+      "b": "Juniata Valley",
+      "scoreA": 25,
+      "scoreB": 14,
+      "winner": "Berlin Brothersvalley",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Berlin Brothersvalley": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Juniata Valley": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Berlin Brothersvalley": {
+          "district": 5,
+          "cls": "AA"
+        },
+        "Juniata Valley": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:bishop-guilfoyle:penns-valley-area",
+      "sourceGameId": "2026:2026-08-28:bishop-guilfoyle:penns-valley-area",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Bishop Guilfoyle",
+      "b": "Penns Valley Area",
+      "scoreA": 46,
+      "scoreB": 14,
+      "winner": "Bishop Guilfoyle",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Bishop Guilfoyle": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Penns Valley Area": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Bishop Guilfoyle": {
+          "district": 6,
+          "cls": "A"
+        },
+        "Penns Valley Area": {
+          "district": 6,
+          "cls": "AA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:cambria-heights:united-valley-co-op-blacklick-valley-united",
+      "sourceGameId": "2026:2026-08-28:cambria-heights:united-valley-co-op-blacklick-valley-united",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Cambria Heights",
+      "b": "United Valley co-op [Blacklick Valley/United]",
+      "scoreA": 50,
+      "scoreB": 7,
+      "winner": "Cambria Heights",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Cambria Heights": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "United Valley co-op [Blacklick Valley/United]": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Cambria Heights": {
+          "district": 6,
+          "cls": "AAA"
+        },
+        "United Valley co-op [Blacklick Valley/United]": {
+          "district": 6,
+          "cls": "AA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:central-cambria:richland",
+      "sourceGameId": "2026:2026-08-28:central-cambria:richland",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Richland",
+      "b": "Central Cambria",
+      "scoreA": 28,
+      "scoreB": 7,
+      "winner": "Richland",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Richland": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Central Cambria": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Richland": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Central Cambria": {
+          "district": 6,
+          "cls": "AAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:central-mountain:mifflin-county",
+      "sourceGameId": "2026:2026-08-28:central-mountain:mifflin-county",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Mifflin County",
+      "b": "Central Mountain",
+      "scoreA": 28,
+      "scoreB": 19,
+      "winner": "Mifflin County",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Mifflin County": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Central Mountain": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Mifflin County": {
+          "district": 6,
+          "cls": "AAAAA"
+        },
+        "Central Mountain": {
+          "district": 6,
+          "cls": "AAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:central-york:state-college",
+      "sourceGameId": "2026:2026-08-28:central-york:state-college",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "State College",
+      "b": "Central York",
+      "scoreA": 35,
+      "scoreB": 28,
+      "winner": "State College",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "State College": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Central York": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "State College": {
+          "district": 6,
+          "cls": "AAAAAA"
+        },
+        "Central York": {
+          "district": 3,
+          "cls": "AAAAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:central:philipsburg-osceola",
+      "sourceGameId": "2026:2026-08-28:central:philipsburg-osceola",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Central",
+      "b": "Philipsburg-Osceola",
+      "scoreA": 43,
+      "scoreB": 20,
+      "winner": "Central",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Central": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Philipsburg-Osceola": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Central": {
+          "district": 6,
+          "cls": "AAA"
+        },
+        "Philipsburg-Osceola": {
+          "district": 6,
+          "cls": "AAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:chestnut-ridge:greater-johnstown",
+      "sourceGameId": "2026:2026-08-28:chestnut-ridge:greater-johnstown",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Chestnut Ridge",
+      "b": "Greater Johnstown",
+      "scoreA": 50,
+      "scoreB": 34,
+      "winner": "Chestnut Ridge",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Chestnut Ridge": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Greater Johnstown": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Chestnut Ridge": {
+          "district": 5,
+          "cls": "AA"
+        },
+        "Greater Johnstown": {
+          "district": 6,
+          "cls": "AAAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:conemaugh-township:purchase-line",
+      "sourceGameId": "2026:2026-08-28:conemaugh-township:purchase-line",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Conemaugh Township",
+      "b": "Purchase Line",
+      "scoreA": 28,
+      "scoreB": 9,
+      "winner": "Conemaugh Township",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Conemaugh Township": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Purchase Line": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Conemaugh Township": {
+          "district": 5,
+          "cls": "A"
+        },
+        "Purchase Line": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:conemaugh-valley:marion-center",
+      "sourceGameId": "2026:2026-08-28:conemaugh-valley:marion-center",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Marion Center",
+      "b": "Conemaugh Valley",
+      "scoreA": 56,
+      "scoreB": 0,
+      "winner": "Marion Center",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Marion Center": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Conemaugh Valley": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Marion Center": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Conemaugh Valley": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:everett:southern-huntingdon-county",
+      "sourceGameId": "2026:2026-08-28:everett:southern-huntingdon-county",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Southern Huntingdon County",
+      "b": "Everett",
+      "scoreA": 47,
+      "scoreB": 7,
+      "winner": "Southern Huntingdon County",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Southern Huntingdon County": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Everett": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Southern Huntingdon County": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Everett": {
+          "district": 5,
+          "cls": "AA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:forest-hills:westmont-hilltop",
+      "sourceGameId": "2026:2026-08-28:forest-hills:westmont-hilltop",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Forest Hills",
+      "b": "Westmont Hilltop",
+      "scoreA": 13,
+      "scoreB": 10,
+      "winner": "Forest Hills",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Forest Hills": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Westmont Hilltop": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Forest Hills": {
+          "district": 6,
+          "cls": "AAAA"
+        },
+        "Westmont Hilltop": {
+          "district": 6,
+          "cls": "AA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:glendale:meyersdale",
+      "sourceGameId": "2026:2026-08-28:glendale:meyersdale",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Meyersdale",
+      "b": "Glendale",
+      "scoreA": 41,
+      "scoreB": 24,
+      "winner": "Meyersdale",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Meyersdale": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Glendale": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Meyersdale": {
+          "district": 5,
+          "cls": "A"
+        },
+        "Glendale": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:homer-center:northern-cambria",
+      "sourceGameId": "2026:2026-08-28:homer-center:northern-cambria",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Homer-Center",
+      "b": "Northern Cambria",
+      "scoreA": 35,
+      "scoreB": 28,
+      "winner": "Homer-Center",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Homer-Center": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Northern Cambria": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Homer-Center": {
+          "district": 6,
+          "cls": "A"
+        },
+        "Northern Cambria": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:juniata:selinsgrove",
+      "sourceGameId": "2026:2026-08-28:juniata:selinsgrove",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Selinsgrove",
+      "b": "Juniata",
+      "scoreA": 23,
+      "scoreB": 0,
+      "winner": "Selinsgrove",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Selinsgrove": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Juniata": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Selinsgrove": {
+          "district": 4,
+          "cls": "AAAA"
+        },
+        "Juniata": {
+          "district": 6,
+          "cls": "AAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:moshannon-valley:windber",
+      "sourceGameId": "2026:2026-08-28:moshannon-valley:windber",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Moshannon Valley",
+      "b": "Windber",
+      "scoreA": 36,
+      "scoreB": 35,
+      "winner": "Moshannon Valley",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Moshannon Valley": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Windber": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Moshannon Valley": {
+          "district": 6,
+          "cls": "A"
+        },
+        "Windber": {
+          "district": 5,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:mount-union:tussey-mountain",
+      "sourceGameId": "2026:2026-08-28:mount-union:tussey-mountain",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Mount Union",
+      "b": "Tussey Mountain",
+      "scoreA": 42,
+      "scoreB": 7,
+      "winner": "Mount Union",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Mount Union": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Tussey Mountain": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Mount Union": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Tussey Mountain": {
+          "district": 5,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:north-star:west-branch",
+      "sourceGameId": "2026:2026-08-28:north-star:west-branch",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "North Star",
+      "b": "West Branch",
+      "scoreA": 48,
+      "scoreB": 14,
+      "winner": "North Star",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "North Star": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "West Branch": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "North Star": {
+          "district": 5,
+          "cls": "AA"
+        },
+        "West Branch": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:penn-cambria:somerset",
+      "sourceGameId": "2026:2026-08-28:penn-cambria:somerset",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Penn Cambria",
+      "b": "Somerset",
+      "scoreA": 35,
+      "scoreB": 13,
+      "winner": "Penn Cambria",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Penn Cambria": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Somerset": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Penn Cambria": {
+          "district": 6,
+          "cls": "AAA"
+        },
+        "Somerset": {
+          "district": 5,
+          "cls": "AAA"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:penns-manor:river-valley",
+      "sourceGameId": "2026:2026-08-28:penns-manor:river-valley",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "River Valley",
+      "b": "Penns Manor",
+      "scoreA": 42,
+      "scoreB": 12,
+      "winner": "River Valley",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "River Valley": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "Penns Manor": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "River Valley": {
+          "district": 6,
+          "cls": "AA"
+        },
+        "Penns Manor": {
+          "district": 6,
+          "cls": "A"
+        }
+      }
+    },
+    {
+      "id": "2026:2026-08-28:portage:west-shamokin",
+      "sourceGameId": "2026:2026-08-28:portage:west-shamokin",
+      "season": 2026,
+      "date": "2026-08-28",
+      "a": "Portage",
+      "b": "West Shamokin",
+      "scoreA": 31,
+      "scoreB": 29,
+      "winner": "Portage",
+      "status": "final",
+      "source": "piaa-d6-scoreboard",
+      "sourceUrl": "https://piaad6.org/fall-sports/football/2026-d6-football-scoreboard-week-0/",
+      "sourcePostId": 9980,
+      "observedRecords": {
+        "Portage": {
+          "wins": 1,
+          "losses": 0,
+          "ties": 0
+        },
+        "West Shamokin": {
+          "wins": 0,
+          "losses": 1,
+          "ties": 0
+        }
+      },
+      "observedTeams": {
+        "Portage": {
+          "district": 6,
+          "cls": "A"
+        },
+        "West Shamokin": {
+          "district": 6,
+          "cls": "AA"
+        }
+      }
+    }
+  ],
+  "validation": {
+    "officialDistrict6TeamCount": 40,
+    "rankingRowCount": 44,
+    "scoreboardPostCount": 1,
+    "district6GameCount": 26
+  }
+}

@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "sync:football": "node scripts/sync-football-simulator.mjs",
+    "verify:football": "node scripts/sync-football-simulator.mjs --check",
+    "prebuild": "node scripts/sync-football-simulator.mjs --check",
     "build": "vite build",
     "preview": "vite preview"
   },

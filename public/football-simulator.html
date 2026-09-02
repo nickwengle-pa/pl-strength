@@ -1,7 +1,7 @@
 <html lang="en"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Heritage / District 6 Power Points Simulator (v1.6)</title>
+  <title>Heritage / District 6 Power Points Simulator (v1.7)</title>
   <style>
     :root{
       --bg:#041119;
@@ -95,6 +95,8 @@
     .AA{background:rgba(56,189,248,0.12)}
     .AAA{background:rgba(249,115,22,0.15)}
     .AAAA{background:rgba(251,191,36,0.18);color:#1f2937}
+    .AAAAA{background:rgba(192,132,252,0.18)}
+    .AAAAAA{background:rgba(244,114,182,0.18)}
     details{user-select:none} summary{cursor:pointer;color:var(--accent)}
     .drop{border:2px dashed rgba(45,212,191,0.4);border-radius:18px;padding:14px;text-align:center;color:#94d3c8;background:rgba(4,17,25,0.75);transition:border-color .18s}
     .drop.drag{border-color:var(--accent);color:#e0fffa;background:rgba(9,36,46,0.85)}
@@ -110,6 +112,10 @@
       box-shadow:0 12px 25px rgba(0,0,0,0.25);
     }
     .is-hidden{display:none!important}
+    .sync-panel{border-color:rgba(45,212,191,0.65);background:linear-gradient(145deg,rgba(8,44,51,0.9),rgba(5,25,36,0.92))}
+    .sync-state{font-size:12px;color:var(--inkd);margin:8px 0 0}
+    .sync-state.good{color:var(--good)}
+    .sync-state.bad{color:var(--bad)}
     .tabs{margin-top:16px}
     .tab-bar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
     .tab-bar .tab{
@@ -173,10 +179,10 @@
 <body>
   <div class="wrap">
     <div class="row">
-      <h1 style="flex:1">Heritage / District 6 Power Points Simulator <span class="tiny">v1.6 (compat mode)</span></h1>
+      <h1 style="flex:1">Heritage / District 6 Power Points Simulator <span class="tiny">v1.7 · official-data sync</span></h1>
       <div id="diag" class="status">Storage: localStorage | randomUUID: yes</div>
     </div>
-    <p class="tiny">Base matrix (winner + opponent): A:100/110/120/130 | AA:90/100/110/120 | AAA:80/90/100/110 | AAAA:70/80/90/100. Power = +10 wins of each opponent you beat.</p>
+    <p class="tiny">PIAA base points cover A through AAAAAA (100 for same class, ±10 per class). Power = +10 for each win by an opponent you beat.</p>
 
         <div class="tabs">
       <div class="tab-bar">
@@ -193,12 +199,13 @@
             <button id="btnReset">Reset to baked defaults</button>
             <button class="alt" id="btnSave">Save</button>
             <button class="warn" id="btnFresh">Start Fresh</button>
-            <label class="pill"><input id="useD6Wins" type="checkbox">&nbsp;Use D6 total wins for PP</label>
+            <label class="pill"><input id="useD6Wins" type="checkbox" checked="">&nbsp;Use official win totals for PP</label>
           </div>
           <table id="teamsTable">
-            <thead><tr><th style="width:30%">Team</th><th style="width:14%">Class</th><th style="width:14%">Other Wins</th><th style="width:14%">D6 Wins</th><th style="width:12%">Abbr.</th><th></th></tr></thead>
+            <thead><tr><th style="width:30%">Team</th><th style="width:14%">Class</th><th style="width:14%">Other Wins</th><th style="width:14%">PP Wins*</th><th style="width:12%">Abbr.</th><th></th></tr></thead>
             <tbody><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr><tr><td><input></td><td><select><option value="A">A</option><option value="AA">AA</option><option value="AAA">AAA</option><option value="AAAA">AAAA</option></select></td><td><input type="number" min="0" step="1"></td><td><input type="number" min="0" step="1" placeholder="--"></td><td><input placeholder="e.g. BG"></td><td><button title="Delete team">X</button></td></tr></tbody>
           </table>
+          <p class="tiny">*PP Wins uses Blackline's current record when available. A non-D6 opponent's PIAA scoreboard record is provisional; edit this field to set a protected override. Clear the field to return to the official/provisional value.</p>
 
           <details style="margin-top:10px">
             <summary>District 6 - Class A tools</summary>
@@ -256,6 +263,17 @@ Example High, A, 0, , EH"></textarea>
             <button id="btnToggleSchedule" style="flex:0 0 auto">Hide schedule</button>
           </div>
           <div id="scheduleBody">
+          <div class="quick-panel sync-panel" id="officialSyncPanel">
+            <h3>Official District 6 data</h3>
+            <div class="row">
+              <span class="pill">Season
+                <select id="seasonSelect"><option value="2026" selected="">2026</option><option value="2025">2025</option></select>
+              </span>
+              <button class="primary" id="btnSyncOfficial">Sync official scores &amp; rankings</button>
+            </div>
+            <p id="officialSyncStatus" class="sync-state">2026 results come from PIAA District 6; classes and current records are checked against PIAA/Blackline.</p>
+            <p class="tiny">Future schedules remain editable and can be pasted below. Automatic MaxPreps scraping is disabled; an official BOUND/CSV schedule can plug into this feed when available.</p>
+          </div>
           <div class="row" style="margin-top:8px">
             <span class="pill">Filter team
               <select id="filterTeam"><option value="">All teams</option><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select>
@@ -282,7 +300,7 @@ Example High, A, 0, , EH"></textarea>
             <button id="btnDedupe">De-duplicate games now</button>
           </div>
           <table id="gamesTable" style="margin-top:12px">
-            <thead><tr><th style="width:13%">Date</th><th style="width:28%">Team A</th><th style="width:28%">Team B</th><th style="width:21%">Winner</th><th></th></tr></thead>
+            <thead><tr><th style="width:12%">Date</th><th style="width:24%">Team A</th><th style="width:24%">Team B</th><th style="width:12%">Score / Status</th><th style="width:20%">Winner</th><th></th></tr></thead>
             <tbody><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option selected="">Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Homer-Center">Homer-Center</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option selected="">Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Purchase Line">Purchase Line</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option selected="">United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="United Valley co-op [Blacklick Valley/United]">United Valley co-op [Blacklick Valley/United]</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option selected="">Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Conemaugh Valley">Conemaugh Valley</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option selected="">Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Cambria Heights">Cambria Heights</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option selected="">West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="West Shamokin">West Shamokin</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option selected="">Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Marion Center">Marion Center</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option selected="">Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Penns Manor">Penns Manor</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option selected="">Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="Conemaugh Township">Conemaugh Township</option></select></td><td><button title="Delete game">X</button></td></tr><tr><td><input type="date"></td><td><select><option>Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option selected="">Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option>Marion Center</option><option selected="">River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select></td><td><select><option value="">- Winner -</option><option value="Northern Cambria">Northern Cambria</option><option value="River Valley">River Valley</option></select></td><td><button title="Delete game">X</button></td></tr></tbody>
           </table>
           <details style="margin-top:10px">
@@ -296,18 +314,18 @@ Team A, Team B             - (Winner blank for future games)</pre>
           </details>
 
           <details style="margin-top:10px">
-            <summary>Import from MaxPreps schedule (pick team + paste)</summary>
+            <summary>Manual MaxPreps schedule import (pick team + paste)</summary>
             <div class="row">
               <span class="pill">Subject team
                 <select id="mxTeam"><option selected="">Marion Center</option><option>River Valley</option><option>Homer-Center</option><option>Conemaugh Township</option><option>Northern Cambria</option><option>Penns Manor</option><option>Purchase Line</option><option>Portage</option><option>West Shamokin</option><option>Conemaugh Valley</option><option>United Valley co-op [Blacklick Valley/United]</option><option>Cambria Heights</option><option>Bishop Guilfoyle</option><option>Juniata Valley</option><option>Claysburg-Kimmel</option><option>Moshannon Valley</option><option>Glendale</option><option>West Branch</option><option>Penns Valley Area</option><option>Richland</option><option>Bellefonte</option><option>Huntingdon</option><option>Central</option><option>Tyrone</option><option>Bellwood-Antis</option><option>Forest Hills</option><option>Clearfield</option><option>TBA* (@ Saint Francis University)</option><option>Newport</option><option>North Star</option><option>Mount Union</option><option>Curwensville</option><option>Southern Huntingdon County</option><option>Windber</option><option>Berlin Brothersvalley</option><option>Northern Bedford County</option><option>Everett</option><option>Meyersdale</option><option>Cameron County</option><option>Tussey Mountain</option><option>Hancock</option><option>Clear Spring</option><option>Central Cambria</option><option>Bald Eagle Area</option><option>Philipsburg-Osceola</option><option>Greater Johnstown</option><option>TBA* (This is a league crossover game. )</option><option>Somerset</option><option>Bedford</option><option>TBA* (LHAC Cross-Over Game)</option><option>Westmont Hilltop</option><option>Penn Cambria</option><option>Bishop McCort</option><option>Chestnut Ridge</option></select>
               </span>
               <span class="pill">Year
-                <input id="mxYear" type="number" min="2000" max="2100" value="2025">
+                <input id="mxYear" type="number" min="2000" max="2100" value="2026">
               </span>
             </div>
             <textarea id="mxPaste" placeholder="Paste the schedule chunk from a team's MaxPreps page..."></textarea>
             <div class="row"><button class="primary" id="btnImportMX">Import Schedule</button></div>
-            <p class="tiny">Importer matches opponents to existing teams (name/abbr) before creating new ones and de-dupes games.</p>
+            <p class="tiny">Manual fallback only. The official sync above imports published scores and records automatically; this paste tool remains available for future schedules.</p>
           </details>
           </div>
         </section>
@@ -466,7 +484,7 @@ Beat Northern Bedford County (+10 wins from their total)</pre></div></details></
       <button class="btn small" onclick="snapshotWeek10()">Save scenario</button>
       <button class="btn small" onclick="restoreWeek10()">Load scenario</button>
     </div>
-    <p class="tiny">These buttons affect only games on <b>2025-10-24</b> (Week 10).</p>
+    <p class="tiny">These buttons affect the selected season's final regular-season Friday: <b id="scenarioDateLabel">—</b>.</p>
   </div>
 
           <div class="row">
@@ -563,6 +581,7 @@ Beat Conemaugh Valley (+10 wins from their total)</pre></div></details></td></tr
       </div>
     </div>
   </div>
+<script src="data/football-2026.js"></script>
 <script>
 (function(){
   // Polyfills / compatibility
@@ -599,17 +618,19 @@ Beat Conemaugh Valley (+10 wins from their total)</pre></div></details></td></tr
     if(!el) return;
     var ls = storageOK ? 'localStorage' : 'memory';
     var hasRU = !!(window.crypto && window.crypto.randomUUID);
-    el.textContent = 'Storage: '+ls+' | randomUUID: '+(hasRU?'yes':'polyfilled');
+    var seasonText=(typeof activeSeason!=='undefined'&&activeSeason)?(' | Season: '+activeSeason):'';
+    el.textContent = 'Storage: '+ls+' | randomUUID: '+(hasRU?'yes':'polyfilled')+seasonText;
   }
 
   // Constants
-  var CLASSES = ["A","AA","AAA","AAAA"];
-  var BASE = {
-    "A":    {"A":100, "AA":110, "AAA":120, "AAAA":130},
-    "AA":   {"A":90,  "AA":100, "AAA":110, "AAAA":120},
-    "AAA":  {"A":80,  "AA":90,  "AAA":100, "AAAA":110},
-    "AAAA": {"A":70,  "AA":80,  "AAA":90,  "AAAA":100}
-  };
+  var CLASSES = ["A","AA","AAA","AAAA","AAAAA","AAAAAA"];
+  var BASE = {};
+  for(var _wc=0;_wc<CLASSES.length;_wc++){
+    BASE[CLASSES[_wc]] = {};
+    for(var _lc=0;_lc<CLASSES.length;_lc++){
+      BASE[CLASSES[_wc]][CLASSES[_lc]] = 100 + (10 * (_lc - _wc));
+    }
+  }
 
   // District 6 Class A reference list
   var D6_A_LIST = [
@@ -638,9 +659,9 @@ var D6_AAA_LIST = [
 
 var D6_AAAA_LIST = [];
 function buildAAAAList(){
-  try{
-    var arr = (window.teams && Array.isArray(window.teams)) ? window.teams : [];
-    D6_AAAA_LIST = arr.filter(function(t){ return t.cls==='AAAA'; }).map(function(t){ return t.name; });
+    try{
+      var arr = (typeof teams!=='undefined' && Array.isArray(teams)) ? teams : [];
+      D6_AAAA_LIST = arr.filter(function(t){ return parseInt(t.district,10)===6 && teamInSeason(t,activeSeason) && classForTeam(t)==='AAAA'; }).map(function(t){ return t.name; });
   }catch(e){ D6_AAAA_LIST = []; }
 }
 
@@ -2595,10 +2616,26 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
       "winner": "Cambria Heights"
     }
   ];
-  var activeTab = 'teams';
-  var scheduleHidden = false;
-  var standingsAllHidden = false;
-  var standingsD6Hidden = false;
+  // Restore saved edits. Earlier builds wrote localStorage but never loaded it.
+  var _savedTeams = load('teams');
+  var _savedGames = load('games');
+  if(Array.isArray(_savedTeams) && _savedTeams.length){ teams = _savedTeams; }
+  if(Array.isArray(_savedGames)){ games = _savedGames; }
+  for(var _mt=0;_mt<teams.length;_mt++){
+    if(!teams[_mt].classesBySeason){ teams[_mt].classesBySeason={'2025':teams[_mt].cls||''}; }
+    if(!teams[_mt].recordsBySeason){ teams[_mt].recordsBySeason={}; }
+    if(typeof teams[_mt].d6Wins==='number' && !teams[_mt].recordsBySeason['2025']) teams[_mt].recordsBySeason['2025']={wins:teams[_mt].d6Wins};
+  }
+  var activeSeason = parseInt(load('activeSeason') || 2026, 10);
+  if(!isFinite(activeSeason)){ activeSeason = 2026; }
+  var OFFICIAL_FEED_URLS = [
+    'https://raw.githubusercontent.com/nickwengle-pa/football/main/data/football-2026.json',
+    'data/football-2026.json'
+  ];
+  var activeTab = load('activeTab') || 'teams';
+  var scheduleHidden = !!load('scheduleHidden');
+  var standingsAllHidden = !!load('standingsAllHidden');
+  var standingsD6Hidden = !!load('standingsD6Hidden');
 
   // Utilities
   function $(id){ return document.getElementById(id); }
@@ -2614,9 +2651,279 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     }
     return n;
   }
+  function escapeHtml(value){ return String(value==null?'':value).replace(/[&<>"']/g,function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
   function fmtDate(d){ if(!d) return ''; try{ return new Date(d).toISOString().slice(0,10);}catch(e){return d||'';} }
+  function gameSeason(g){
+    var explicit = parseInt(g && g.season, 10);
+    if(isFinite(explicit)) return explicit;
+    var fromDate = parseInt(((g && g.date)||'').slice(0,4), 10);
+    return isFinite(fromDate) ? fromDate : activeSeason;
+  }
+  function gamesForActiveSeason(){
+    return games.filter(function(g){ return gameSeason(g)===activeSeason && !g.inactiveOfficial; });
+  }
+  function scenarioDate(){
+    if(activeSeason===2025) return '2025-10-24';
+    if(activeSeason===2026) return '2026-10-30';
+    var d = new Date(activeSeason, 9, 31);
+    while(d.getDay()!==5){ d.setDate(d.getDate()-1); }
+    return d.toISOString().slice(0,10);
+  }
+  var TEAM_ALIASES = {
+    'altoona area':'Altoona',
+    'bellefonte area':'Bellefonte',
+    'bellwood antis':'Bellwood-Antis',
+    'central (martinsburg)':'Central',
+    'homer center':'Homer-Center',
+    'johnstown':'Greater Johnstown',
+    'northern bedford':'Northern Bedford County',
+    'penns valley':'Penns Valley Area',
+    'philipsburg osceola':'Philipsburg-Osceola',
+    'portage area':'Portage',
+    'southern huntingdon':'Southern Huntingdon County',
+    'united':'United Valley co-op [Blacklick Valley/United]'
+  };
+  function canonicalTeamName(name){
+    var clean = String(name||'').replace(/\s+/g,' ').trim();
+    return TEAM_ALIASES[clean.toLowerCase()] || clean;
+  }
+  function classForTeam(team, season){
+    var key=String(season||activeSeason);
+    if(team && team.classesBySeason){
+      if(Object.prototype.hasOwnProperty.call(team.classesBySeason,key)) return team.classesBySeason[key];
+      return '';
+    }
+    return (team&&team.cls)||'';
+  }
+  function teamInSeason(team, season){
+    if(!team) return false;
+    var target=parseInt(season||activeSeason,10); var key=String(target);
+    if(team.classesBySeason && Object.prototype.hasOwnProperty.call(team.classesBySeason,key)) return true;
+    if(team.recordsBySeason && Object.prototype.hasOwnProperty.call(team.recordsBySeason,key)) return true;
+    var wanted=canonicalTeamName(team.name);
+    for(var i=0;i<games.length;i++){
+      var g=games[i]; if(g.inactiveOfficial || gameSeason(g)!==target) continue;
+      if(canonicalTeamName(g.a)===wanted || canonicalTeamName(g.b)===wanted) return true;
+    }
+    return false;
+  }
+  function recordForTeam(team, season){
+    var key=String(season||activeSeason);
+    return (team && team.recordsBySeason && team.recordsBySeason[key]) ? team.recordsBySeason[key] : null;
+  }
+  function otherWinsForTeam(team, season){
+    var key=String(season||activeSeason);
+    if(team && team.otherWinsBySeason && Object.prototype.hasOwnProperty.call(team.otherWinsBySeason,key)) return parseInt(team.otherWinsBySeason[key]||0,10);
+    return parseInt((parseInt(key,10)===2025 && team&&team.otherWins)||0,10);
+  }
+  function findTeam(name){
+    var wanted = canonicalTeamName(name).toLowerCase();
+    for(var i=0;i<teams.length;i++){
+      if(canonicalTeamName(teams[i].name).toLowerCase()===wanted) return teams[i];
+      var aliases = teams[i].aliases || [];
+      for(var j=0;j<aliases.length;j++){ if(canonicalTeamName(aliases[j]).toLowerCase()===wanted) return teams[i]; }
+    }
+    return null;
+  }
+  function ensureOfficialTeam(meta, seasonOverride){
+    var name = canonicalTeamName(meta && meta.name);
+    if(!name) return null;
+    var t = findTeam(name);
+    if(!t){
+      t={name:name,cls:(meta.cls||''),classesBySeason:{},recordsBySeason:{},otherWins:0,abbr:'',district:meta.district};
+      teams.push(t);
+    }
+    var classSeason=String(seasonOverride||activeSeason);
+    if(!t.classesBySeason) t.classesBySeason={};
+    if(!t.recordsBySeason) t.recordsBySeason={};
+    if(!t.officialSeasons) t.officialSeasons={};
+    t.officialSeasons[classSeason]=true;
+    if(meta.cls && CLASSES.indexOf(meta.cls)!==-1){ t.classesBySeason[classSeason]=meta.cls; if(parseInt(classSeason,10)===activeSeason) t.cls=meta.cls; }
+    if(isFinite(parseInt(meta.district,10))) t.district=parseInt(meta.district,10);
+    var record=t.recordsBySeason[classSeason]||{};
+    if(meta.wins!==undefined && record.source===undefined && typeof record.wins==='number' && record.wins!==parseInt(meta.wins,10)){
+      if(!t.manualWinsBySeason) t.manualWinsBySeason={};
+      if(t.manualWinsBySeason[classSeason]===undefined) t.manualWinsBySeason[classSeason]=record.wins;
+    }
+    if(isFinite(parseInt(meta.wins,10))) record.wins=parseInt(meta.wins,10);
+    if(isFinite(parseInt(meta.losses,10))) record.losses=parseInt(meta.losses,10);
+    if(isFinite(parseInt(meta.ties,10))) record.ties=parseInt(meta.ties,10);
+    if(isFinite(Number(meta.rankingPoints))) record.rankingPoints=Number(meta.rankingPoints);
+    if(meta.recordSource) record.source=meta.recordSource;
+    if(meta.recordProvisional!==undefined) record.provisional=!!meta.recordProvisional;
+    if(Object.keys(record).length) t.recordsBySeason[classSeason]=record;
+    if(parseInt(classSeason,10)===activeSeason){ t.officialWins=record.wins; t.officialLosses=record.losses; t.officialTies=record.ties; t.officialRankingPoints=record.rankingPoints; }
+    if(meta.id) t.sourceTeamId=meta.id;
+    if(Array.isArray(meta.aliases)) t.aliases=meta.aliases.slice();
+    return t;
+  }
+  function sameGame(g, incoming){
+    if(g.sourceGameId && incoming.sourceGameId && g.sourceGameId===incoming.sourceGameId) return true;
+    return gameSeason(g)===incoming.season && datesEqual(g.date,incoming.date) && pairKey(g.a,g.b)===pairKey(incoming.a,incoming.b);
+  }
+  function rebuildD6Lists(){
+    var official = teams.filter(function(t){ return parseInt(t.district,10)===6 && teamInSeason(t,activeSeason); });
+    if(!official.length) return;
+    function namesFor(cls){ return official.filter(function(t){ return classForTeam(t)===cls; }).map(function(t){ return t.name; }).sort(); }
+    D6_A_LIST=namesFor('A'); D6_AA_LIST=namesFor('AA'); D6_AAA_LIST=namesFor('AAA'); D6_AAAA_LIST=namesFor('AAAA');
+  }
+  function setSyncStatus(message, kind){
+    var el=$('officialSyncStatus'); if(!el) return;
+    el.textContent=message;
+    el.className='sync-state'+(kind?' '+kind:'');
+  }
+  function validateOfficialFeed(feed){
+    if(!feed || parseInt(feed.schemaVersion,10)!==2 || !Array.isArray(feed.teams) || !Array.isArray(feed.games)) throw new Error('Official feed format was not recognized.');
+    var season=parseInt(feed.season,10); if(!isFinite(season) || season<2020 || season>2100) throw new Error('Official feed season is invalid.');
+    if(!feed.generatedAt || !isFinite(Date.parse(feed.generatedAt))) throw new Error('Official feed timestamp is invalid.');
+    if(feed.teams.length<35 || feed.teams.length>1000 || feed.games.length<1 || feed.games.length>5000) throw new Error('Official feed coverage is outside safe limits.');
+    var teamNames=Object.create(null), teamIds=Object.create(null), gameIds=Object.create(null);
+    for(var ti=0;ti<feed.teams.length;ti++){
+      var meta=feed.teams[ti]; var name=canonicalTeamName(meta&&meta.name); var id=String(meta&&meta.id||'');
+      if(!name || name.length>120 || !id || teamNames[name.toLowerCase()] || teamIds[id]) throw new Error('Official feed contains an invalid or duplicate team.');
+      if(!meta.cls || CLASSES.indexOf(meta.cls)===-1) throw new Error('Official feed contains an invalid class for '+name+'.');
+      for(var rk=0;rk<3;rk++){ var recordKey=['wins','losses','ties'][rk]; if(meta[recordKey]!==undefined && (!isFinite(Number(meta[recordKey])) || Number(meta[recordKey])<0)) throw new Error('Official feed contains an invalid record for '+name+'.'); }
+      teamNames[name.toLowerCase()]=true; teamIds[id]=true;
+    }
+    for(var gi=0;gi<feed.games.length;gi++){
+      var row=feed.games[gi]; var sourceId=String(row&&row.sourceGameId||''); var a=canonicalTeamName(row&&row.a); var b=canonicalTeamName(row&&row.b); var winner=canonicalTeamName(row&&row.winner||'');
+      if(!sourceId || gameIds[sourceId] || parseInt(row.season,10)!==season || !/^\d{4}-\d{2}-\d{2}$/.test(String(row.date||'')) || String(row.date).slice(0,4)!==String(season)) throw new Error('Official feed contains an invalid or duplicate game id/date.');
+      if(!a || !b || a===b || !teamNames[a.toLowerCase()] || !teamNames[b.toLowerCase()] || (winner!==a && winner!==b)) throw new Error('Official feed contains invalid game participants or winner.');
+      if(!isFinite(Number(row.scoreA)) || !isFinite(Number(row.scoreB)) || Number(row.scoreA)<0 || Number(row.scoreB)<0 || row.status!=='final') throw new Error('Official feed contains an invalid final score.');
+      gameIds[sourceId]=true;
+    }
+    return season;
+  }
+  function applyOfficialFeed(feed, silent){
+    validateOfficialFeed(feed);
+    var teamsSnapshot=JSON.parse(JSON.stringify(teams)), gamesSnapshot=JSON.parse(JSON.stringify(games)), seasonSnapshot=activeSeason, syncSnapshot=load('lastOfficialSync');
+    try{ return applyOfficialFeedMutating(feed,silent); }
+    catch(err){ teams=teamsSnapshot; games=gamesSnapshot; activeSeason=seasonSnapshot; saveAll(); save('lastOfficialSync',syncSnapshot); try{ renderAll(); }catch(_){} throw err; }
+  }
+  function applyOfficialFeedMutating(feed, silent){
+    var season=parseInt(feed.season,10);
+    var addedTeams=0, removedTeams=0, addedGames=0, updatedGames=0, removedGames=0, archivedOverrides=0;
+    var incomingGameIds={};
+    var incomingTeamNames=Object.create(null);
+    for(var si=0;si<feed.games.length;si++){ if(feed.games[si].sourceGameId) incomingGameIds[feed.games[si].sourceGameId]=true; }
+    for(var i=0;i<feed.teams.length;i++){
+      incomingTeamNames[canonicalTeamName(feed.teams[i].name).toLowerCase()]=true;
+      var before=findTeam(feed.teams[i].name);
+      ensureOfficialTeam(feed.teams[i],season);
+      if(!before) addedTeams++;
+    }
+    for(i=0;i<teams.length;i++){
+      var staleTeam=teams[i]; var staleKey=canonicalTeamName(staleTeam.name).toLowerCase(); var seasonKey=String(season);
+      var hadOfficialSeason=(staleTeam.officialSeasons&&staleTeam.officialSeasons[seasonKey]) || (staleTeam.sourceTeamId&&((staleTeam.classesBySeason&&Object.prototype.hasOwnProperty.call(staleTeam.classesBySeason,seasonKey))||(staleTeam.recordsBySeason&&Object.prototype.hasOwnProperty.call(staleTeam.recordsBySeason,seasonKey))));
+      if(hadOfficialSeason && !incomingTeamNames[staleKey]){
+        if(staleTeam.classesBySeason) delete staleTeam.classesBySeason[seasonKey];
+        if(staleTeam.recordsBySeason) delete staleTeam.recordsBySeason[seasonKey];
+        delete staleTeam.officialSeasons[seasonKey]; removedTeams++;
+      }
+    }
+    for(i=0;i<feed.games.length;i++){
+      var row=feed.games[i];
+      var a=canonicalTeamName(row.a), b=canonicalTeamName(row.b);
+      var metaA=null, metaB=null;
+      for(var ti=0;ti<feed.teams.length;ti++){
+        if(canonicalTeamName(feed.teams[ti].name)===a) metaA=feed.teams[ti];
+        if(canonicalTeamName(feed.teams[ti].name)===b) metaB=feed.teams[ti];
+      }
+      ensureOfficialTeam(metaA||{name:a},season); ensureOfficialTeam(metaB||{name:b},season);
+      var incoming={
+        id:'official:'+row.sourceGameId,
+        sourceGameId:row.sourceGameId,
+        season:season,
+        date:row.date||'',
+        a:a,b:b,
+        winner:canonicalTeamName(row.winner||''),
+        officialWinner:canonicalTeamName(row.winner||''),
+        scoreA:row.scoreA,scoreB:row.scoreB,
+        status:row.status||'final',source:row.source||'piaa-d6-scoreboard',sourceUrl:row.sourceUrl||'',
+        syncedAt:feed.generatedAt||new Date().toISOString()
+      };
+      var found=null;
+      for(var gi=0;gi<games.length;gi++){ if(sameGame(games[gi],incoming)){ found=games[gi]; break; } }
+      if(found){
+        found.sourceGameId=incoming.sourceGameId; found.season=season; found.date=incoming.date;
+        found.a=a; found.b=b; found.officialWinner=incoming.officialWinner;
+        found.scoreA=incoming.scoreA; found.scoreB=incoming.scoreB; found.status=incoming.status;
+        found.source=incoming.source; found.sourceUrl=incoming.sourceUrl; found.syncedAt=incoming.syncedAt;
+        found.inactiveOfficial=false; delete found.removedFromOfficialFeedAt;
+        if(!found.manualOverride || !found.winner) found.winner=incoming.winner;
+        updatedGames++;
+      }else{
+        games.push(incoming); addedGames++;
+      }
+    }
+    var reconciledGames=[];
+    for(i=0;i<games.length;i++){
+      var existing=games[i];
+      var removedOfficial=gameSeason(existing)===season && existing.source==='piaa-d6-scoreboard' && existing.sourceGameId && !incomingGameIds[existing.sourceGameId];
+      if(!removedOfficial){ reconciledGames.push(existing); continue; }
+      if(existing.manualOverride){
+        existing.inactiveOfficial=true; existing.status='source-removed'; existing.source='piaa-d6-scoreboard-removed';
+        existing.removedFromOfficialFeedAt=feed.generatedAt||new Date().toISOString();
+        reconciledGames.push(existing); archivedOverrides++;
+      }else removedGames++;
+    }
+    games=reconciledGames;
+    activeSeason=season;
+    save('activeSeason',activeSeason);
+    save('lastOfficialSync',{season:season,checkedAt:new Date().toISOString(),generatedAt:feed.generatedAt||new Date().toISOString(),source:feed.sources||{}});
+    rebuildD6Lists(); saveAll(); updateSeasonUI(); renderAll();
+    var message='Official '+season+' sync complete: '+addedGames+' new games, '+updatedGames+' updated, '+removedGames+' removed corrections, '+archivedOverrides+' protected overrides archived, '+addedTeams+' new teams, '+removedTeams+' retired teams. Feed built '+String(feed.generatedAt||'').replace('T',' ').slice(0,19)+'.';
+    setSyncStatus(message,'good');
+    if(!silent) alert(message);
+  }
+  async function syncOfficialData(silent){
+    if(activeSeason!==2026 && !silent){ alert('The automated official feed is currently configured for the 2026 season.'); return; }
+    var btn=$('btnSyncOfficial'); if(btn) btn.disabled=true;
+    setSyncStatus('Checking the validated official District 6 feed…','');
+    var lastError=null, candidates=[];
+    for(var i=0;i<OFFICIAL_FEED_URLS.length;i++){
+      try{
+        var response=await fetch(OFFICIAL_FEED_URLS[i],{cache:'no-store'});
+        if(!response.ok) throw new Error('HTTP '+response.status);
+        var feed=await response.json();
+        validateOfficialFeed(feed);
+        if(parseInt(feed.season,10)!==2026) throw new Error('unexpected feed season');
+        candidates.push(feed);
+      }catch(err){ lastError=err; }
+    }
+    if(candidates.length){
+      candidates.sort(function(a,b){ return (Date.parse(b.generatedAt||'')||0)-(Date.parse(a.generatedAt||'')||0); });
+      var newest=candidates[0]; var savedSync=load('lastOfficialSync');
+      var newestTime=Date.parse(newest.generatedAt||'')||0; var savedTime=Date.parse(savedSync&&savedSync.generatedAt||'')||0;
+      if(savedTime && newestTime && newestTime<savedTime){
+        if(btn) btn.disabled=false;
+        setSyncStatus('Kept newer saved official data from '+new Date(savedTime).toLocaleString()+'.','good');
+        return;
+      }
+      try{
+        applyOfficialFeed(newest,!!silent);
+        if(btn) btn.disabled=false;
+        return;
+      }catch(err){ lastError=err; }
+    }
+    if(btn) btn.disabled=false;
+    setSyncStatus('Official sync unavailable; kept the last saved data. '+(lastError&&lastError.message?lastError.message:String(lastError||'')),'bad');
+    if(!silent) alert('Official sync failed. Your existing saved data was not changed.');
+  }
+  function updateSeasonUI(){
+    var seasonSel=$('seasonSelect'); if(seasonSel) seasonSel.value=String(activeSeason);
+    var year=$('mxYear'); if(year) year.value=String(activeSeason);
+    var label=$('scenarioDateLabel'); if(label) label.textContent=scenarioDate();
+  }
+  function maybeAutoSync(force){
+    if(activeSeason!==2026 || !navigator.onLine) return;
+    var last=load('lastOfficialSync');
+    var stamp=last&&(last.checkedAt||last.generatedAt)?Date.parse(last.checkedAt||last.generatedAt):0;
+    if(force || !stamp || Date.now()-stamp>6*60*60*1000){ syncOfficialData(true); }
+    else setSyncStatus('Using official 2026 data refreshed '+new Date(stamp).toLocaleString()+'.','good');
+  }
   function teamOptions(selected){
-    var out=''; for(var i=0;i<teams.length;i++){ var t=teams[i]; out += '<option'+(t.name===selected?' selected':'')+'>'+t.name+'</option>'; } return out;
+    var out=''; for(var i=0;i<teams.length;i++){ var t=teams[i]; if(!teamInSeason(t,activeSeason)) continue; out += '<option'+(t.name===selected?' selected':'')+'>'+escapeHtml(t.name)+'</option>'; } return out;
   }
   function setWinnerOptions(sel, teamA, teamB, selected){
     if(!sel) return;
@@ -2718,28 +3025,29 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
   // Teams UI
   function renderTeams(){
     var tb = q('#teamsTable tbody'); tb.innerHTML = '';
-    for(var i=0;i<teams.length;i++){
-      (function(i){
-        var t = teams[i];
+    var visibleTeams=teams.filter(function(t){ return teamInSeason(t,activeSeason); });
+    for(var i=0;i<visibleTeams.length;i++){
+      (function(t){
         var tr = e('tr', null);
         // Team name
         var nameInput = e('input'); nameInput.value = t.name;
-        nameInput.oninput = function(ev){ t.name = ev.target.value; refreshTeamPickers(); saveAll(); };
+        nameInput.onchange = function(ev){ var oldName=t.name; var newName=canonicalTeamName(ev.target.value); var duplicate=findTeam(newName); if(!newName || (duplicate&&duplicate!==t)){ alert('Enter a unique team name.'); ev.target.value=oldName; return; } for(var ng=0;ng<games.length;ng++){ if(games[ng].a===oldName) games[ng].a=newName; if(games[ng].b===oldName) games[ng].b=newName; if(games[ng].winner===oldName) games[ng].winner=newName; if(games[ng].officialWinner===oldName) games[ng].officialWinner=newName; } t.name=newName; ev.target.value=newName; refreshTeamPickers(); saveAll(); renderStandings(); };
         // Class
-        var clsSel = e('select'); for(var c=0;c<CLASSES.length;c++){ var opt=e('option'); opt.value=CLASSES[c]; opt.textContent=CLASSES[c]; if(CLASSES[c]===t.cls) opt.selected=true; clsSel.appendChild(opt); }
-        clsSel.onchange = function(){ t.cls = clsSel.value; saveAll(); renderStandings(); };
+        var currentClass=classForTeam(t); var clsSel = e('select'); var unknownOpt=e('option'); unknownOpt.value=''; unknownOpt.textContent='Unknown'; if(!currentClass) unknownOpt.selected=true; clsSel.appendChild(unknownOpt); for(var c=0;c<CLASSES.length;c++){ var opt=e('option'); opt.value=CLASSES[c]; opt.textContent=CLASSES[c]; if(CLASSES[c]===currentClass) opt.selected=true; clsSel.appendChild(opt); }
+        clsSel.onchange = function(){ if(!t.classesBySeason) t.classesBySeason={}; t.classesBySeason[String(activeSeason)]=clsSel.value; t.cls = clsSel.value; saveAll(); rebuildD6Lists(); renderStandings(); };
         // Other wins
-        var ow = e('input'); ow.type='number'; ow.min=0; ow.step=1; ow.value = t.otherWins||0;
-        ow.oninput = function(ev){ t.otherWins = parseInt(ev.target.value||0,10); saveAll(); renderStandings(); };
-        // D6 wins
-        var d6 = e('input'); d6.type='number'; d6.min=0; d6.step=1; d6.value = (typeof t.d6Wins==='number'? t.d6Wins : '');
+        var ow = e('input'); ow.type='number'; ow.min=0; ow.step=1; ow.value = otherWinsForTeam(t,activeSeason);
+        ow.oninput = function(ev){ if(!t.otherWinsBySeason) t.otherWinsBySeason={}; t.otherWinsBySeason[String(activeSeason)]=parseInt(ev.target.value||0,10); saveAll(); renderStandings(); };
+        // Power-point win total: official/provisional record with a protected local override.
+        var currentRecord=recordForTeam(t); var manualKey=String(activeSeason); var hasManualWins=!!(t.manualWinsBySeason && Object.prototype.hasOwnProperty.call(t.manualWinsBySeason,manualKey)); var d6 = e('input'); d6.type='number'; d6.min=0; d6.step=1; d6.value = hasManualWins?t.manualWinsBySeason[manualKey]:(currentRecord&&typeof currentRecord.wins==='number'? currentRecord.wins : '');
         d6.placeholder='--';
-        d6.oninput = function(ev){ t.d6Wins = ev.target.value===''? undefined : parseInt(ev.target.value||0,10); saveAll(); renderStandings(); };
+        d6.title=hasManualWins?'Protected local PP-wins override':(currentRecord&&currentRecord.provisional?'Provisional record observed by PIAA when this team played a District 6 opponent':'Current Blackline/official record');
+        d6.onchange = function(ev){ if(!t.manualWinsBySeason) t.manualWinsBySeason={}; var key=String(activeSeason); if(ev.target.value==='') delete t.manualWinsBySeason[key]; else t.manualWinsBySeason[key]=parseInt(ev.target.value||0,10); saveAll(); renderAll(); };
         // Abbr
         var ab = e('input'); ab.value = t.abbr||''; ab.placeholder='e.g. BG';
         ab.oninput = function(ev){ t.abbr = ev.target.value; saveAll(); };
         // Delete
-        var del = e('button'); del.textContent='X'; del.title='Delete team'; del.onclick = function(){ teams.splice(i,1); saveAll(); renderAll(); };
+        var del = e('button'); del.textContent='X'; del.title='Delete team'; del.onclick = function(){ var index=teams.indexOf(t); if(index!==-1) teams.splice(index,1); saveAll(); renderAll(); };
         tr.appendChild(e('td',null,nameInput));
         tr.appendChild(e('td',null,clsSel));
         tr.appendChild(e('td',null,ow));
@@ -2747,15 +3055,15 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
         tr.appendChild(e('td',null,ab));
         tr.appendChild(e('td',null,del));
         tb.appendChild(tr);
-      })(i);
+      })(visibleTeams[i]);
     }
     refreshTeamPickers();
     var txt = $('d6alistText'); if(txt){ txt.textContent = D6_A_LIST.join(', '); }
   }
-  function addTeamRow(){ teams.push({name:'New Team', cls:'A', otherWins:0, abbr:''}); renderTeams(); saveAll(); }
-  function resetToDefaults(){ if(!confirm('Reset teams to baked defaults?')) return; teams = DEFAULT_TEAMS.slice(); saveAll(); renderAll(); }
-  function clearAll(){ if(!confirm('Clear ALL teams & games?')) return; teams = DEFAULT_TEAMS.slice(); games = []; saveAll(); renderAll(); }
-  function saveAll(){ save('teams', teams); save('games', games); }
+  function addTeamRow(){ var map={}; map[String(activeSeason)]='A'; teams.push({name:'New Team', cls:'A', classesBySeason:map, otherWins:0, abbr:''}); renderTeams(); saveAll(); }
+  function resetToDefaults(){ if(!confirm('Reset teams to baked 2025 defaults?')) return; teams = JSON.parse(JSON.stringify(DEFAULT_TEAMS)); for(var i=0;i<teams.length;i++) teams[i].classesBySeason={'2025':teams[i].cls||''}; activeSeason=2025; saveAll(); renderAll(); }
+  function clearAll(){ if(!confirm('Clear ALL teams & games?')) return; teams = JSON.parse(JSON.stringify(DEFAULT_TEAMS)); for(var i=0;i<teams.length;i++) teams[i].classesBySeason={'2025':teams[i].cls||''}; games = []; activeSeason=2025; saveAll(); renderAll(); }
+  function saveAll(){ save('teams', teams); save('games', games); save('activeSeason',activeSeason); }
 
   // D6-A helper
   function appendMissingD6A(){
@@ -2765,7 +3073,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     for(var j=0;j<D6_A_LIST.length;j++){
       var n = D6_A_LIST[j];
       if(!names[n.toLowerCase()]){
-        teams.push({name:n, cls:'A', otherWins:0, abbr: autoAb? (D6_A_ABBR[n]||'') : ''});
+        var classMap={}; classMap[String(activeSeason)]='A'; teams.push({name:n, cls:'A', classesBySeason:classMap, district:6, otherWins:0, abbr: autoAb? (D6_A_ABBR[n]||'') : ''});
         added++;
       }
     }
@@ -2781,10 +3089,15 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     var tFrom=null, tInto=null;
     for(var i=0;i<teams.length;i++){ if(teams[i].name===from) tFrom=teams[i]; if(teams[i].name===into) tInto=teams[i]; }
     if(!tFrom || !tInto){ alert('Team not found.'); return; }
-    for(var k=0;k<games.length;k++){ var g=games[k]; if(g.a===from) g.a=into; if(g.b===from) g.b=into; if(g.winner===from) g.winner=into; }
+    for(var k=0;k<games.length;k++){ var g=games[k]; if(g.a===from) g.a=into; if(g.b===from) g.b=into; if(g.winner===from) g.winner=into; if(g.officialWinner===from) g.officialWinner=into; }
     if(!tInto.cls) tInto.cls = tFrom.cls;
+    tInto.classesBySeason=Object.assign({},tFrom.classesBySeason||{},tInto.classesBySeason||{});
+    tInto.recordsBySeason=Object.assign({},tFrom.recordsBySeason||{},tInto.recordsBySeason||{});
+    tInto.officialSeasons=Object.assign({},tFrom.officialSeasons||{},tInto.officialSeasons||{});
+    tInto.manualWinsBySeason=Object.assign({},tFrom.manualWinsBySeason||{},tInto.manualWinsBySeason||{});
+    tInto.otherWinsBySeason=Object.assign({},tFrom.otherWinsBySeason||{},tInto.otherWinsBySeason||{});
     if(!(typeof tInto.otherWins==='number')) tInto.otherWins = (tFrom.otherWins||0);
-    if(!(typeof tInto.d6Wins==='number') && (typeof tFrom.d6Wins==='number')) tInto.d6Wins = tFrom.d6Wins;
+    if(!(typeof tInto.officialWins==='number') && (typeof tFrom.officialWins==='number')) tInto.officialWins = tFrom.officialWins;
     if(!tInto.abbr) tInto.abbr = tFrom.abbr;
     var newTeams=[]; for(var z=0;z<teams.length;z++){ if(teams[z]!==tFrom) newTeams.push(teams[z]); }
     teams = newTeams;
@@ -2797,7 +3110,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     for(var i=0;i<teams.length;i++){ if(teams[i].name.toLowerCase()===to.toLowerCase()){ alert('A team with that name already exists. Use Merge instead.'); return; } }
     var t=null; for(i=0;i<teams.length;i++){ if(teams[i].name===from){ t=teams[i]; break; } }
     if(!t) return;
-    for(i=0;i<games.length;i++){ var g=games[i]; if(g.a===from) g.a=to; if(g.b===from) g.b=to; if(g.winner===from) g.winner=to; }
+    for(i=0;i<games.length;i++){ var g=games[i]; if(g.a===from) g.a=to; if(g.b===from) g.b=to; if(g.winner===from) g.winner=to; if(g.officialWinner===from) g.officialWinner=to; }
     t.name = to; saveAll(); renderAll(); alert("Renamed to '"+to+"'.");
   }
 
@@ -2806,20 +3119,21 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
   function datesEqual(d1,d2){ function f(x){ return (x||'').slice(0,10); } return f(d1)===f(d2); }
   function upsertGame(obj){
     var date = obj.date||''; var a=obj.a; var b=obj.b; var winner=obj.winner||'';
+    var season = parseInt(obj.season || date.slice(0,4) || activeSeason,10);
     var found=null;
     for(var i=0;i<games.length;i++){
       var g=games[i];
-      if(pairKey(g.a,g.b)===pairKey(a,b)){
+      if(gameSeason(g)===season && pairKey(g.a,g.b)===pairKey(a,b)){
         var dateMatch = (g.date && date) ? datesEqual(g.date,date) : true;
         if(dateMatch){ found=g; break; }
       }
     }
-    if(found){ if(!found.date && date) found.date = date; if(!found.winner && winner) found.winner = winner; return false; }
-    games.push({id:crypto.randomUUID(), date:date, a:a, b:b, winner:winner}); return true;
+    if(found){ if(!found.date && date) found.date = date; found.season=season; if(!found.winner && winner) found.winner = winner; return false; }
+    games.push({id:obj.id||crypto.randomUUID(), season:season, date:date, a:a, b:b, winner:winner, source:obj.source||'manual'}); return true;
   }
   function dedupeNow(silent){
     var map={}, order=[]; var conflicts=0;
-    function key(g){ return (g.date?g.date:'nodate')+'#'+pairKey(g.a,g.b); }
+    function key(g){ return gameSeason(g)+'#'+(g.date?g.date:'nodate')+'#'+pairKey(g.a,g.b); }
     for(var i=0;i<games.length;i++){
       var g=games[i]; var k=key(g);
       if(!map[k]){ map[k]=g; order.push(k); continue; }
@@ -2843,7 +3157,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     if(!hasA || !hasB){ alert('Both teams must exist.'); return; }
     if(w && !(w===a || w===b)){ alert('Winner must be one of the two teams.'); return; }
     var auto = $('autoDedup') && $('autoDedup').checked;
-    if(auto) upsertGame({date:d,a:a,b:b,winner:w||''}); else games.push({id:crypto.randomUUID(),date:d,a:a,b:b,winner:w||''});
+    if(auto) upsertGame({season:parseInt(d.slice(0,4)||activeSeason,10),date:d,a:a,b:b,winner:w||'',source:'manual'}); else games.push({id:crypto.randomUUID(),season:parseInt(d.slice(0,4)||activeSeason,10),date:d,a:a,b:b,winner:w||'',manualOverride:!!w,source:'manual'});
     saveAll(); renderGames(); renderStandings(); $('gWinner').value='';
   }
   function bulkAdd(){
@@ -2861,7 +3175,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
       if(!hasA||!hasB){ failed.push(line); continue; }
       if(W && !(W===A||W===B)){ failed.push(line); continue; }
       var auto = $('autoDedup') && $('autoDedup').checked;
-      if(auto) upsertGame({date:date||'',a:A,b:B,winner:W||''}); else games.push({id:crypto.randomUUID(),date:date||'',a:A,b:B,winner:W||''});
+      if(auto) upsertGame({season:parseInt((date||'').slice(0,4)||activeSeason,10),date:date||'',a:A,b:B,winner:W||'',source:'manual-bulk'}); else games.push({id:crypto.randomUUID(),season:parseInt((date||'').slice(0,4)||activeSeason,10),date:date||'',a:A,b:B,winner:W||'',manualOverride:!!W,source:'manual-bulk'});
       added++;
     }
     saveAll(); renderGames(); renderStandings();
@@ -2869,7 +3183,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
   }
   function renderGames(){
     var tb=q('#gamesTable tbody'); tb.innerHTML='';
-    var sorted = games.slice().sort(function(g1,g2){
+    var sorted = gamesForActiveSeason().slice().sort(function(g1,g2){
       var d1=g1.date||'', d2=g2.date||''; if(d1!==d2) return d1<d2?-1:1;
       var k1=(g1.a+g1.b).toLowerCase(), k2=(g2.a+g2.b).toLowerCase(); return k1<k2?-1:1;
     });
@@ -2890,14 +3204,17 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     for(var i=0;i<filtered.length;i++){
       (function(g){
         var tr=e('tr',null);
-        var dateI=e('input'); dateI.type='date'; dateI.value=fmtDate(g.date); dateI.oninput=function(ev){ g.date=ev.target.value; saveAll(); };
-        var selA=e('select'); selA.innerHTML=teamOptions(g.a); selA.onchange=function(){ g.a=selA.value; if(g.winner && !(g.winner===g.a||g.winner===g.b)) g.winner=''; saveAll(); renderGames(); renderStandings(); };
-        var selB=e('select'); selB.innerHTML=teamOptions(g.b); selB.onchange=function(){ g.b=selB.value; if(g.winner && !(g.winner===g.a||g.winner===g.b)) g.winner=''; saveAll(); renderGames(); renderStandings(); };
-        var selW=e('select'); setWinnerOptions(selW, g.a, g.b, g.winner); selW.onchange=function(){ g.winner=selW.value; saveAll(); renderStandings(); };
+        var dateI=e('input'); dateI.type='date'; dateI.value=fmtDate(g.date); dateI.oninput=function(ev){ g.date=ev.target.value; g.season=parseInt((g.date||'').slice(0,4)||activeSeason,10); g.manualOverride=true; saveAll(); };
+        var selA=e('select'); selA.innerHTML=teamOptions(g.a); selA.onchange=function(){ g.a=selA.value; g.manualOverride=true; if(g.winner && !(g.winner===g.a||g.winner===g.b)) g.winner=''; saveAll(); renderGames(); renderStandings(); };
+        var selB=e('select'); selB.innerHTML=teamOptions(g.b); selB.onchange=function(){ g.b=selB.value; g.manualOverride=true; if(g.winner && !(g.winner===g.a||g.winner===g.b)) g.winner=''; saveAll(); renderGames(); renderStandings(); };
+        var selW=e('select'); setWinnerOptions(selW, g.a, g.b, g.winner); selW.onchange=function(){ g.winner=selW.value; g.manualOverride=true; saveAll(); renderStandings(); };
         var del=e('button'); del.textContent='X'; del.title='Delete game'; del.onclick=function(){ var arr=[]; for(var x=0;x<games.length;x++){ if(games[x]!==g) arr.push(games[x]); } games=arr; saveAll(); renderGames(); renderStandings(); };
         tr.appendChild(e('td',null,dateI));
         tr.appendChild(e('td',null,selA));
         tr.appendChild(e('td',null,selB));
+        var scoreText=(isFinite(Number(g.scoreA))&&isFinite(Number(g.scoreB)))?(String(g.scoreA)+' - '+String(g.scoreB)):(g.status||'scheduled');
+        var scoreCell=e('span',{className:'tiny',textContent:scoreText}); if(g.sourceUrl){ scoreCell.title='Official source: '+g.sourceUrl; }
+        tr.appendChild(e('td',null,scoreCell));
         tr.appendChild(e('td',null,selW));
         tr.appendChild(e('td',null,del));
         tb.appendChild(tr);
@@ -2917,34 +3234,31 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
   }
 
   // MaxPreps importer
-  function ensureTeam(name, addedList){
+  function ensureTeam(name, addedList, season){
     if(!name) return null;
-    var t=null;
-    for(var i=0;i<teams.length;i++){
-      if(teams[i].name.toLowerCase()===name.toLowerCase()){
-        t=teams[i];
-        break;
-      }
-    }
+    name=canonicalTeamName(name);
+    var t=findTeam(name);
     if(!t){
-      t = {name:name, cls:'A', otherWins:0, abbr:''};
+      var classMap={}; classMap[String(season||activeSeason)]='';
+      t = {name:name, cls:'', classesBySeason:classMap, recordsBySeason:{}, otherWins:0, abbr:''};
       teams.push(t);
       if(addedList && typeof addedList.push==='function'){ addedList.push(t); }
     }
     return t;
   }
   function nameOrAbbrMatch(s){
-    var lc=s.toLowerCase();
-    for(var i=0;i<teams.length;i++){ if(teams[i].name.toLowerCase()===lc) return teams[i].name; }
-    for(i=0;i<teams.length;i++){ var ab=(teams[i].abbr||'').toLowerCase(); if(ab && ab===lc) return teams[i].name; }
-    return s;
+    var canonical=canonicalTeamName(s); var match=findTeam(canonical); if(match) return match.name;
+    var lc=String(s||'').toLowerCase();
+    for(var i=0;i<teams.length;i++){ var ab=(teams[i].abbr||'').toLowerCase(); if(ab && ab===lc) return teams[i].name; }
+    return canonical;
   }
   function importMaxPreps(){
     var teamSel=$('mxTeam'); var subject = teamSel?teamSel.value.trim():'';
     if(!subject){ alert('Pick the subject team first.'); return; }
     var newTeams=[];
-    ensureTeam(subject, newTeams);
-    var yrEl=$('mxYear'); var yr = yrEl?parseInt(yrEl.value||'2025',10):2025;
+    var yrEl=$('mxYear'); var yr = yrEl?parseInt(yrEl.value||String(activeSeason),10):activeSeason;
+    subject=nameOrAbbrMatch(subject);
+    ensureTeam(subject, newTeams, yr);
     var paste=$('mxPaste'); var raw = paste?paste.value:'';
     if(!raw || !raw.trim()){ alert('Paste the schedule text from MaxPreps.'); return; }
     var lines = raw.split(/\r?\n/); var i;
@@ -2975,8 +3289,8 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
         var parts = dateStr.split('/'); var mm=('0'+parseInt(parts[0],10)).slice(-2); var dd=('0'+parseInt(parts[1],10)).slice(-2);
         iso = yr+'-'+mm+'-'+dd;
       }catch(e){ iso=''; }
-      ensureTeam(opp, newTeams);
-      var addedNow = upsertGame({date:iso, a:subject, b:opp, winner:winner});
+      ensureTeam(opp, newTeams, yr);
+      var addedNow = upsertGame({season:yr, date:iso, a:subject, b:opp, winner:winner, source:'manual-maxpreps'});
       if(addedNow) added++; else merged++;
     }
     saveAll();
@@ -2984,35 +3298,51 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     renderGames(); renderStandings(); refreshTeamPickers();
     var msg = 'Imported '+(added+merged)+' games from MaxPreps for '+subject+' ('+added+' new, '+merged+' merged).';
     if(newTeams.length){
-      msg += '\nAdded '+newTeams.length+' new team'+(newTeams.length!==1?'s':'')+' to Teams & Classes (defaulted to Class A).';
+      msg += '\nAdded '+newTeams.length+' unresolved team'+(newTeams.length!==1?'s':'')+' to Teams & Classes. Assign a verified PIAA class before relying on power points.';
     }
     alert(msg);
   }
 
   // Math
   function compute(){
-    var tMap = {}; for(var i=0;i<teams.length;i++){ tMap[teams[i].name]=teams[i]; }
-    var stat = {}; for(i=0;i<teams.length;i++){ var t=teams[i]; stat[t.name]={name:t.name,cls:t.cls,wins:0,losses:0,basePoints:0,beats:[],powerPoints:0,totalPoints:0}; }
-    for(i=0;i<games.length;i++){
-      var g=games[i]; if(!g.winner) continue;
+    var seasonTeams=teams.filter(function(team){ return teamInSeason(team,activeSeason); });
+    var tMap = {}; for(var i=0;i<seasonTeams.length;i++){ tMap[seasonTeams[i].name]=seasonTeams[i]; }
+    var stat = {}; for(i=0;i<seasonTeams.length;i++){ var t=seasonTeams[i]; stat[t.name]={name:t.name,cls:classForTeam(t),wins:0,losses:0,basePoints:0,beats:[],powerPoints:0,totalPoints:0}; }
+    var seasonGames=gamesForActiveSeason();
+    for(i=0;i<seasonGames.length;i++){
+      var g=seasonGames[i]; if(!g.winner) continue;
       var A=g.a,B=g.b,W=g.winner,L=(W===A?B:A);
+      if(W!==A && W!==B) continue;
       if(!tMap[A]||!tMap[B]) continue;
-      var wC=tMap[W].cls, lC=tMap[L].cls;
+      var wC=classForTeam(tMap[W]), lC=classForTeam(tMap[L]);
       var base=(BASE[wC]&&BASE[wC][lC])? BASE[wC][lC] : 0;
       stat[W].wins+=1; stat[L].losses+=1; stat[W].basePoints+=base; stat[W].beats.push(L);
     }
     var useD6 = $('useD6Wins') && $('useD6Wins').checked;
+    var scenarioWinAdjust = {};
+    for(i=0;i<seasonGames.length;i++){
+      g=seasonGames[i];
+      if(!g.manualOverride) continue;
+      if(g.officialWinner && !g.winner){
+        scenarioWinAdjust[g.officialWinner]=(scenarioWinAdjust[g.officialWinner]||0)-1;
+      }else if(g.officialWinner && g.officialWinner!==g.winner){
+        scenarioWinAdjust[g.officialWinner]=(scenarioWinAdjust[g.officialWinner]||0)-1;
+        scenarioWinAdjust[g.winner]=(scenarioWinAdjust[g.winner]||0)+1;
+      }else if(!g.officialWinner && g.winner){
+        scenarioWinAdjust[g.winner]=(scenarioWinAdjust[g.winner]||0)+1;
+      }
+    }
     var winsForPP = {};
-    for(i=0;i<teams.length;i++){
-      t=teams[i];
+    for(i=0;i<seasonTeams.length;i++){
+      t=seasonTeams[i];
       var schedWins = (stat[t.name].wins||0);
-      var other = parseInt(t.otherWins||0,10);
-      var d6 = (typeof t.d6Wins==='number')? t.d6Wins : undefined;
-      var val = (useD6 && isFinite(d6)) ? d6 : (schedWins + other);
+      var other = otherWinsForTeam(t,activeSeason);
+      var officialRecord=recordForTeam(t); var manualWins=(t.manualWinsBySeason&&Object.prototype.hasOwnProperty.call(t.manualWinsBySeason,String(activeSeason)))?Number(t.manualWinsBySeason[String(activeSeason)]):undefined; var d6 = isFinite(manualWins)?manualWins:((officialRecord&&typeof officialRecord.wins==='number')? officialRecord.wins : undefined);
+      var val = (useD6 && isFinite(d6)) ? Math.max(0,d6+(scenarioWinAdjust[t.name]||0)) : (schedWins + other);
       winsForPP[t.name]=val;
     }
-    for(i=0;i<teams.length;i++){
-      t=teams[i]; var s=stat[t.name]; var pp=0;
+    for(i=0;i<seasonTeams.length;i++){
+      t=seasonTeams[i]; var s=stat[t.name]; var pp=0;
       for(var b=0;b<s.beats.length;b++){ var opp=s.beats[b]; pp += 10 * (winsForPP[opp]||0); }
       s.powerPoints=pp; s.totalPoints=s.basePoints+s.powerPoints;
     }
@@ -3041,7 +3371,7 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
       if(b.wins!==a.wins) return b.wins-a.wins; return a.name.localeCompare(b.name);
     });
     renderTable('#standingsD6A tbody', sorted);
-    renderD6FutureGames(); renderD6ClassWeek10(D6_AA_LIST,'d6AAFutureGames'); renderD6ClassWeek10(D6_AAA_LIST,'d6AAAFutureGames'); renderOppWeek10ForList(D6_AA_LIST,'oppWeek10GamesAA'); renderOppWeek10ForList(D6_AAA_LIST,'oppWeek10GamesAAA'); renderOppWeek10Games();
+    renderD6FutureGames(); renderD6ClassWeek10(D6_AA_LIST,'d6AAFutureGames'); renderD6ClassWeek10(D6_AAA_LIST,'d6AAAFutureGames'); renderD6ClassWeek10(D6_AAAA_LIST,'d6AAAAFutureGames'); renderOppWeek10ForList(D6_AA_LIST,'oppWeek10GamesAA'); renderOppWeek10ForList(D6_AAA_LIST,'oppWeek10GamesAAA'); renderOppWeek10ForList(D6_AAAA_LIST,'oppWeek10GamesAAAA'); renderOppWeek10Games();
   }
 
   function renderTable(sel, rows){
@@ -3072,11 +3402,12 @@ function isD6AAATeam(name){ return D6_AAA_LIST.indexOf(name) !== -1; }
     var host=$('d6FutureGames'); if(!host) return;
     host.innerHTML='';
     var upcoming=[];
-    for(var i=0;i<games.length;i++){
-      var g=games[i];
+    var seasonGames=gamesForActiveSeason();
+    for(var i=0;i<seasonGames.length;i++){
+      var g=seasonGames[i];
       if(!(isD6ATeam(g.a) || isD6ATeam(g.b))) continue;
 // keep Single A rows visible after picking a winner
-var _d=(g.date||'').slice(0,10); if(_d==='2025-10-24') upcoming.push(g);
+var _d=(g.date||'').slice(0,10); if(_d===scenarioDate()) upcoming.push(g);
     }
     if(!upcoming.length){
       host.innerHTML = '<p class="tiny">No upcoming D6-A games pending.</p>';
@@ -3099,6 +3430,7 @@ var _d=(g.date||'').slice(0,10); if(_d==='2025-10-24') upcoming.push(g);
         setWinnerOptions(sel, g.a, g.b, g.winner||'');
         sel.onchange=function(){
           g.winner = sel.value;
+          g.manualOverride = true;
           saveAll();
           renderGames();
           renderStandings();
@@ -3117,20 +3449,21 @@ var _d=(g.date||'').slice(0,10); if(_d==='2025-10-24') upcoming.push(g);
     // Build set of teams beaten by any D6-A winner so far
     var beaten = {};
     var tMap = {}; for(var i=0;i<teams.length;i++){ tMap[teams[i].name]=teams[i]; }
-    for(var i=0;i<games.length;i++){
-      var g=games[i]; if(!g.winner) continue;
+    var seasonGames=gamesForActiveSeason();
+    for(var i=0;i<seasonGames.length;i++){
+      var g=seasonGames[i]; if(!g.winner) continue;
       if(isD6ATeam(g.winner)){
         var opp = (g.winner===g.a? g.b : g.a);
         beaten[opp]=true;
       }
     }
-    // Collect week 10 games (2025-10-24) for those beaten teams
+    // Collect final regular-season games for those beaten teams
     var upcoming=[];
-    for(var i=0;i<games.length;i++){
-      var g=games[i];
+    for(var i=0;i<seasonGames.length;i++){
+      var g=seasonGames[i];
       // keep Week 10 scenarios visible even after choosing a winner
       var d=(g.date||'').slice(0,10);
-      if(d!=='2025-10-24') continue;
+      if(d!==scenarioDate()) continue;
       if(beaten[g.a] || beaten[g.b]){
         upcoming.push(g);
       }
@@ -3153,6 +3486,7 @@ var _d=(g.date||'').slice(0,10); if(_d==='2025-10-24') upcoming.push(g);
         var sel=e('select'); setWinnerOptions(sel, gm.a, gm.b, gm.winner||'');
         sel.onchange=function(){
           gm.winner = sel.value || '';
+          gm.manualOverride = true;
           dedupeNow(true); saveAll(); renderAll();
         };
         row.appendChild(info);
@@ -3167,11 +3501,12 @@ function renderD6ClassWeek10(list, hostId){
   var host=$(hostId); if(!host) return;
   host.innerHTML='';
   var upcoming=[];
-  for(var i=0;i<games.length;i++){
-    var g=games[i];
+  var seasonGames=gamesForActiveSeason();
+  for(var i=0;i<seasonGames.length;i++){
+    var g=seasonGames[i];
     // keep Week 10 scenarios visible even after choosing a winner
     var d=(g.date||'').slice(0,10);
-    if(d!=='2025-10-24') continue;
+    if(d!==scenarioDate()) continue;
     if(list.indexOf(g.a)!==-1 || list.indexOf(g.b)!==-1){
       upcoming.push(g);
     }
@@ -3188,7 +3523,7 @@ function renderD6ClassWeek10(list, hostId){
       var row=e('div'); row.className='quick-game';
       var info=e('div'); info.className='info'; info.textContent=(gm.a||'?')+'  vs  '+(gm.b||'?')+'  •  '+(gm.date||'');
       var sel=e('select'); setWinnerOptions(sel, gm.a, gm.b, gm.winner||'');
-      sel.onchange=function(){ gm.winner = sel.value || ''; dedupeNow(true); saveAll(); renderAll(); };
+      sel.onchange=function(){ gm.winner = sel.value || ''; gm.manualOverride=true; dedupeNow(true); saveAll(); renderAll(); };
       row.appendChild(info); row.appendChild(sel); host.appendChild(row);
     })(upcoming[j]);
   }
@@ -3198,19 +3533,20 @@ function renderOppWeek10ForList(labelList, hostId){
   var host=$(hostId); if(!host) return;
   host.innerHTML='';
   var beaten = {};
-  for(var i=0;i<games.length;i++){
-    var g=games[i]; if(!g.winner) continue;
+  var seasonGames=gamesForActiveSeason();
+  for(var i=0;i<seasonGames.length;i++){
+    var g=seasonGames[i]; if(!g.winner) continue;
     if(labelList.indexOf(g.winner)!==-1){
       var opp = (g.winner===g.a? g.b : g.a);
       beaten[opp]=true;
     }
   }
   var upcoming=[];
-  for(var i=0;i<games.length;i++){
-    var g=games[i];
+  for(var i=0;i<seasonGames.length;i++){
+    var g=seasonGames[i];
     // keep Week 10 scenarios visible even after choosing a winner
     var d=(g.date||'').slice(0,10);
-    if(d!=='2025-10-24') continue;
+    if(d!==scenarioDate()) continue;
     if(beaten[g.a] || beaten[g.b]) upcoming.push(g);
   }
   if(!upcoming.length){ host.innerHTML='<p class="tiny">No games.</p>'; return; }
@@ -3223,7 +3559,7 @@ function renderOppWeek10ForList(labelList, hostId){
       var row=e('div'); row.className='quick-game';
       var info=e('div'); info.className='info'; info.textContent=(gm.a||'?')+'  vs  '+(gm.b||'?')+'  •  '+(gm.date||'');
       var sel=e('select'); setWinnerOptions(sel, gm.a, gm.b, gm.winner||'');
-      sel.onchange=function(){ gm.winner = sel.value || ''; dedupeNow(true); saveAll(); renderAll(); };
+      sel.onchange=function(){ gm.winner = sel.value || ''; gm.manualOverride=true; dedupeNow(true); saveAll(); renderAll(); };
       row.appendChild(info); row.appendChild(sel); host.appendChild(row);
     })(upcoming[j]);
   }
@@ -3239,13 +3575,49 @@ function renderOppWeek10ForList(labelList, hostId){
     if(obj && obj.data){ obj = obj.data; }
     var t = obj.teams || obj.Teams || obj.teamList || [];
     var g = obj.games || obj.Games || obj.gameList || [];
-    return {teams: t, games: g};
+    return {teams: t, games: g, activeSeason: parseInt(obj.activeSeason||obj.season||activeSeason,10)};
   }
-  function importNormalized(n){
+  function importNormalized(n, dryRun){
     if(!(Object.prototype.toString.call(n.teams)==='[object Array]') || !(Object.prototype.toString.call(n.games)==='[object Array]')){
       throw new Error('Invalid JSON: expected {teams:[], games:[]}');
     }
-    teams = n.teams; games = n.games;
+    if(n.teams.length>1000 || n.games.length>5000) throw new Error('Import is too large (maximum 1,000 teams and 5,000 games).');
+    var importSeason=isFinite(n.activeSeason)?parseInt(n.activeSeason,10):activeSeason;
+    if(importSeason<2020 || importSeason>2100) throw new Error('Import season is invalid.');
+    var cleanTeams=[], teamNames=Object.create(null);
+    for(var ti=0;ti<n.teams.length;ti++){
+      var rawTeam=n.teams[ti]; if(!rawTeam || typeof rawTeam!=='object') throw new Error('Team '+(ti+1)+' is invalid.');
+      var cleanTeam=Object.assign({},rawTeam); cleanTeam.name=canonicalTeamName(rawTeam.name);
+      if(!cleanTeam.name || cleanTeam.name.length>120) throw new Error('Team '+(ti+1)+' has an invalid name.');
+      var teamKey=cleanTeam.name.toLowerCase(); if(teamNames[teamKey]) throw new Error('Duplicate team in import: '+cleanTeam.name);
+      if(cleanTeam.cls && CLASSES.indexOf(cleanTeam.cls)===-1) throw new Error('Invalid class for '+cleanTeam.name+': '+cleanTeam.cls);
+      if(cleanTeam.classesBySeason && typeof cleanTeam.classesBySeason==='object'){
+        for(var classYear in cleanTeam.classesBySeason){ var importedClass=cleanTeam.classesBySeason[classYear]; if(importedClass && CLASSES.indexOf(importedClass)===-1) throw new Error('Invalid '+classYear+' class for '+cleanTeam.name+': '+importedClass); }
+      }else{
+        cleanTeam.classesBySeason={}; cleanTeam.classesBySeason[String(importSeason)]=cleanTeam.cls||'';
+      }
+      if(!cleanTeam.recordsBySeason || typeof cleanTeam.recordsBySeason!=='object') cleanTeam.recordsBySeason={};
+      teamNames[teamKey]=cleanTeam; cleanTeams.push(cleanTeam);
+    }
+    var cleanGames=[];
+    for(var gi=0;gi<n.games.length;gi++){
+      var rawGame=n.games[gi]; if(!rawGame || typeof rawGame!=='object') throw new Error('Game '+(gi+1)+' is invalid.');
+      var cleanGame=Object.assign({},rawGame); cleanGame.a=canonicalTeamName(rawGame.a); cleanGame.b=canonicalTeamName(rawGame.b); cleanGame.winner=canonicalTeamName(rawGame.winner||''); cleanGame.officialWinner=canonicalTeamName(rawGame.officialWinner||'');
+      if(!cleanGame.a || !cleanGame.b || cleanGame.a===cleanGame.b) throw new Error('Game '+(gi+1)+' needs two different teams.');
+      if(cleanGame.winner && cleanGame.winner!==cleanGame.a && cleanGame.winner!==cleanGame.b) throw new Error('Game '+(gi+1)+' winner must be one of its teams.');
+      if(cleanGame.officialWinner && cleanGame.officialWinner!==cleanGame.a && cleanGame.officialWinner!==cleanGame.b) throw new Error('Game '+(gi+1)+' official winner must be one of its teams.');
+      cleanGame.date=String(cleanGame.date||'').slice(0,10);
+      if(cleanGame.date && !/^\d{4}-\d{2}-\d{2}$/.test(cleanGame.date)) throw new Error('Game '+(gi+1)+' has an invalid date.');
+      cleanGame.season=parseInt(cleanGame.season||(cleanGame.date||'').slice(0,4)||importSeason,10);
+      if(cleanGame.season<2020 || cleanGame.season>2100) throw new Error('Game '+(gi+1)+' has an invalid season.');
+      for(var sideIndex=0;sideIndex<2;sideIndex++){
+        var sideName=sideIndex===0?cleanGame.a:cleanGame.b; var sideKey=sideName.toLowerCase();
+        if(!teamNames[sideKey]){ var sideClasses={}; sideClasses[String(cleanGame.season)]=''; var addedTeam={name:sideName,cls:'',classesBySeason:sideClasses,recordsBySeason:{},otherWins:0,abbr:''}; teamNames[sideKey]=addedTeam; cleanTeams.push(addedTeam); }
+      }
+      cleanGames.push(cleanGame);
+    }
+    if(dryRun) return {teams:cleanTeams,games:cleanGames,activeSeason:importSeason};
+    teams = cleanTeams; games = cleanGames; activeSeason=importSeason;
     dedupeNow(true); saveAll(); renderAll();
   }
   function exportJSON(){
@@ -3253,6 +3625,7 @@ function renderOppWeek10ForList(labelList, hostId){
       var payload = {
         version:'1.7',
         exportedAt:new Date().toISOString(),
+        activeSeason:activeSeason,
         teams: JSON.parse(JSON.stringify(teams||[])),
         games: JSON.parse(JSON.stringify(games||[]))
       };
@@ -3280,6 +3653,7 @@ function exportBakedHTML(){
     var html = document.documentElement.outerHTML;
     function literal(json){
       var str = JSON.stringify(json, null, 2);
+      str = str.replace(/&/g,'\\u0026').replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
       return str.replace(/\n/g, '\n  ');
     }
     // Try replacements; do not fail if a pattern is already baked
@@ -3353,12 +3727,12 @@ function exportBakedHTML(){
       teams: [{name:"Test A", cls:"A", otherWins:0, abbr:"TA"},{name:"Test B", cls:"A", otherWins:0, abbr:"TB"}],
       games: [{id:"x1", date:"2025-09-01", a:"Test A", b:"Test B", winner:"Test A"}]
     };
-    try{ importNormalized(sample); alert('Self-test OK (2 teams, 1 game).'); } catch(err){ alert('Self-test FAILED: '+err.message); }
+    try{ var checked=importNormalized(sample,true); if(checked.teams.length!==2 || checked.games.length!==1) throw new Error('unexpected normalized counts'); alert('Self-test OK (2 teams, 1 game; live data unchanged).'); } catch(err){ alert('Self-test FAILED: '+err.message); }
   }
 
   // Wiring
   function renderAll(){
-    buildAAAAList(); renderTeams(); refreshTeamPickers(); renderGames(); renderStandings(); updateDiag(); }
+    rebuildD6Lists(); buildAAAAList(); updateSeasonUI(); renderTeams(); refreshTeamPickers(); renderGames(); renderStandings(); updateDiag(); }
 
   // Buttons
   $('btnAddTeam').onclick=addTeamRow;
@@ -3381,6 +3755,12 @@ function exportBakedHTML(){
   $('sortKeyAll').onchange=function(){ renderStandings(); };
   $('sortKeyD6A').onchange=function(){ renderStandings(); };
   $('btnImportMX').onclick=importMaxPreps;
+  $('btnSyncOfficial').onclick=function(){ syncOfficialData(false); };
+  $('seasonSelect').onchange=function(){
+    activeSeason=parseInt(this.value,10)||2026;
+    save('activeSeason',activeSeason);
+    renderAll();
+  };
   var gAInput = $('gA');
   if(gAInput){
     gAInput.onchange=function(){
@@ -3476,8 +3856,51 @@ function exportBakedHTML(){
       reader.readAsText(file);
     });
   }
+  window.HCSim = {
+    clearScenario:function(){
+      var target=scenarioDate(), changed=0;
+      for(var i=0;i<games.length;i++){
+        var g=games[i]; if(g.inactiveOfficial || gameSeason(g)!==activeSeason || (g.date||'').slice(0,10)!==target) continue;
+        g.winner=g.officialWinner||''; g.manualOverride=false; changed++;
+      }
+      saveAll(); renderAll(); alert('Cleared '+changed+' scenario pick'+(changed===1?'':'s')+' for '+target+'.');
+    },
+    snapshotScenario:function(){
+      var target=scenarioDate(), snaps=[];
+      for(var i=0;i<games.length;i++){
+        var g=games[i]; if(g.inactiveOfficial || gameSeason(g)!==activeSeason || (g.date||'').slice(0,10)!==target) continue;
+        snaps.push({id:g.id||'',date:g.date||'',a:g.a||'',b:g.b||'',winner:g.winner||'',manualOverride:!!g.manualOverride});
+      }
+      save('scenario_week10_'+activeSeason,snaps); alert('Saved '+snaps.length+' scenario pick'+(snaps.length===1?'':'s')+' for '+target+'.');
+    },
+    restoreScenario:function(){
+      var snaps=load('scenario_week10_'+activeSeason)||[], restored=0;
+      for(var j=0;j<snaps.length;j++){
+        var s=snaps[j],found=null;
+        for(var i=0;i<games.length;i++){
+          var g=games[i]; if(g.inactiveOfficial || gameSeason(g)!==activeSeason || (g.date||'').slice(0,10)!==scenarioDate()) continue;
+          if((s.id&&g.id===s.id)||(g.date===s.date&&pairKey(g.a,g.b)===pairKey(s.a,s.b))){ found=g; break; }
+        }
+        if(found){ found.winner=s.winner||''; found.manualOverride=!!s.manualOverride; restored++; }
+      }
+      saveAll(); renderAll(); alert('Restored '+restored+' scenario pick'+(restored===1?'':'s')+'.');
+    }
+  };
   try{
-    renderAll();
+    var startingSeason=activeSeason;
+    var lastEmbeddedSync=load('lastOfficialSync');
+    var embeddedFeed=window.D6_OFFICIAL_FEED;
+    var embeddedIsNewer=embeddedFeed && (!lastEmbeddedSync || String(embeddedFeed.generatedAt||'')>String(lastEmbeddedSync.generatedAt||''));
+    if(embeddedIsNewer){
+      applyOfficialFeed(embeddedFeed,true);
+      activeSeason=startingSeason;
+      save('activeSeason',activeSeason);
+      updateSeasonUI();
+      renderAll();
+    }else{
+      renderAll();
+    }
+    setTimeout(function(){ maybeAutoSync(!!embeddedIsNewer); },50);
   }catch(err){
     console.error('Initial render failed', err);
     var diagEl = $('diag');
@@ -3491,33 +3914,9 @@ function exportBakedHTML(){
 
 
 <script>
-function week10Filter(g){ var d=(g.date||'').slice(0,10); return d==='2025-10-24'; }
-function clearWeek10(){
-  for(var i=0;i<games.length;i++){ var g=games[i]; if(week10Filter(g)) g.winner=''; }
-  dedupeNow(true); saveAll(); renderAll();
-}
-function snapshotWeek10(){
-  var snaps=[];
-  for(var i=0;i<games.length;i++){ var g=games[i]; if(week10Filter(g)) snaps.push({id:g.id||'', date:g.date||'', a:g.a||'', b:g.b||'', winner:g.winner||''}); }
-  try{ save('scenario_week10', snaps); alert('Saved '+snaps.length+' Week-10 picks.'); }catch(e){ console.error(e); alert('Save failed'); }
-}
-function restoreWeek10(){
-  try{
-    var snaps = load('scenario_week10') || [];
-    var restored=0;
-    for(var j=0;j<snaps.length;j++){
-      var s=snaps[j], found=null;
-      for(var i=0;i<games.length;i++){
-        var g=games[i];
-        if(!week10Filter(g)) continue;
-        if((s.id && g.id===s.id) || (g.date===s.date && ((g.a===s.a && g.b===s.b) || (g.a===s.b && g.b===s.a)))){ found=g; break; }
-      }
-      if(found){ found.winner = s.winner||''; restored++; }
-    }
-    dedupeNow(true); saveAll(); renderAll();
-    alert('Restored '+restored+' Week-10 picks.');
-  }catch(e){ console.error(e); alert('No saved scenario found.'); }
-}
+function clearWeek10(){ if(window.HCSim) window.HCSim.clearScenario(); }
+function snapshotWeek10(){ if(window.HCSim) window.HCSim.snapshotScenario(); }
+function restoreWeek10(){ if(window.HCSim) window.HCSim.restoreScenario(); }
 </script>
 
 </body></html>
