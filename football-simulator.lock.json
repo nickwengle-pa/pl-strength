@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "upstream": "https://github.com/nickwengle-pa/football",
+  "upstreamCommit": "6bf53d1d35a40404cdf5b584a407b84c6ad11e86",
+  "upstreamState": "working-tree snapshot",
+  "syncedAt": "2026-09-02T12:05:30.947Z",
+  "artifacts": {
+    "html": {
+      "path": "public/football-simulator.html",
+      "sha256": "b39822a33a41fa35ca327f3819900bc3f7791c5f8a7fa14bd012f0553c7b2045",
+      "bytes": 238436
+    },
+    "feed2026": {
+      "path": "public/data/football-2026.json",
+      "sha256": "bea47adc637b9ba6e5e87c1f49a441a5723488ddac34eb5197df6aa53ea29c74",
+      "bytes": 62740
+    },
+    "feedScript2026": {
+      "path": "public/data/football-2026.js",
+      "sha256": "aa4d345fb447fd5eb6f262ea62e3db8c7d7fa8f902e3b51deb112e07a4c41c23",
+      "bytes": 41405
+    }
+  }
+}
